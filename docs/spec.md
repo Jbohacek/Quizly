@@ -277,7 +277,7 @@ Index: `(category)`. Seeded from `notification-texts.md` (converted to `Seed/not
 
 - [`fsrs/fsrs6-reference-vectors.json`](./fsrs/fsrs6-reference-vectors.json): 8 cases, 61 reviews. Each step has the review time, rating, state before, retrievability before, `elapsedDays`, `scheduledDays` and the full state after.
 - Cases: `good_only`, `again_first`, `again_twice_in_learning`, `lapse_and_relearn`, `repeated_lapses`, `overdue_reviews`, `same_day_in_review`, `early_reviews`.
-- Regenerate with [`fsrs/generate_vectors.py`](./fsrs/generate_vectors.py) (`pip install fsrs==6.3.2`). The JSON is copied into the test project in Etapa 3 and the C# scheduler must reproduce every step.
+- Regenerate with [`fsrs/generate_vectors.py`](./fsrs/generate_vectors.py) (`pip install fsrs==6.3.2`). The test project links this JSON (`tests/Quizly.Tests`, `FsrsTests`) and the C# scheduler (`Quizly.Domain/Scheduling/Fsrs.cs`) reproduces every step.
 
 ### 3.5 Mastery buckets (stats, deck list)
 

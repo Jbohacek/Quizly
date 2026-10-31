@@ -25,6 +25,7 @@ internal static class AdminEndpoints
         MapCards(admin.MapGroup("/decks/{deckId:int}/cards").WithTags("Admin: cards"));
         MapShopItems(admin.MapGroup("/shop-items").WithTags("Admin: shop items"));
         MapNotificationTexts(admin.MapGroup("/notification-texts").WithTags("Admin: notification texts"));
+        MapClaims(admin.MapGroup("/claims").WithTags("Admin: claims"));
     }
 
     private static void MapUsers(RouteGroupBuilder g)
@@ -165,6 +166,40 @@ internal static class AdminEndpoints
                 texts.Preview(request).OkOrProblem())
             .WithName("PreviewNotificationText").WithSummary("Render a text with sample placeholder values");
     }
+
+    private static void MapClaims(RouteGroupBuilder g)
+    {
+        g.MapGet("/", async Task<Results<Ok<IReadOnlyList<AdminClaimResponse>>, ProblemHttpResult>> (
+                string? status, IClaimAdminService claims, CancellationToken ct) =>
+            {
+                ClaimStatus? parsed = null;
+                if (status is not null)
+                {
+                    parsed = ParseSnake<ClaimStatus>(status);
+                    if (parsed is null)
+                    {
+                        return Errors.Validation("status", "Stav musí být pending, confirmed nebo rejected.").ToProblem();
+                    }
+                }
+
+                return TypedResults.Ok(await claims.ListAsync(parsed, ct));
+            })
+            .WithName("ListClaims").WithSummary("Purchase history, optionally filtered by status (pending, confirmed, rejected)");
+
+        g.MapPost("/{id:int}/confirm", async (int id, IClaimAdminService claims, CancellationToken ct) =>
+                (await claims.ConfirmAsync(id, ct)).OkOrProblem())
+            .WithName("ConfirmClaim").WithSummary("Confirm a pending purchase (final)");
+
+        g.MapPost("/{id:int}/reject", async (int id, IClaimAdminService claims, CancellationToken ct) =>
+                (await claims.RejectAsync(id, ct)).OkOrProblem())
+            .WithName("RejectClaim").WithSummary("Reject a pending purchase: refund the points and restock");
+    }
+
+    private static TEnum? ParseSnake<TEnum>(string value)
+        where TEnum : struct, Enum =>
+        Enum.GetValues<TEnum>()
+            .Select(e => (TEnum?)e)
+            .FirstOrDefault(e => JsonNamingPolicy.SnakeCaseLower.ConvertName(e!.Value.ToString()) == value);
 
     private static NotificationCategory? ParseCategory(string value) =>
         Enum.GetValues<NotificationCategory>()

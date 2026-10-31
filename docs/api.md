@@ -236,7 +236,8 @@ Omit `deckId` for "Učit se vše". `404 notFound` for an unknown deck.
 - `status`:
   - `applied`: processed now.
   - `duplicate`: this `id` was already processed for this user; the original `pointsAwarded`/`multiplier` are returned, nothing changes.
-  - `rejected`: not processed, with `code`: `cardNotFound` (card deleted) or `idConflict` (the UUID belongs to another user). The client drops these.
+  - `rejected`: not processed, with `code`: `cardNotFound` (card deleted) or `idConflict` (the UUID belongs to another user). The client drops these. `pointsAwarded` and `multiplier` are left out.
+- Any existing card may be answered; the new-card allowance only shapes the session queue (an outbox answer sent the next day still counts).
 - `points` are the values for the **next** answer (after any multiplier change in this batch).
 - Errors for the whole batch: `validation` (empty, > 50 items, bad UUID or rating, duplicate ids in one batch).
 

@@ -409,3 +409,8 @@ Jakub confirmed these defaults at the Etapa 0 gate (2026-10-31). Raise any of th
 | 2026-10-31 | Tests run on Microsoft.Testing.Platform (xUnit v3, `global.json` `test.runner`), integration tests on PostgreSQL 18 via Testcontainers. |
 | 2026-10-31 | Time comes from the .NET `TimeProvider` (tests use `FakeTimeProvider`) instead of a custom `IClock`. |
 | 2026-10-31 | Data Protection keys persist to `/data/keys` (volume) already in Etapa 2, because the admin cookie needs them. |
+| 2026-10-31 | Etapa 2 approved and merged (PR #2). |
+| 2026-10-31 | JWT lifetimes are validated with the injected `TimeProvider`, the same clock that issues them. |
+| 2026-10-31 | Any existing card may be answered via `POST /api/reviews`; the new-card allowance only shapes the session queue. |
+| 2026-10-31 | A repeated claim `requestId` returns 200 with the original claim; a new claim returns 201. |
+| 2026-10-31 | `GET /api/decks` and admin `GET/POST /api/admin/claims[/{id}/confirm\|reject]` are built in Etapa 3 with the logic they expose. |

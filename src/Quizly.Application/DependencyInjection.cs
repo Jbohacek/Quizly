@@ -2,8 +2,11 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.DependencyInjection;
 using Quizly.Application.Auth;
 using Quizly.Application.Decks;
+using Quizly.Application.Learning;
+using Quizly.Application.Profile;
 using Quizly.Application.NotificationTexts;
 using Quizly.Application.Shop;
+using Quizly.Application.Stats;
 using Quizly.Application.Users;
 using Quizly.Domain;
 
@@ -25,6 +28,15 @@ public static class DependencyInjection
         services.AddScoped<ICardService, CardService>();
         services.AddScoped<IShopItemService, ShopItemService>();
         services.AddScoped<INotificationTextService, NotificationTextService>();
+
+        services.AddScoped<Progress>();
+        services.AddScoped<StudyService>();
+        services.AddScoped<IStudyService>(sp => sp.GetRequiredService<StudyService>());
+        services.AddScoped<IReviewService, ReviewService>();
+        services.AddScoped<IMeService, MeService>();
+        services.AddScoped<IShopService, ShopService>();
+        services.AddScoped<IClaimAdminService, ClaimAdminService>();
+        services.AddScoped<IStatsService, StatsService>();
         return services;
     }
 }

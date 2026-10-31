@@ -14,12 +14,12 @@ Final layout for v1. Versions are pinned to the latest stable release when each 
 ├─ Dockerfile                       multi-stage: sdk:10.0 → aspnet:10.0, non-root, port 8080
 ├─ src/
 │  ├─ Quizly.Domain/                entities, enums, pure logic, no dependencies
-│  │  ├─ Scheduling/                FSRS-6 scheduler (Fsrs.cs, FsrsParameters.cs, CardMemory.cs)
-│  │  ├─ Gamification/              PointsCalculator, Multiplier, StreakRules, Milestones
+│  │  ├─ Scheduling/                FSRS-6 scheduler (Fsrs.cs: FsrsScheduler, FsrsCard, FsrsRating)
+│  │  ├─ Gamification/              Points (multiplier), Milestones, Streaks, SmartTimes
 │  │  └─ PragueCalendar.cs          Europe/Prague days (time comes from the injected TimeProvider)
 │  ├─ Quizly.Application/           use-case services shared by REST and Blazor
 │  │  ├─ Abstractions/              IAppDbContext (DbSets), IPasswordGenerator
-│  │  ├─ Auth/ · Session/ · Reviews/ · Stats/ · Shop/ · Decks/ · Yaml/ · Users/ · NotificationTexts/ · Overview/
+│  │  ├─ Auth/ · Learning/ (session, reviews, progress) · Profile/ (/me, settings) · Stats/ · Shop/ · Decks/ · Users/ · NotificationTexts/ (Yaml/ and Overview/ in Etapa 4)
 │  │  └─ Common/                    Result/error types, validation
 │  ├─ Quizly.Infrastructure/        QuizlyDbContext, entity configurations, migrations, seeding
 │  │  ├─ Persistence/ · Migrations/ · Seed/ (notification-texts.json, demo deck for Development)
@@ -34,7 +34,7 @@ Final layout for v1. Versions are pinned to the latest stable release when each 
 │     ├─ Domain/                    FSRS vectors, points, streak, Prague days (pure, fast)
 │     ├─ Application/               services against a real PostgreSQL (Testcontainers)
 │     ├─ Api/                       WebApplicationFactory end-to-end
-│     └─ TestData/                  fsrs6-reference-vectors.json (copied from docs/fsrs)
+│     └─ TestData/                  fsrs6-reference-vectors.json (linked from docs/fsrs, one source of truth)
 ├─ app/                             Flutter project (Android only)
 ├─ deploy/                          docker-compose.yml, .env.example, backup.sh, README-deploy.md
 ├─ docs/                            spec, API, YAML, notifications, design/, fsrs/
