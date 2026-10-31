@@ -1,0 +1,16 @@
+@if (Error is not null)
+{
+    <p class="alert error" role="alert">@Error.Title</p>
+}
+else if (Notice is not null)
+{
+    <p class="alert ok" role="status">@Notice</p>
+}
+
+@code {
+    [Parameter]
+    public AppError? Error { get; set; }
+
+    [Parameter]
+    public string? Notice { get; set; }
+}

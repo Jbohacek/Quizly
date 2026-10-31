@@ -9,6 +9,7 @@ using Quizly.Infrastructure;
 using Quizly.Infrastructure.Persistence;
 using Quizly.Web.Api;
 using Quizly.Web.Auth;
+using Quizly.Web.Components;
 using Quizly.Web.Middleware;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -33,6 +34,8 @@ builder.Services.Configure<RouteHandlerOptions>(o => o.ThrowOnBadRequest = true)
 builder.Services.AddProblemDetails(o => o.CustomizeProblemDetails = Problems.Customize);
 builder.Services.AddExceptionHandler<ApiExceptionHandler>();
 builder.Services.AddQuizlyOpenApi();
+builder.Services.AddRazorComponents().AddInteractiveServerComponents();
+builder.Services.AddCascadingAuthenticationState();
 builder.Services.AddHealthChecks().AddDbContextCheck<QuizlyDbContext>();
 
 // Behind Nginx Proxy Manager: trust X-Forwarded-For/Proto from the proxy network (deploy/README-deploy.md).
@@ -57,7 +60,9 @@ app.UseExceptionHandler();
 app.UseStatusCodePages();
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseAntiforgery();
 app.UseRateLimiter();
+app.MapStaticAssets();
 
 app.MapHealthChecks("/api/health", new HealthCheckOptions
 {
@@ -69,6 +74,8 @@ app.MapAdminAuth();
 app.MapApp();
 app.MapAdmin();
 app.MapDocs();
+app.MapAdminDashboard();
+app.MapRazorComponents<Quizly.Web.Components.App>().AddInteractiveServerRenderMode();
 
 // Fail fast on missing secrets, then migrate and seed.
 app.Services.GetRequiredService<IAdminAuthenticator>();

@@ -16,6 +16,7 @@ namespace Quizly.Web.Auth;
 internal static class AuthSetup
 {
     public const string AdminScheme = "Admin";
+    public const string DefaultScheme = "Quizly";
     public const string AppPolicy = "App";
     public const string AdminPolicy = "Admin";
     public const string AdminRole = "admin";
@@ -32,7 +33,13 @@ internal static class AuthSetup
         var signingKey = jwt.Key();
 
         services
-            .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+            .AddAuthentication(DefaultScheme)
+            // /api uses the JWT by default; everything else (the Blazor dashboard and its circuit) the admin cookie.
+            // App and admin endpoints name their scheme in their policy, so a cookie never reaches app endpoints.
+            .AddPolicyScheme(DefaultScheme, DefaultScheme, options => options.ForwardDefaultSelector = context =>
+                context.Request.Path.StartsWithSegments("/api", StringComparison.OrdinalIgnoreCase)
+                    ? JwtBearerDefaults.AuthenticationScheme
+                    : AdminScheme)
             .AddJwtBearer(options =>
             {
                 options.MapInboundClaims = false;

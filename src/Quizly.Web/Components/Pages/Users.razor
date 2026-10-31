@@ -1,0 +1,261 @@
+@page "/admin/uzivatele"
+@attribute [Authorize(Policy = AuthSetup.AdminPolicy)]
+@inherits AdminPage
+@using Quizly.Application.Users
+@inject TimeProvider Time
+@inject IJSRuntime JS
+
+<PageTitle>Uživatelé · Quizly Admin</PageTitle>
+
+<header class="page-head">
+    <div>
+        <span class="eyebrow">@(_users is null ? "" : $"Aktivní účty: {_users.Count(u => u.IsActive)} · deaktivované: {_users.Count(u => !u.IsActive)}")</span>
+        <h1>Uživatelé</h1>
+    </div>
+</header>
+
+<Messages Error="@(_editing is null ? Error : null)" Notice="@Notice" />
+
+<div class="grid">
+    <section class="card wide" aria-labelledby="users-title">
+        <h2 id="users-title">Všichni uživatelé</h2>
+        @if (_users is null)
+        {
+            <p class="muted">Načítám…</p>
+        }
+        else if (_users.Count == 0)
+        {
+            <p class="empty">Zatím tu nikdo není. Založ prvního uživatele vpravo.</p>
+        }
+        else
+        {
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr><th>Uživatel</th><th class="right">Body</th><th>Série</th><th class="right">Karet</th><th class="right">Úspěšnost</th><th>Naposledy</th><th class="right">Akce</th></tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var u in _users)
+                        {
+                            <tr class="@(u.IsActive ? "" : "dim")">
+                                <td>
+                                    <span class="stack">
+                                        <span class="strong">@u.Username</span>
+                                        <span class="small muted">@u.DisplayName@(u.IsActive ? "" : " · účet deaktivovaný")</span>
+                                    </span>
+                                </td>
+                                <td class="right num">@Cz.Number(u.Balance)</td>
+                                <td><span class="strong">@Cz.Days(u.Streak)</span> <span class="small muted">rekord @u.BestStreak</span></td>
+                                <td class="right num">@Cz.Number(u.TotalReviews)</td>
+                                <td class="right num">@Cz.Percent(u.SuccessRate)</td>
+                                <td class="muted">@Cz.LastActive(u.LastActiveAt, Time)</td>
+                                <td class="actions">
+                                    <button class="btn small" @onclick="() => Edit(u)">Upravit</button>
+                                    <button class="btn small" @onclick="() => _resetting = u">Reset hesla</button>
+                                    @if (u.IsActive)
+                                    {
+                                        <button class="btn small danger" @onclick="() => _deactivating = u">Deaktivovat</button>
+                                    }
+                                    else
+                                    {
+                                        <button class="btn small" @onclick="() => SetActiveAsync(u, true)">Aktivovat</button>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </section>
+
+    <section class="card side form" aria-labelledby="new-user">
+        <h2 id="new-user">Nový uživatel</h2>
+        <div class="field">
+            <label for="nu-username">Uživatelské jméno</label>
+            <input id="nu-username" @bind="_new.Username" placeholder="např. petra" autocomplete="off" />
+            <span class="hint">Malá písmena a čísla, bez mezer. Slouží k přihlášení.</span>
+            <FieldMessage Message="@(_editing is null ? FieldError("username") : null)" />
+        </div>
+        <div class="field">
+            <label for="nu-name">Zobrazované jméno</label>
+            <input id="nu-name" @bind="_new.DisplayName" placeholder="např. Petra" />
+            <FieldMessage Message="@(_editing is null ? FieldError("displayName") : null)" />
+        </div>
+        <div class="field">
+            <label for="nu-pass">Heslo</label>
+            <input id="nu-pass" @bind="_new.Password" placeholder="nech prázdné a vygeneruje se" autocomplete="new-password" />
+            <FieldMessage Message="@(_editing is null ? FieldError("password") : null)" />
+        </div>
+        <div class="row">
+            <div class="field">
+                <label for="nu-goal">Denní cíl</label>
+                <input id="nu-goal" type="number" min="@Limits.DailyGoalMin" max="@Limits.DailyGoalMax" @bind="_new.DailyGoal" />
+                <FieldMessage Message="@(_editing is null ? FieldError("dailyGoal") : null)" />
+            </div>
+            <div class="field">
+                <label for="nu-new">Nové karty denně</label>
+                <input id="nu-new" type="number" min="0" max="@Limits.NewCardsPerDayMax" @bind="_new.NewCardsPerDay" />
+                <FieldMessage Message="@(_editing is null ? FieldError("newCardsPerDay") : null)" />
+            </div>
+        </div>
+        <p class="hint">Výchozí hodnoty, uživatel si je může změnit v nastavení.</p>
+        <button class="btn primary block" @onclick="CreateAsync" disabled="@_busy">Vytvořit uživatele</button>
+    </section>
+</div>
+
+@if (_editing is not null)
+{
+    <div class="overlay" @onclick="() => _editing = null">
+        <div class="dialog form" role="dialog" aria-modal="true" aria-labelledby="edit-title" @onclick:stopPropagation="true">
+            <h2 id="edit-title">Upravit @_editing.Username</h2>
+            <Messages Error="@Error" />
+            <div class="field">
+                <label for="e-name">Zobrazované jméno</label>
+                <input id="e-name" @bind="_editName" />
+                <FieldMessage Message="@FieldError("displayName")" />
+            </div>
+            <div class="row">
+                <div class="field">
+                    <label for="e-goal">Denní cíl</label>
+                    <input id="e-goal" type="number" @bind="_editGoal" />
+                    <FieldMessage Message="@FieldError("dailyGoal")" />
+                </div>
+                <div class="field">
+                    <label for="e-new">Nové karty denně</label>
+                    <input id="e-new" type="number" @bind="_editNew" />
+                    <FieldMessage Message="@FieldError("newCardsPerDay")" />
+                </div>
+            </div>
+            <div class="actions">
+                <button class="btn" @onclick="() => _editing = null">Zrušit</button>
+                <button class="btn primary" @onclick="SaveEditAsync" disabled="@_busy">Uložit</button>
+            </div>
+        </div>
+    </div>
+}
+
+@if (_shownPassword is not null)
+{
+    <div class="overlay">
+        <div class="dialog" role="alertdialog" aria-modal="true" aria-labelledby="pw-title">
+            <h2 id="pw-title">Heslo pro @_shownPassword.Value.Username</h2>
+            <p>Heslo uvidíš jen teď. Pošli ho uživateli, pak toto okno zavři.</p>
+            <div class="secret">@_shownPassword.Value.Password</div>
+            <div class="actions">
+                <button class="btn" @onclick="CopyPasswordAsync">Kopírovat</button>
+                <button class="btn primary" @onclick="() => _shownPassword = null">Hotovo</button>
+            </div>
+        </div>
+    </div>
+}
+
+<ConfirmDialog Open="_resetting is not null" Title="Resetovat heslo?" ConfirmText="Vygenerovat nové heslo" Busy="_busy"
+               OnConfirm="ResetAsync" OnCancel="() => _resetting = null">
+    <p>@_resetting?.DisplayName dostane nové heslo a odhlásí se na všech zařízeních.</p>
+</ConfirmDialog>
+
+<ConfirmDialog Open="_deactivating is not null" Title="Deaktivovat uživatele?" ConfirmText="Deaktivovat" Danger="true" Busy="_busy"
+               OnConfirm="() => SetActiveAsync(_deactivating!, false)" OnCancel="() => _deactivating = null">
+    <p>@_deactivating?.DisplayName se nepřihlásí a hned se odhlásí. Body, série a postup zůstanou, účet jde zase aktivovat.</p>
+</ConfirmDialog>
+
+@code {
+    private IReadOnlyList<UserResponse>? _users;
+    private NewUserForm _new = new();
+    private UserResponse? _editing;
+    private string _editName = "";
+    private int _editGoal;
+    private int _editNew;
+    private UserResponse? _resetting;
+    private UserResponse? _deactivating;
+    private (string Username, string Password)? _shownPassword;
+    private bool _busy;
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync() =>
+        _users = await UseAsync<IUserAdminService, IReadOnlyList<UserResponse>>(s => s.ListAsync(CancellationToken.None));
+
+    private async Task CreateAsync()
+    {
+        _busy = true;
+        var f = _new;
+        var request = new CreateUserRequest(f.Username, f.DisplayName, string.IsNullOrEmpty(f.Password) ? null : f.Password, f.DailyGoal, f.NewCardsPerDay);
+        var result = await UseAsync<IUserAdminService, Result<CreatedUserResponse>>(s => s.CreateAsync(request, CancellationToken.None));
+        if (Handle(result, $"Účet {request.Username.Trim().ToLowerInvariant()} je založený."))
+        {
+            _shownPassword = (result.Value!.User.Username, result.Value.Password);
+            _new = new NewUserForm();
+            await LoadAsync();
+        }
+
+        _busy = false;
+    }
+
+    private void Edit(UserResponse user)
+    {
+        ClearMessages();
+        (_editing, _editName, _editGoal, _editNew) = (user, user.DisplayName, user.DailyGoal, user.NewCardsPerDay);
+    }
+
+    private async Task SaveEditAsync()
+    {
+        var id = _editing!.Id;
+        _busy = true;
+        var result = await UseAsync<IUserAdminService, Result<UserResponse>>(s =>
+            s.UpdateAsync(id, new UpdateUserRequest(_editName, _editGoal, _editNew), CancellationToken.None));
+        if (Handle(result, "Uloženo."))
+        {
+            _editing = null;
+            await LoadAsync();
+        }
+
+        _busy = false;
+    }
+
+    private async Task ResetAsync()
+    {
+        var user = _resetting!;
+        _busy = true;
+        var result = await UseAsync<IUserAdminService, Result<PasswordResponse>>(s => s.ResetPasswordAsync(user.Id, CancellationToken.None));
+        _resetting = null;
+        if (Handle(result))
+        {
+            _shownPassword = (user.Username, result.Value!.Password);
+        }
+
+        _busy = false;
+    }
+
+    private async Task SetActiveAsync(UserResponse user, bool active)
+    {
+        _busy = true;
+        var result = await UseAsync<IUserAdminService, Result>(s => s.SetActiveAsync(user.Id, active, CancellationToken.None));
+        Handle(result, active ? $"Účet {user.Username} je zase aktivní." : $"Účet {user.Username} je deaktivovaný.");
+        _deactivating = null;
+        await LoadAsync();
+        _busy = false;
+    }
+
+    private async Task CopyPasswordAsync()
+    {
+        if (_shownPassword is { } shown)
+        {
+            await JS.InvokeAsync<bool>("quizly.copy", shown.Password);
+        }
+    }
+
+    private sealed class NewUserForm
+    {
+        public string Username { get; set; } = "";
+
+        public string DisplayName { get; set; } = "";
+
+        public string? Password { get; set; }
+
+        public int DailyGoal { get; set; } = Limits.DefaultDailyGoal;
+
+        public int NewCardsPerDay { get; set; } = Limits.DefaultNewCardsPerDay;
+    }
+}

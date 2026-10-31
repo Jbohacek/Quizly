@@ -1,0 +1,46 @@
+@if (Open)
+{
+    <div class="overlay" @onclick="CancelAsync">
+        <div class="dialog" role="alertdialog" aria-modal="true" aria-labelledby="confirm-title" @onclick:stopPropagation="true">
+            <h2 id="confirm-title">@Title</h2>
+            @ChildContent
+            <div class="actions">
+                <button class="btn" type="button" @onclick="CancelAsync">@CancelText</button>
+                <button class="btn @(Danger ? "danger solid" : "primary")" type="button" @onclick="ConfirmAsync" disabled="@Busy">@ConfirmText</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter]
+    public bool Open { get; set; }
+
+    [Parameter]
+    public string Title { get; set; } = "";
+
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
+
+    [Parameter]
+    public string ConfirmText { get; set; } = "Potvrdit";
+
+    [Parameter]
+    public string CancelText { get; set; } = "Zrušit";
+
+    [Parameter]
+    public bool Danger { get; set; }
+
+    [Parameter]
+    public bool Busy { get; set; }
+
+    [Parameter]
+    public EventCallback OnConfirm { get; set; }
+
+    [Parameter]
+    public EventCallback OnCancel { get; set; }
+
+    private Task ConfirmAsync() => OnConfirm.InvokeAsync();
+
+    private Task CancelAsync() => OnCancel.InvokeAsync();
+}

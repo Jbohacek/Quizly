@@ -1,0 +1,157 @@
+@page "/admin"
+@attribute [Authorize(Policy = AuthSetup.AdminPolicy)]
+@inherits AdminPage
+@using Quizly.Application.Overview
+@using Quizly.Application.Shop
+@inject TimeProvider Time
+
+<PageTitle>Přehled · Quizly Admin</PageTitle>
+
+<header class="page-head">
+    <div>
+        <span class="eyebrow">@(_data is null ? "" : $"Dnes {Cz.Date(_data.Today)}")</span>
+        <h1>Přehled</h1>
+    </div>
+    <div class="row">
+        <a class="btn" href="/admin/uzivatele">Nový uživatel</a>
+        <a class="btn" href="/admin/balicky">Balíčky</a>
+        <a class="btn primary" href="/admin/obchod">Obchod</a>
+    </div>
+</header>
+
+<Messages Error="@Error" Notice="@Notice" />
+
+@if (_data is null)
+{
+    <p class="muted">Načítám…</p>
+}
+else
+{
+    var t = _data.Tiles;
+    <section class="tiles" aria-label="Souhrn">
+        <div class="tile @(t.PendingClaims > 0 ? "attention" : "")">
+            <span class="label">Čeká na schválení</span>
+            <span class="value">@t.PendingClaims</span>
+            <span class="sub">@Cz.Plural(t.PendingClaims, "nákup", "nákupy", "nákupů")</span>
+        </div>
+        <div class="tile">
+            <span class="label">Aktivní dnes</span>
+            <span class="value">@t.ActiveUsersToday</span>
+            <span class="sub">z @_data.UsersToday.Count @Cz.Plural(_data.UsersToday.Count, "uživatele", "uživatelů", "uživatelů")</span>
+        </div>
+        <div class="tile">
+            <span class="label">Odpovědí dnes</span>
+            <span class="value">@Cz.Number(t.ReviewsToday)</span>
+            <span class="sub">úspěšnost @Cz.Percent(t.SuccessToday)</span>
+        </div>
+        <div class="tile">
+            <span class="label">Body za 7 dní</span>
+            <span class="value">@Cz.Number(t.PointsLast7Days)</span>
+            <span class="sub">za karty a milníky</span>
+        </div>
+    </section>
+
+    <section class="card" aria-labelledby="pending-title">
+        <div class="card-head">
+            <h2 id="pending-title">Čeká na schválení</h2>
+            <a href="/admin/obchod">Historie nákupů</a>
+        </div>
+        @if (_data.PendingClaims.Count == 0)
+        {
+            <p class="empty">Žádné nákupy nečekají. 🎉</p>
+        }
+        else
+        {
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr><th>Uživatel</th><th>Odměna</th><th class="right">Cena</th><th>Koupeno</th><th class="right">Akce</th></tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var c in _data.PendingClaims)
+                        {
+                            <tr>
+                                <td><span class="stack"><span class="strong">@c.DisplayName</span><span class="small muted">@c.Username</span></span></td>
+                                <td>@c.ItemName</td>
+                                <td class="right num">@Cz.Points(c.Price)</td>
+                                <td class="muted">@Cz.DateTime(c.CreatedAt)</td>
+                                <td class="actions">
+                                    <button class="btn small primary" @onclick="() => DecideAsync(c, confirm: true)" disabled="@_busy">Schválit</button>
+                                    <button class="btn small danger" @onclick="() => _rejecting = c" disabled="@_busy">Zamítnout</button>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </section>
+
+    <section class="card" aria-labelledby="today-title">
+        <h2 id="today-title">Uživatelé dnes</h2>
+        @if (_data.UsersToday.Count == 0)
+        {
+            <p class="empty">Zatím tu nejsou žádní uživatelé. <a href="/admin/uzivatele">Založ prvního</a>.</p>
+        }
+        else
+        {
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr><th>Uživatel</th><th>Série</th><th>Dnešní cíl</th><th class="right">Body dnes</th><th class="right">Zůstatek</th><th>Naposledy</th></tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var u in _data.UsersToday)
+                        {
+                            var ratio = u.Goal == 0 ? 0 : Math.Min(100, u.Graded * 100 / u.Goal);
+                            <tr>
+                                <td><span class="stack"><span class="strong">@u.DisplayName</span><span class="small muted">@u.Username</span></span></td>
+                                <td><span class="strong">@Cz.Days(u.Streak)</span> <span class="chip neutral">@Cz.Multiplier(u.Multiplier)</span></td>
+                                <td>
+                                    <span class="stack">
+                                        <span class="num">@u.Graded / @u.Goal @if (u.GoalMet) { <span class="chip confirmed">splněno</span> }</span>
+                                        <span class="bar"><span style="width: @(ratio)%"></span></span>
+                                    </span>
+                                </td>
+                                <td class="right num">@Cz.Number(u.PointsToday)</td>
+                                <td class="right num">@Cz.Number(u.Balance)</td>
+                                <td class="muted">@Cz.LastActive(u.LastActiveAt, Time)</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </section>
+}
+
+<ConfirmDialog Open="_rejecting is not null" Title="Zamítnout nákup?" ConfirmText="Zamítnout" Danger="true" Busy="_busy"
+               OnConfirm="() => DecideAsync(_rejecting!, confirm: false)" OnCancel="() => _rejecting = null">
+    @if (_rejecting is not null)
+    {
+        <p>„@_rejecting.ItemName“ pro @_rejecting.DisplayName. Body (@Cz.Points(_rejecting.Price)) se vrátí a kus se vrátí do obchodu.</p>
+    }
+</ConfirmDialog>
+
+@code {
+    private OverviewResponse? _data;
+    private AdminClaimResponse? _rejecting;
+    private bool _busy;
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync() =>
+        _data = await UseAsync<IOverviewService, OverviewResponse>(s => s.GetAsync(CancellationToken.None));
+
+    private async Task DecideAsync(AdminClaimResponse claim, bool confirm)
+    {
+        _busy = true;
+        var result = await UseAsync<IClaimAdminService, Result<AdminClaimResponse>>(s => confirm
+            ? s.ConfirmAsync(claim.Id, CancellationToken.None)
+            : s.RejectAsync(claim.Id, CancellationToken.None));
+        Handle(result, confirm ? $"Schváleno: {claim.ItemName} pro {claim.DisplayName}." : $"Zamítnuto, body vráceny: {claim.ItemName}.");
+        _rejecting = null;
+        await LoadAsync();
+        _busy = false;
+    }
+}
