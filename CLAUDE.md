@@ -384,3 +384,4 @@ Ask Jakub about any of these that are still open when you reach them. Until then
 | 2026-10-31 | Notifications are local on the phone; texts editable on the dashboard. |
 | 2026-10-31 | Main color `#BAD69B`; notifications warm and friendly with emoji, gender-neutral Czech. |
 | 2026-10-31 | Design proposal canvas created (10 phone screens, 4 admin pages), awaiting approval. |
+| 2026-10-31 | Repo is `Jbohacek/Quizly`. Line endings are LF everywhere (`.gitattributes`, `.editorconfig`), except `.cmd`/`.bat`/`.ps1`. |

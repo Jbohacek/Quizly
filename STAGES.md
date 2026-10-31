@@ -10,7 +10,7 @@ The full brief is in [`CLAUDE.md`](./CLAUDE.md).
 
 | Etapa | Name | Branch | Status |
 | --- | --- | --- | --- |
-| 0 | Preparation | `main` | In progress |
+| 0 | Preparation | `main` | Waiting for review |
 | 1 | Spec and design | `etapa-1-spec` | In progress (design drafted) |
 | 2 | API foundation | `etapa-2-api` | Not started |
 | 3 | Learning and game logic | `etapa-3-logic` | Not started |
@@ -40,8 +40,8 @@ Update the **Status** column when a stage starts, waits for review, or is approv
 - [x] Write the project brief (`CLAUDE.md`)
 - [x] Write this stages checklist (`STAGES.md`)
 - [ ] **(Jakub)** Confirm the plan and the defaults in `CLAUDE.md` §13
-- [ ] **(Jakub)** Create a private GitHub repo and send `owner/repo`
-- [ ] Initial commit on `main`: `CLAUDE.md`, `STAGES.md`, `README.md`, `.gitignore` (.NET + Flutter), `.editorconfig`
+- [x] **(Jakub)** Create a private GitHub repo and send `owner/repo` → `Jbohacek/Quizly`
+- [x] Initial commit on `main`: `CLAUDE.md`, `STAGES.md`, `README.md`, `.gitignore` (.NET + Flutter), `.editorconfig` (+ `.gitattributes` for LF line endings)
 
 **Gate**
 - [ ] Approved by Jakub
