@@ -67,7 +67,7 @@ Quizly is a private **Android flashcard app in Czech**. It keeps the user learni
 │  └─ Quizly.Tests/          xUnit
 ├─ app/                      Flutter project
 ├─ deploy/                   docker-compose.yml, .env.example, backup.sh, README-deploy.md
-├─ docs/                     spec.md, api.md, yaml-format.md, notification-texts.md (from Etapa 1)
+├─ docs/                     spec.md, api.md, yaml-format.md, notification-texts.md (from Etapa 1), design/ (saved design proposal)
 └─ .github/workflows/        api.yml, app.yml
 ```
 
@@ -275,7 +275,7 @@ cards:
 
 ## 9. Design
 
-**Reference:** the Design canvas "Quizly — Design Proposal" on claude.ai (`https://claude.ai/artifact/6CoK7qTg7jdSzq2MYzoq2a`, private to Jakub) has 10 phone screens and 4 admin pages. If you can't open it, this section has everything you need.
+**Reference:** the Design canvas "Quizly — Design Proposal" on claude.ai (`https://claude.ai/artifact/6CoK7qTg7jdSzq2MYzoq2a`, private to Jakub) has 10 phone screens and 4 admin pages. A saved copy is in the repo at [`docs/design/quizly-design-proposal.html`](./docs/design/quizly-design-proposal.html) (open it in a browser). If you can't open either, this section has everything you need.
 
 ### 9.1 Phone (dark theme)
 
@@ -357,7 +357,7 @@ Balíček (deck) · Karta · Vím · Nevím · Přeskočit · Série (streak) ·
 
 ## 13. Open decisions and unconfirmed assumptions
 
-Ask Jakub about any of these that are still open when you reach them. Until then, use the default.
+Jakub confirmed these defaults at the Etapa 0 gate (2026-10-31). Raise any of them again in Etapa 1 if the spec work shows a problem.
 
 | # | Topic | Default |
 | --- | --- | --- |
@@ -385,3 +385,5 @@ Ask Jakub about any of these that are still open when you reach them. Until then
 | 2026-10-31 | Main color `#BAD69B`; notifications warm and friendly with emoji, gender-neutral Czech. |
 | 2026-10-31 | Design proposal canvas created (10 phone screens, 4 admin pages), awaiting approval. |
 | 2026-10-31 | Repo is `Jbohacek/Quizly`. Line endings are LF everywhere (`.gitattributes`, `.editorconfig`), except `.cmd`/`.bat`/`.ps1`. |
+| 2026-10-31 | Saved copy of the design proposal committed to `docs/design/quizly-design-proposal.html`. |
+| 2026-10-31 | Etapa 0 approved by Jakub; plan and §13 defaults confirmed as written. |

@@ -10,7 +10,7 @@ The full brief is in [`CLAUDE.md`](./CLAUDE.md).
 
 | Etapa | Name | Branch | Status |
 | --- | --- | --- | --- |
-| 0 | Preparation | `main` | Waiting for review |
+| 0 | Preparation | `main` | Approved |
 | 1 | Spec and design | `etapa-1-spec` | In progress (design drafted) |
 | 2 | API foundation | `etapa-2-api` | Not started |
 | 3 | Learning and game logic | `etapa-3-logic` | Not started |
@@ -39,12 +39,12 @@ Update the **Status** column when a stage starts, waits for review, or is approv
 - [x] Gather requirements (Q&A with Jakub)
 - [x] Write the project brief (`CLAUDE.md`)
 - [x] Write this stages checklist (`STAGES.md`)
-- [ ] **(Jakub)** Confirm the plan and the defaults in `CLAUDE.md` §13
+- [x] **(Jakub)** Confirm the plan and the defaults in `CLAUDE.md` §13
 - [x] **(Jakub)** Create a private GitHub repo and send `owner/repo` → `Jbohacek/Quizly`
 - [x] Initial commit on `main`: `CLAUDE.md`, `STAGES.md`, `README.md`, `.gitignore` (.NET + Flutter), `.editorconfig` (+ `.gitattributes` for LF line endings)
 
 **Gate**
-- [ ] Approved by Jakub
+- [x] Approved by Jakub
 
 ---
 
@@ -53,7 +53,7 @@ Update the **Status** column when a stage starts, waits for review, or is approv
 No production code in this stage.
 
 **Design**
-- [x] Design proposal: 10 phone screens + 4 admin pages (claude.ai Design canvas)
+- [x] Design proposal: 10 phone screens + 4 admin pages (claude.ai Design canvas, saved copy in `docs/design/quizly-design-proposal.html`)
 - [x] Apply main color `#BAD69B` and the friendly notification tone
 - [ ] **(Jakub)** Approve the design, or list changes
 - [ ] Design for the admin "Texty upozornění" page (missing from the canvas)
