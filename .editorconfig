@@ -110,6 +110,13 @@ dotnet_naming_rule.constants_pascal.severity = warning
 dotnet_naming_symbols.constants.applicable_kinds = field,local
 dotnet_naming_symbols.constants.required_modifiers = const
 
+# Analyzer tuning
+# CA1000: Result<T>.Ok/Fail factories are intentionally static on the generic type.
+dotnet_diagnostic.CA1000.severity = none
+# CA1848/CA1873: LoggerMessage delegates are overkill for the few log lines in this app.
+dotnet_diagnostic.CA1848.severity = none
+dotnet_diagnostic.CA1873.severity = none
+
 # Generated code (EF Core migrations) is not analyzed for style
 [**/Migrations/*.cs]
 generated_code = true

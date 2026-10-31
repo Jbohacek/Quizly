@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <ProjectReference Include="..\Quizly.Application\Quizly.Application.csproj" />
+    <ProjectReference Include="..\Quizly.Domain\Quizly.Domain.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="EFCore.NamingConventions" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Seed\notification-texts.json" LogicalName="Quizly.Seed.notification-texts.json" />
+  </ItemGroup>
+</Project>
