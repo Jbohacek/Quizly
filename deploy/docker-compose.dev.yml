@@ -1,0 +1,18 @@
+# Only the database, for `dotnet run` against appsettings.Development.json.
+#   docker compose -f deploy/docker-compose.dev.yml up -d
+name: quizly-dev
+
+services:
+  db:
+    image: postgres:18
+    environment:
+      POSTGRES_DB: quizly
+      POSTGRES_USER: quizly
+      POSTGRES_PASSWORD: quizly-dev
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql
+
+volumes:
+  pgdata:

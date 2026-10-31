@@ -1,0 +1,9 @@
+# Local override: build the image from this checkout instead of pulling it from GHCR.
+#   cd deploy
+#   docker compose -f docker-compose.yml -f docker-compose.build.yml up --build
+services:
+  quizly:
+    image: quizly:local
+    build:
+      context: ..
+      dockerfile: Dockerfile
