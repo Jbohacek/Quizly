@@ -10,7 +10,9 @@ COPY src/Quizly.Infrastructure/Quizly.Infrastructure.csproj src/Quizly.Infrastru
 COPY src/Quizly.Web/Quizly.Web.csproj src/Quizly.Web/
 RUN dotnet restore src/Quizly.Web/Quizly.Web.csproj
 COPY src/ src/
-RUN dotnet publish src/Quizly.Web/Quizly.Web.csproj -c Release -o /app --no-restore
+# Restore again (cheap, packages are cached): the implicit package with the Blazor framework
+# scripts (_framework/blazor.web.js) is only added once the .razor files are present.
+RUN dotnet publish src/Quizly.Web/Quizly.Web.csproj -c Release -o /app
 
 # Runtime: Debian-based ASP.NET image (ICU + tzdata for Europe/Prague), non-root user.
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
