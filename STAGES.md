@@ -11,7 +11,7 @@ The full brief is in [`CLAUDE.md`](./CLAUDE.md).
 | Etapa | Name | Branch | Status |
 | --- | --- | --- | --- |
 | 0 | Preparation | `main` | Approved |
-| 1 | Spec and design | `etapa-1-spec` | In progress (design drafted) |
+| 1 | Spec and design | `etapa-1-spec` | Waiting for review |
 | 2 | API foundation | `etapa-2-api` | Not started |
 | 3 | Learning and game logic | `etapa-3-logic` | Not started |
 | 4 | Admin dashboard and first deploy | `etapa-4-admin` | Not started |
@@ -56,19 +56,19 @@ No production code in this stage.
 - [x] Design proposal: 10 phone screens + 4 admin pages (claude.ai Design canvas, saved copy in `docs/design/quizly-design-proposal.html`)
 - [x] Apply main color `#BAD69B` and the friendly notification tone
 - [ ] **(Jakub)** Approve the design, or list changes
-- [ ] Design for the admin "Texty upozornění" page (missing from the canvas)
+- [x] Design for the admin "Texty upozornění" page (missing from the canvas) → `docs/design/admin-texty-upozorneni.html`
 
 **Spec documents**
-- [ ] `docs/spec.md`: final data model with field types, constraints, indexes, cascade rules
-- [ ] `docs/api.md`: every endpoint with request/response examples and error codes
-- [ ] Sync contract: session fetch, review batches, idempotency, retry and offline behavior
-- [ ] `docs/yaml-format.md`: format v1, validation rules, merge/delete rules, examples
-- [ ] FSRS: chosen version, default parameters, reference test vectors
-- [ ] Points, streak and milestone rules with worked examples (rounding, midnight, DST days, missed day, goal change)
-- [ ] `docs/notification-texts.md`: ≥ 50 Czech texts across all 6 categories, placeholders, gender-neutral check
-- [ ] Notification scheduling rules incl. Android 13+ permission and Android 12/14 exact-alarm rules
-- [ ] Final repo layout and Flutter package list
-- [ ] Resolve the open decisions in `CLAUDE.md` §13 with Jakub
+- [x] `docs/spec.md`: final data model with field types, constraints, indexes, cascade rules
+- [x] `docs/api.md`: every endpoint with request/response examples and error codes
+- [x] Sync contract (`docs/api.md` §11): session fetch, review batches, idempotency, retry and offline behavior
+- [x] `docs/yaml-format.md`: format v1, validation rules, merge/delete rules, examples
+- [x] FSRS: chosen version, default parameters, reference test vectors (`docs/spec.md` §3, `docs/fsrs/`)
+- [x] Points, streak and milestone rules with worked examples (`docs/spec.md` §5–6) (rounding, midnight, DST days, missed day, goal change)
+- [x] `docs/notification-texts.md`: ≥ 50 Czech texts across all 6 categories, placeholders, gender-neutral check
+- [x] Notification scheduling rules (`docs/notifications.md`) incl. Android 13+ permission and Android 12/14 exact-alarm rules
+- [x] Final repo layout and Flutter package list (`docs/architecture.md`)
+- [x] Resolve the open decisions in `CLAUDE.md` §13 with Jakub (confirmed at the Etapa 0 gate; FSRS, fuzz, goal change and design location decided 2026-10-31)
 
 **Gate**
 - [ ] Approved by Jakub (screens + spec)
