@@ -1,0 +1,167 @@
+# Requests for every Etapa 2 endpoint. Start the dev database and the app first (README → Local development).
+@baseUrl = http://localhost:5278
+
+### Health (no auth)
+GET {{baseUrl}}/api/health
+
+### ---------- Admin (cookie) ----------
+
+### Admin login (sets the cookie for the requests below)
+POST {{baseUrl}}/api/admin/auth/login
+Content-Type: application/json
+
+{ "username": "admin", "password": "dev-only-admin-password" }
+
+### Who am I
+GET {{baseUrl}}/api/admin/auth/me
+
+### Users
+GET {{baseUrl}}/api/admin/users
+
+### Create a user (password generated and returned once)
+POST {{baseUrl}}/api/admin/users
+Content-Type: application/json
+
+{ "username": "petra", "displayName": "Petra", "dailyGoal": 20, "newCardsPerDay": 5 }
+
+### Edit a user
+PUT {{baseUrl}}/api/admin/users/1
+Content-Type: application/json
+
+{ "displayName": "Petra N.", "dailyGoal": 25, "newCardsPerDay": 5 }
+
+### Reset password
+POST {{baseUrl}}/api/admin/users/1/reset-password
+
+### Deactivate / activate
+POST {{baseUrl}}/api/admin/users/1/deactivate
+
+###
+POST {{baseUrl}}/api/admin/users/1/activate
+
+### Unknown user → 404 notFound
+GET {{baseUrl}}/api/admin/users/999999
+
+### Decks
+GET {{baseUrl}}/api/admin/decks
+
+###
+POST {{baseUrl}}/api/admin/decks
+Content-Type: application/json
+
+{ "name": "Angličtina", "description": "Slovíčka B2", "color": "#8FC7F0" }
+
+###
+GET {{baseUrl}}/api/admin/decks/1
+
+###
+PUT {{baseUrl}}/api/admin/decks/1
+Content-Type: application/json
+
+{ "name": "C# základy", "description": "Základní pojmy jazyka C#", "color": "#BAD69B", "sortOrder": 0 }
+
+### Invalid color → 400 validation
+POST {{baseUrl}}/api/admin/decks
+Content-Type: application/json
+
+{ "name": "Špatná barva", "color": "green" }
+
+### Cards of a deck
+GET {{baseUrl}}/api/admin/decks/1/cards
+
+###
+POST {{baseUrl}}/api/admin/decks/1/cards
+Content-Type: application/json
+
+{ "question": "Co je record v C#?", "answer": "Typ s hodnotovou rovností pro neměnná data." }
+
+###
+GET {{baseUrl}}/api/admin/decks/1/cards/1
+
+###
+PUT {{baseUrl}}/api/admin/decks/1/cards/1
+Content-Type: application/json
+
+{ "question": "Jaký je rozdíl mezi struct a class v C#?", "answer": "struct je hodnotový typ, class je referenční typ." }
+
+###
+DELETE {{baseUrl}}/api/admin/decks/1/cards/5
+
+### Delete a deck (cards and progress too)
+DELETE {{baseUrl}}/api/admin/decks/2
+
+### Shop items
+GET {{baseUrl}}/api/admin/shop-items
+
+###
+POST {{baseUrl}}/api/admin/shop-items
+Content-Type: application/json
+
+{ "name": "Jít na pizzu", "description": "Pizza dle výběru", "price": 1500, "initialStock": 3 }
+
+###
+GET {{baseUrl}}/api/admin/shop-items/1
+
+### Edit (send the version you read; a stale version → 409 concurrencyConflict)
+PUT {{baseUrl}}/api/admin/shop-items/1
+Content-Type: application/json
+
+{ "name": "Jít na pizzu", "description": "Pizza dle výběru", "price": 1400, "initialStock": 4, "isActive": true, "sortOrder": 0, "version": 0 }
+
+###
+DELETE {{baseUrl}}/api/admin/shop-items/1
+
+### Notification texts
+GET {{baseUrl}}/api/admin/notification-texts?category=last_call
+
+###
+POST {{baseUrl}}/api/admin/notification-texts
+Content-Type: application/json
+
+{ "category": "evening", "text": "Do cíle zbývá: {left} ✨", "isActive": true }
+
+###
+GET {{baseUrl}}/api/admin/notification-texts/1
+
+###
+PUT {{baseUrl}}/api/admin/notification-texts/1
+Content-Type: application/json
+
+{ "category": "morning", "text": "Dobré ráno! ☀️ Karty na dnešek: {due}.", "isActive": false }
+
+###
+DELETE {{baseUrl}}/api/admin/notification-texts/53
+
+### Preview with sample values
+POST {{baseUrl}}/api/admin/notification-texts/preview
+Content-Type: application/json
+
+{ "text": "Jde ti to skvěle! 💪 Už máš {done} z {goal}." }
+
+### Admin logout
+POST {{baseUrl}}/api/admin/auth/logout
+
+### ---------- App (JWT) ----------
+
+### Login (use a user created above)
+# @name login
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{ "username": "petra", "password": "paste-the-generated-password" }
+
+### Notification texts for the app
+GET {{baseUrl}}/api/notification-texts
+Authorization: Bearer {{login.response.body.accessToken}}
+
+### Rotate the refresh token
+POST {{baseUrl}}/api/auth/refresh
+Content-Type: application/json
+
+{ "refreshToken": "{{login.response.body.refreshToken}}" }
+
+### Logout
+POST {{baseUrl}}/api/auth/logout
+Content-Type: application/json
+
+{ "refreshToken": "{{login.response.body.refreshToken}}" }

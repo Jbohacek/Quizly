@@ -1,0 +1,85 @@
+using Microsoft.AspNetCore.DataProtection;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.AspNetCore.Http.Json;
+using Quizly.Application;
+using Quizly.Application.Auth;
+using Quizly.Application.Common;
+using Quizly.Infrastructure;
+using Quizly.Infrastructure.Persistence;
+using Quizly.Web.Api;
+using Quizly.Web.Auth;
+using Quizly.Web.Middleware;
+
+var builder = WebApplication.CreateBuilder(args);
+var config = builder.Configuration;
+
+builder.Services.AddApplication();
+builder.Services.AddInfrastructure(config);
+
+builder.Services.Configure<JwtOptions>(config.GetSection("Jwt"));
+builder.Services.Configure<AdminCredentialsOptions>(o =>
+{
+    o.Username = config["ADMIN_USERNAME"] ?? "";
+    o.Password = config["ADMIN_PASSWORD"] ?? "";
+});
+builder.Services.Configure<RefreshTokenOptions>(config.GetSection("RefreshTokens"));
+builder.Services.Configure<LoginThrottleOptions>(config.GetSection("LoginThrottle"));
+builder.Services.AddSingleton<IAccessTokenIssuer, JwtTokenIssuer>();
+builder.Services.AddQuizlyAuth(config, builder.Environment);
+
+builder.Services.Configure<JsonOptions>(o => JsonSetup.Configure(o.SerializerOptions));
+builder.Services.Configure<RouteHandlerOptions>(o => o.ThrowOnBadRequest = true);
+builder.Services.AddProblemDetails(o => o.CustomizeProblemDetails = Problems.Customize);
+builder.Services.AddExceptionHandler<ApiExceptionHandler>();
+builder.Services.AddQuizlyOpenApi();
+builder.Services.AddHealthChecks().AddDbContextCheck<QuizlyDbContext>();
+
+// Behind Nginx Proxy Manager: trust X-Forwarded-For/Proto from the proxy network (deploy/README-deploy.md).
+builder.Services.Configure<ForwardedHeadersOptions>(o =>
+{
+    o.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    o.KnownIPNetworks.Clear();
+    o.KnownProxies.Clear();
+});
+
+// Cookies must survive restarts, so the Data Protection keys live on a volume.
+var dataProtection = builder.Services.AddDataProtection().SetApplicationName("Quizly");
+if (config["DataProtection:KeysPath"] is { Length: > 0 } keysPath)
+{
+    dataProtection.PersistKeysToFileSystem(new DirectoryInfo(keysPath));
+}
+
+var app = builder.Build();
+
+app.UseForwardedHeaders();
+app.UseExceptionHandler();
+app.UseStatusCodePages();
+app.UseAuthentication();
+app.UseAuthorization();
+app.UseRateLimiter();
+
+app.MapHealthChecks("/api/health", new HealthCheckOptions
+{
+    ResponseWriter = (context, report) => context.Response.WriteAsJsonAsync(
+        new { status = report.Status == Microsoft.Extensions.Diagnostics.HealthChecks.HealthStatus.Healthy ? "ok" : "unhealthy" }),
+}).AllowAnonymous();
+app.MapAppAuth();
+app.MapAdminAuth();
+app.MapApp();
+app.MapAdmin();
+app.MapDocs();
+
+// Fail fast on missing secrets, then migrate and seed.
+app.Services.GetRequiredService<IAdminAuthenticator>();
+app.Services.GetRequiredService<Microsoft.Extensions.Options.IOptions<JwtOptions>>().Value.Key();
+await using (var scope = app.Services.CreateAsyncScope())
+{
+    await scope.ServiceProvider.GetRequiredService<DatabaseInitializer>()
+        .InitializeAsync(seedDemoDeck: app.Environment.IsDevelopment());
+}
+
+await app.RunAsync();
+
+/// <summary>Entry point; public so integration tests can use WebApplicationFactory.</summary>
+public partial class Program;
