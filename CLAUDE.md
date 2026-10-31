@@ -43,7 +43,7 @@ Quizly is a private **Android flashcard app in Czech**. It keeps the user learni
 | --- | --- |
 | API | ASP.NET Core on **.NET 10**, REST, JSON, JWT bearer auth for the app |
 | Admin dashboard | **Blazor** (Interactive Server render mode) hosted **in the same ASP.NET Core app**, cookie auth, at `/admin` |
-| Database | **PostgreSQL** (pin a current stable major in compose) via **EF Core 10** + Npgsql, code-first migrations applied on startup |
+| Database | **PostgreSQL 18** (`postgres:18` in compose) via **EF Core 10** + Npgsql, code-first migrations applied on startup |
 | Android app | **Flutter** (Dart), Android only, minimum **Android 8.0 (API 26)** |
 | Hosting | Docker Compose stack in **Portainer** on Jakub's server, behind **Nginx Proxy Manager** (handles HTTPS) |
 | CI/CD | **GitHub Actions**: tests, Docker image to **GitHub Container Registry** (private), signed release **APK** as an artifact |
@@ -51,7 +51,9 @@ Quizly is a private **Android flashcard app in Czech**. It keeps the user learni
 
 ---
 
-## 4. Repository layout (proposal, finalize in Etapa 1)
+## 4. Repository layout
+
+Final layout and package lists: [`docs/architecture.md`](./docs/architecture.md). Summary:
 
 ```
 /
@@ -67,7 +69,7 @@ Quizly is a private **Android flashcard app in Czech**. It keeps the user learni
 │  └─ Quizly.Tests/          xUnit
 ├─ app/                      Flutter project
 ├─ deploy/                   docker-compose.yml, .env.example, backup.sh, README-deploy.md
-├─ docs/                     spec.md, api.md, yaml-format.md, notification-texts.md (from Etapa 1), design/ (saved design proposal)
+├─ docs/                     spec, api, yaml-format, notifications, notification-texts, architecture, design/, fsrs/
 └─ .github/workflows/        api.yml, app.yml
 ```
 
@@ -94,15 +96,15 @@ Quizly is a private **Android flashcard app in Czech**. It keeps the user learni
 - **End screen ("Hotovo")** shows: cards done, % correct, points earned with a breakdown, new balance, streak update, and progress toward the nearest wishlist item.
 
 ### 5.3 FSRS (spaced repetition)
-- Runs **on the server**. Implement the current FSRS algorithm (FSRS-5 or newer) from the open-spaced-repetition reference implementations, with **default parameters** and **desired retention 0.9**.
+- Runs **on the server**. Implement **FSRS-6**, ported from **py-fsrs 6.3.2**, with **default parameters**, **desired retention 0.9** and **fuzz off**. Exact rules: [`docs/spec.md`](./docs/spec.md) §3; reference vectors in `docs/fsrs/`.
 - Port carefully and **unit-test against reference values** produced by the reference implementation.
 - Only two ratings are used: **Again (1)** and **Good (3)**.
-- Per user × card store: state (New / Learning / Review / Relearning), stability, difficulty, due, last review, reps, lapses, plus anything the chosen FSRS version needs (e.g. learning step).
+- Per user × card store: state (Learning / Review / Relearning; a card with no stored state is New), stability, difficulty, due, last review, reps, lapses, plus anything the chosen FSRS version needs (e.g. learning step).
 - Keep every review in `ReviewLog` for stats and possible future parameter optimization.
 
 ### 5.4 Points
 - **Know: 10 × multiplier. Don't know: 2 × multiplier. Skip: 0.**
-- **Rounding:** to the nearest integer, halves away from zero (2 × 1.1 = 2.2 → **2**; 10 × 1.1 → **11**). ⚠ *Pending confirmation (§13).*
+- **Rounding:** to the nearest integer, halves away from zero (2 × 1.1 = 2.2 → **2**; 10 × 1.1 → **11**). Confirmed at the Etapa 0 gate.
 - **Multiplier** = `min(2.0, 1.0 + 0.1 × floor(streak / 7))`. `streak` is the current streak at the moment of the review; today counts once today's goal has been reached.
 
 ```
@@ -116,7 +118,7 @@ points = round(base × min(2.0, 1.0 + 0.1 × floor(streakDays / 7)))
 ### 5.5 Daily goal and streak
 - **A day** is a calendar day in **Europe/Prague** (midnight to midnight, DST-aware), always computed explicitly regardless of server timezone.
 - **Daily goal** ("Denní cíl", user setting, default **20**) = number of **graded answers** (Vím or Nevím; skips don't count) across all decks that day.
-- A day is **met** when graded answers ≥ goal. Changing the goal takes effect immediately.
+- A day is **met** when graded answers ≥ goal. Changing the goal takes effect immediately; a day that is already met stays met (a raised goal applies from tomorrow, a lowered goal can complete today).
 - **Streak** = consecutive met days, ending today if today is already met, otherwise ending yesterday. Today isn't lost until the day ends. One fully missed day resets the streak to 0.
 - Store the **best streak** (record) per user.
 
@@ -141,10 +143,11 @@ points = round(base × min(2.0, 1.0 + 0.1 × floor(streakDays / 7)))
 - **Texts come from the API** (`GET /api/notification-texts`), are cached on the device, and are picked at random per category, avoiding recent repeats.
 - **Tone:** warm, friendly, supportive, **emoji welcome**, **never guilt-tripping**, gender-neutral. Examples:
   - "Zvládneš to! Věřím ti ❤️"
-  - "Jde ti to skvěle! 💪 Už máš {done} z {goal} karet. Dáme ještě kousek spolu?"
-  - "Dobré ráno! ☀️ Dnes tě čeká {due} karet. Uvař si kafe a pojďme na to spolu ☕"
+  - "Jde ti to skvěle! 💪 Už máš {done} z {goal}. Dáme ještě kousek spolu?"
+  - "Dobré ráno! ☀️ Karty na dnešek: {due}. Uvař si kafe a pojďme na to spolu ☕"
   - "{streak} dní v řadě! 🎉 Tohle je paráda, máš můj obdiv!"
   - "Vítej zpátky 💚 Série se přerušila, to se stává každému. Začneme znovu, spolu to dáme!"
+- **Czech plurals:** a number placeholder goes where the grammar doesn't depend on the number (after a colon, in "{done} z {goal}"), because 1 karta · 2 karty · 5 karet. Rules: `docs/notification-texts.md`.
 - **Placeholders:** `{due}`, `{left}` (cards left to the goal), `{done}`, `{goal}`, `{streak}`, `{multiplier}`, `{item}`, `{points}`. If a value is unknown, pick a text in the same category without placeholders.
 - **≥ 50 texts** are written in Etapa 1 (`docs/notification-texts.md`), seeded into the DB, and editable by the admin.
 
@@ -188,7 +191,7 @@ points = round(base × min(2.0, 1.0 + 0.1 × floor(streakDays / 7)))
 
 ## 6. Data model (EF Core / PostgreSQL)
 
-Integer identity keys, except `ReviewLog.Id`, which is the client UUID. Timestamps are UTC (`timestamptz`); day-level dates are Prague `date`. Final types, constraints and indexes are settled in Etapa 1.
+Integer identity keys, except `ReviewLog.Id`, which is the client UUID. Timestamps are UTC (`timestamptz`); day-level dates are Prague `date`. Final types, constraints and indexes are in [`docs/spec.md`](./docs/spec.md) §2.
 
 | Entity | Fields | Notes |
 | --- | --- | --- |
@@ -197,20 +200,22 @@ Integer identity keys, except `ReviewLog.Id`, which is the client UUID. Timestam
 | `RefreshToken` | Id, UserId, TokenHash, ExpiresAt, CreatedAt, RevokedAt, ReplacedById | rotation |
 | `Deck` | Id, Name, Description, Color, SortOrder, CreatedAt, UpdatedAt | |
 | `Card` | Id, DeckId, Question, Answer, SortOrder, CreatedAt, UpdatedAt | Id is the stable id used in YAML |
-| `CardState` | (UserId, CardId) PK, State, Stability, Difficulty, Due, LastReview, Reps, Lapses, Step | FSRS memory state |
-| `ReviewLog` | Id (uuid from client), UserId, CardId, Rating, ReviewedAt, Multiplier, PointsAwarded, ElapsedDays, ScheduledDays | append-only |
-| `DailyActivity` | (UserId, Date) PK, GradedCount, CorrectCount, Points, Goal, GoalMet | updated on each review; drives streak, heatmap, charts |
+| `CardState` | (UserId, CardId) PK, State, Stability, Difficulty, Due, LastReview, FirstReview, Reps, Lapses, Step | FSRS memory state; no row = new card |
+| `ReviewLog` | Id (uuid from client), UserId, CardId, Rating, StateBefore, ReviewedAt, Day, Multiplier, PointsAwarded, ElapsedDays, ScheduledDays | append-only |
+| `DailyActivity` | (UserId, Date) PK, GradedCount, CorrectCount, Points, Goal, GoalMet, GoalMetAt | updated on each review; drives streak, heatmap, charts |
 | `PointsEntry` | Id, UserId, Amount, Reason, ReferenceId, CreatedAt | balance = SUM(Amount) |
 | `ShopItem` | Id, Name, Description, Price, InitialStock, Stock, IsActive, SortOrder, concurrency token | |
-| `Claim` | Id, UserId, ShopItemId, Price, Status (Pending/Confirmed/Rejected), CreatedAt, DecidedAt | |
+| `Claim` | Id, UserId, ShopItemId, RequestId (uuid from client), Price, Status (Pending/Confirmed/Rejected), CreatedAt, DecidedAt | RequestId makes a retried claim safe |
 | `WishlistEntry` | (UserId, ShopItemId) PK, CreatedAt, NotifiedAt | |
-| `NotificationText` | Id, Category, Text, IsActive | seeded with ≥ 50 texts |
+| `NotificationText` | Id, Category, Text, IsActive, CreatedAt, UpdatedAt | seeded with ≥ 50 texts |
 
 Deleting a card cascades to its `CardState` and `ReviewLog`. The admin UI warns about this (§8).
 
 ---
 
-## 7. REST API (draft, finalize in Etapa 1)
+## 7. REST API
+
+Full contract with examples, error codes and the sync rules: [`docs/api.md`](./docs/api.md). Overview:
 
 Everything is under `/api`: JSON, camelCase, errors as RFC 7807 ProblemDetails. OpenAPI/Swagger at `/api/docs` (Development, or behind admin auth in Production). Timestamps are ISO 8601 UTC; days are `YYYY-MM-DD` in Europe/Prague.
 
@@ -275,7 +280,7 @@ cards:
 
 ## 9. Design
 
-**Reference:** the Design canvas "Quizly — Design Proposal" on claude.ai (`https://claude.ai/artifact/6CoK7qTg7jdSzq2MYzoq2a`, private to Jakub) has 10 phone screens and 4 admin pages. A saved copy is in the repo at [`docs/design/quizly-design-proposal.html`](./docs/design/quizly-design-proposal.html) (open it in a browser). If you can't open either, this section has everything you need.
+**Reference:** the Design canvas "Quizly — Design Proposal" on claude.ai (`https://claude.ai/artifact/6CoK7qTg7jdSzq2MYzoq2a`, private to Jakub) has 10 phone screens and 4 admin pages. A saved copy is in the repo at [`docs/design/quizly-design-proposal.html`](./docs/design/quizly-design-proposal.html) (open it in a browser). The admin **Texty upozornění** page, missing from the canvas, is in [`docs/design/admin-texty-upozorneni.html`](./docs/design/admin-texty-upozorneni.html). If you can't open either, this section has everything you need.
 
 ### 9.1 Phone (dark theme)
 
@@ -327,7 +332,7 @@ Balíček (deck) · Karta · Vím · Nevím · Přeskočit · Série (streak) ·
 
 ## 10. Deployment
 
-- `deploy/docker-compose.yml`: service **`quizly`** (`ghcr.io/<owner>/quizly:<tag>`) and **`db`** (`postgres:<pinned major>`), named volume for the database, internal network. `quizly` publishes one port (e.g. 8080) for Nginx Proxy Manager.
+- `deploy/docker-compose.yml`: service **`quizly`** (`ghcr.io/<owner>/quizly:<tag>`) and **`db`** (`postgres:18`), named volume for the database, internal network. `quizly` publishes one port (e.g. 8080) for Nginx Proxy Manager.
 - `deploy/.env.example`: `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `ConnectionStrings__Default`, `Jwt__SigningKey` (≥ 32 random bytes), `Jwt__Issuer`, `ADMIN_USERNAME`, `ADMIN_PASSWORD`, `PUBLIC_BASE_URL=https://quizly.jbohacek.cz`.
 - Behind the proxy: enable **ForwardedHeaders** (X-Forwarded-For/Proto). Persist **Data Protection keys** to a volume (Blazor circuits and cookies must survive restarts).
 - Migrations run on startup. Health check at `/api/health`.
@@ -346,7 +351,9 @@ Balíček (deck) · Karta · Vím · Nevím · Přeskočit · Série (streak) ·
 
 ---
 
-## 12. Flutter app guidelines (suggested, confirm in Etapa 1)
+## 12. Flutter app guidelines
+
+Final package list and structure: [`docs/architecture.md`](./docs/architecture.md) §3.
 
 - Packages: `flutter_riverpod` (state), `go_router` (routing), `dio` (HTTP with an auth interceptor that refreshes on 401), `flutter_secure_storage` (tokens), `flutter_local_notifications` + `timezone`, `workmanager` (background refresh), `fl_chart` (charts), `flutter_animate` (animations), `confetti`.
 - Structure: `lib/core/` (api client, theme tokens, models, strings) and feature folders `auth`, `home`, `session`, `stats`, `shop`, `settings`, `notifications`.
@@ -387,3 +394,12 @@ Jakub confirmed these defaults at the Etapa 0 gate (2026-10-31). Raise any of th
 | 2026-10-31 | Repo is `Jbohacek/Quizly`. Line endings are LF everywhere (`.gitattributes`, `.editorconfig`), except `.cmd`/`.bat`/`.ps1`. |
 | 2026-10-31 | Saved copy of the design proposal committed to `docs/design/quizly-design-proposal.html`. |
 | 2026-10-31 | Etapa 0 approved by Jakub; plan and §13 defaults confirmed as written. |
+| 2026-10-31 | FSRS-6 (py-fsrs 6.3.2 port), fuzz off. |
+| 2026-10-31 | A met day stays met when the goal is raised; the new goal applies from tomorrow. Lowering it can complete today. |
+| 2026-10-31 | Admin "Texty upozornění" designed as a standalone mockup in `docs/design/` (the canvas stays unchanged). |
+| 2026-10-31 | Etapa 1 spec: PostgreSQL 18, snake_case naming; data model additions `card_states.first_review`, `review_logs.state_before/day`, `daily_activities.goal_met_at`, `claims.request_id` (idempotent claims). |
+| 2026-10-31 | Points use the streak just before the review; the review that meets the goal still uses the old multiplier. |
+| 2026-10-31 | Notifications use inexact scheduling only (no exact-alarm permission); the planner is pure Dart. |
+| 2026-10-31 | Refresh-token rotation has a 60 s retry grace so flaky networks don't log the user out. |
+| 2026-10-31 | Number placeholders in notification texts are placed so Czech plurals stay correct; the §5.8 examples were rephrased accordingly. |
+| 2026-10-31 | The wishlist "reached" event is checked in review and settings responses only (a refund's event arrives with the next review). |

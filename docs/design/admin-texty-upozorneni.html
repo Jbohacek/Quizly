@@ -1,0 +1,359 @@
+<title>Quizly Admin – Texty upozornění</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500..800&family=Manrope:wght@400..800&display=swap">
+<style>
+/* Layout: the admin shell from the design canvas (dark sidebar + light main); main = category rail, text list, editor with live phone preview. Admin is light-only by design (CLAUDE.md §9.2). */
+:root {
+  color-scheme: light;
+  --bg: #F5F4F0;
+  --surface: #FFFFFF;
+  --border: #E3E1DA;
+  --border-strong: #D6D3CA;
+  --row: #EEEDE8;
+  --text: #16171D;
+  --muted: #5E6170;
+  --sidebar: #16171D;
+  --sidebar-active: #2A2C38;
+  --sidebar-text: #F4F2EC;
+  --sidebar-muted: #A0A4B5;
+  --sidebar-link: #D4D6DF;
+  --sidebar-line: #2F3242;
+  --primary: #BAD69B;
+  --on-primary: #15200C;
+  --stripe: #8FB06A;
+  --link: #4F6B33;
+  --link-hover: #3B5226;
+  --pending-bg: #FFF1D6; --pending-fg: #8A5300;
+  --ok-bg: #E3F4E6; --ok-fg: #1F7A3A;
+  --bad-bg: #FDE8E6; --bad-fg: #B42318;
+  --phone: #111218; --phone-surface: #1B1D27; --phone-text: #F4F2EC; --phone-muted: #A0A4B5;
+  --font-display: 'Bricolage Grotesque', 'Segoe UI', system-ui, sans-serif;
+  --font-body: 'Manrope', 'Segoe UI', system-ui, sans-serif;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text); font-family: var(--font-body); font-size: 14px; }
+a { color: var(--link); } a:hover { color: var(--link-hover); }
+button, input, select, textarea { font-family: inherit; }
+:focus-visible { outline: 3px solid var(--stripe); outline-offset: 2px; }
+
+.shell { min-height: 100vh; display: flex; flex-wrap: wrap; }
+aside {
+  flex: 1 1 220px; padding-block: 24px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: 16px;
+  background: var(--sidebar); color: var(--sidebar-text); display: flex; flex-direction: column; gap: 24px;
+}
+.brand { display: flex; align-items: center; gap: 10px; padding: 0 8px; }
+.logo { width: 36px; height: 36px; border-radius: 11px; background: var(--primary); color: var(--on-primary); display: flex; align-items: center; justify-content: center; font-family: var(--font-display); font-size: 22px; font-weight: 800; }
+.brand b { display: block; font-family: var(--font-display); font-size: 19px; font-weight: 800; line-height: 1.1; }
+.brand small { font-size: 12px; font-weight: 700; color: var(--sidebar-muted); }
+nav { display: flex; flex-wrap: wrap; gap: 4px; }
+nav a { flex: 1 1 180px; display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 12px; border-radius: 12px; color: var(--sidebar-link); font-weight: 700; font-size: 15px; text-decoration: none; }
+nav a:hover { color: var(--sidebar-text); background: #1F212B; }
+nav a[aria-current="page"] { background: var(--sidebar-active); color: var(--primary); font-weight: 800; }
+nav svg { width: 20px; height: 20px; flex: none; }
+.badge { margin-left: auto; min-width: 22px; height: 22px; padding: 0 6px; border-radius: 11px; background: var(--primary); color: var(--on-primary); font-size: 12px; font-weight: 800; display: flex; align-items: center; justify-content: center; }
+.side-foot { margin-top: auto; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 12px 8px 0; border-top: 1px solid var(--sidebar-line); }
+.side-foot span { font-size: 14px; font-weight: 700; color: var(--sidebar-muted); }
+.side-foot button { min-height: 44px; padding: 0 12px; border: 1px solid #3A3D50; border-radius: 10px; background: transparent; color: var(--sidebar-text); font-size: 14px; font-weight: 700; cursor: pointer; }
+
+main { flex: 999 1 560px; min-width: 0; padding-block: 32px 48px; padding-left: max(16px, 2.5vw); padding-right: max(16px, env(safe-area-inset-right, 0px), 2.5vw); }
+.wrap { max-width: 1180px; display: flex; flex-direction: column; gap: 24px; }
+header.page { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; gap: 16px; }
+.eyebrow { font-size: 14px; font-weight: 700; color: var(--muted); }
+h1 { margin: 4px 0 0; font-family: var(--font-display); font-size: 34px; font-weight: 800; letter-spacing: -0.02em; text-wrap: balance; }
+h2 { margin: 0; font-family: var(--font-display); font-size: 21px; font-weight: 800; text-wrap: balance; }
+.btn { min-height: 44px; padding: 0 16px; border-radius: 12px; border: 1px solid var(--border-strong); background: var(--surface); color: var(--text); font-weight: 700; font-size: 14px; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; }
+.btn:hover { border-color: var(--muted); }
+.btn.primary { border: 0; background: var(--primary); color: var(--on-primary); font-weight: 800; }
+.btn.primary:hover { background: #A9C886; }
+.btn.small { min-height: 36px; padding: 0 12px; border-radius: 9px; font-size: 13px; }
+.btn.danger { color: var(--bad-fg); }
+.btn.danger.solid { background: var(--bad-fg); color: #fff; border-color: var(--bad-fg); }
+
+.cats { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 2px; }
+.cat { flex: none; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; min-height: 56px; padding: 8px 14px; border-radius: 14px; border: 1px solid var(--border); background: var(--surface); color: var(--text); cursor: pointer; text-align: left; }
+.cat b { font-size: 14px; font-weight: 800; }
+.cat span { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.cat[aria-selected="true"] { background: var(--text); border-color: var(--text); color: var(--sidebar-text); }
+.cat[aria-selected="true"] span { color: var(--sidebar-muted); }
+
+.grid { display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start; }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 20px; padding: 20px 24px; }
+.list { flex: 999 1 520px; min-width: 0; display: flex; flex-direction: column; gap: 12px; }
+.list-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px; }
+.when { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.5; max-width: 62ch; }
+.rows { list-style: none; margin: 0; padding: 0; }
+.rows li { display: flex; gap: 12px; align-items: flex-start; padding: 12px 4px; border-bottom: 1px solid var(--row); }
+.rows li:last-child { border-bottom: 0; }
+.rows li.selected { background: #F7FAF2; box-shadow: inset 3px 0 0 var(--stripe); border-radius: 6px; }
+.rows li.off .txt { color: var(--muted); }
+.txt { flex: 1; min-width: 0; font-size: 15px; line-height: 1.5; overflow-wrap: anywhere; }
+.ph { display: inline-block; padding: 0 6px; border-radius: 6px; background: #EEF4E6; color: var(--link-hover); font-size: 13px; font-weight: 800; }
+.meta { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.chip { font-size: 12px; font-weight: 800; padding: 2px 8px; border-radius: 999px; }
+.chip.ok { background: var(--ok-bg); color: var(--ok-fg); }
+.chip.off { background: #EEEDE8; color: var(--muted); }
+.chip.warn { background: var(--pending-bg); color: var(--pending-fg); }
+.row-actions { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+.confirm { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 8px; padding: 8px 10px; border-radius: 10px; background: var(--bad-bg); color: var(--bad-fg); font-size: 13px; font-weight: 700; }
+
+.editor { flex: 1 1 340px; min-width: 0; display: flex; flex-direction: column; gap: 14px; position: sticky; top: 16px; }
+.field { display: flex; flex-direction: column; gap: 6px; }
+.field label { font-size: 13px; font-weight: 800; }
+select, textarea { min-height: 44px; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--border-strong); background: var(--surface); color: var(--text); font-size: 15px; }
+textarea { min-height: 110px; resize: vertical; line-height: 1.5; }
+.hint { font-size: 12px; color: var(--muted); line-height: 1.45; }
+.counter { margin-left: auto; font-variant-numeric: tabular-nums; }
+.counter.over { color: var(--bad-fg); font-weight: 800; }
+.phs { display: flex; flex-wrap: wrap; gap: 6px; }
+.phs button { min-height: 32px; padding: 0 10px; border-radius: 8px; border: 1px dashed var(--stripe); background: #F7FAF2; color: var(--link-hover); font-size: 13px; font-weight: 800; cursor: pointer; }
+.phs button:hover { background: #EEF4E6; }
+.toggle { display: flex; align-items: center; gap: 10px; min-height: 44px; font-weight: 700; cursor: pointer; }
+.toggle input { width: 20px; height: 20px; accent-color: var(--stripe); }
+.errors { margin: 0; padding: 10px 12px 10px 28px; border-radius: 10px; background: var(--bad-bg); color: var(--bad-fg); font-size: 13px; font-weight: 700; }
+.preview { display: flex; flex-direction: column; gap: 8px; }
+.preview h3 { margin: 0; font-size: 13px; font-weight: 800; }
+.phone { padding: 14px; border-radius: 20px; background: var(--phone); }
+.notif { display: flex; gap: 12px; padding: 12px 14px; border-radius: 16px; background: var(--phone-surface); color: var(--phone-text); }
+.notif .ic { width: 32px; height: 32px; flex: none; border-radius: 10px; background: var(--primary); color: var(--on-primary); display: flex; align-items: center; justify-content: center; font-family: var(--font-display); font-weight: 800; }
+.notif .top { display: flex; gap: 6px; font-size: 12px; color: var(--phone-muted); }
+.notif .top b { color: var(--phone-text); }
+.notif p { margin: 2px 0 0; font-size: 14px; line-height: 1.45; overflow-wrap: anywhere; }
+.samples { font-size: 12px; color: var(--muted); }
+.actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.actions .primary { flex: 1; justify-content: center; min-height: 48px; font-size: 15px; }
+.toast { position: fixed; right: max(16px, env(safe-area-inset-right, 0px)); bottom: calc(16px + env(safe-area-inset-bottom, 0px)); padding: 12px 16px; border-radius: 12px; background: var(--text); color: var(--sidebar-text); font-weight: 700; box-shadow: 0 8px 24px rgba(22,23,29,.2); }
+.mock-note { font-size: 12px; color: var(--muted); }
+@media (prefers-reduced-motion: no-preference) { .rows li, .cat, .btn { transition: background-color .15s, border-color .15s, color .15s; } }
+@media (max-width: 720px) { .editor { position: static; } h1 { font-size: 28px; } .card { padding: 16px; } }
+</style>
+
+<div class="shell">
+  <aside>
+    <div class="brand"><span class="logo">Q</span><span><b>Quizly</b><small>Administrace</small></span></div>
+    <nav aria-label="Administrace">
+      <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 11L12 4l8.5 7"/><path d="M6 9.5V20h12V9.5"/></svg>Přehled</a>
+      <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="6" width="13" height="15" rx="2"/><path d="M8 3h10a2 2 0 0 1 2 2v12"/></svg>Balíčky</a>
+      <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="8" width="17" height="4.5" rx="1"/><path d="M5 12.5V20h14v-7.5"/><path d="M12 8v12"/><path d="M12 8C10.5 4.5 6.5 4 6.5 6.5 6.5 8 9 8 12 8zM12 8c1.5-3.5 5.5-4 5.5-1.5C17.5 8 15 8 12 8z"/></svg>Obchod<span class="badge">2</span></a>
+      <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7"/><path d="M18 14a6.5 6.5 0 0 1 3.5 6"/></svg>Uživatelé</a>
+      <a href="#" aria-current="page"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 16V11a6 6 0 0 1 12 0v5l2 2H4z"/><path d="M10 20.5a2 2 0 0 0 4 0"/></svg>Texty upozornění</a>
+    </nav>
+    <div class="side-foot"><span>admin</span><button type="button">Odhlásit</button></div>
+  </aside>
+
+  <main>
+    <div class="wrap">
+      <header class="page">
+        <div>
+          <div class="eyebrow" id="summary">52 textů · 51 aktivních</div>
+          <h1>Texty upozornění</h1>
+        </div>
+        <button class="btn primary" type="button" id="new-btn">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>Nový text
+        </button>
+      </header>
+
+      <div class="cats" role="tablist" aria-label="Kategorie" id="cats"></div>
+
+      <div class="grid">
+        <section class="card list" aria-labelledby="list-title">
+          <div class="list-head">
+            <h2 id="list-title">Ráno</h2>
+            <span class="eyebrow" id="list-count"></span>
+          </div>
+          <p class="when" id="when"></p>
+          <ul class="rows" id="rows"></ul>
+        </section>
+
+        <form class="card editor" id="editor" aria-labelledby="editor-title" novalidate>
+          <h2 id="editor-title">Upravit text</h2>
+          <div class="field">
+            <label for="f-cat">Kategorie</label>
+            <select id="f-cat"></select>
+          </div>
+          <div class="field">
+            <div style="display:flex;align-items:baseline;gap:8px">
+              <label for="f-text">Text</label>
+              <span class="hint counter" id="counter">0 / 300</span>
+            </div>
+            <textarea id="f-text" maxlength="400"></textarea>
+            <div class="phs" id="phs" aria-label="Vložit zástupný symbol"></div>
+            <span class="hint">Piš neutrálně (žádné „zvládl/a“, „připravený/á“). Čísla dávej za dvojtečku nebo do tvaru „{done} z {goal}“, ať sedí skloňování.</span>
+          </div>
+          <ul class="errors" id="errors" hidden></ul>
+          <label class="toggle"><input type="checkbox" id="f-active" checked> Aktivní</label>
+          <div class="preview">
+            <h3>Náhled na telefonu</h3>
+            <div class="phone">
+              <div class="notif">
+                <span class="ic">Q</span>
+                <div style="min-width:0">
+                  <div class="top"><b>Quizly</b><span>· teď</span></div>
+                  <p id="preview-text"></p>
+                </div>
+              </div>
+            </div>
+            <span class="samples">Ukázkové hodnoty: {due} 23 · {left} 7 · {done} 13 · {goal} 20 · {streak} 14 · {multiplier} 1,2× · {item} Jít na pizzu · {points} 1 457</span>
+          </div>
+          <div class="actions">
+            <button class="btn" type="button" id="cancel-btn">Zrušit</button>
+            <button class="btn primary" type="submit" id="save-btn">Uložit změny</button>
+          </div>
+          <span class="mock-note">Návrh obrazovky: změny zůstávají jen v tomto náhledu.</span>
+        </form>
+      </div>
+    </div>
+  </main>
+</div>
+<div class="toast" id="toast" role="status" hidden></div>
+
+<script>
+const CATS = [
+  { id: 'morning',   name: 'Ráno',            when: 'Každý den v čas ranního upozornění uživatele (výchozí 08:00), s počtem karet na dnešek.', phs: ['due','streak','multiplier','goal'] },
+  { id: 'evening',   name: 'Večer',           when: 'Ve večerní čas (výchozí 18:30, nebo podle Chytrých časů), jen když denní cíl ještě není splněný.', phs: ['done','goal','left','streak'] },
+  { id: 'last_call', name: 'Poslední výzva',  when: 'Ve 21:00 (nastavitelné), když cíl není splněný a série je větší než 0.', phs: ['left','done','goal','streak'] },
+  { id: 'milestone', name: 'Milník série',    when: 'Hned po dosažení série 7, 30, 100 nebo 365 dní. {points} je bonus, {streak} je dosažený milník.', phs: ['streak','points','multiplier'] },
+  { id: 'wishlist',  name: 'Seznam přání',    when: 'Když body poprvé dosáhnou ceny odměny ze Seznamu přání. {points} je zůstatek.', phs: ['item','points'] },
+  { id: 'comeback',  name: 'Návrat',          when: 'Ráno po dni, kdy se přerušila série. Místo běžného ranního textu.', phs: ['due'] },
+];
+const ALL_PHS = ['due','left','done','goal','streak','multiplier','item','points'];
+const SAMPLE = { due: '23', left: '7', done: '13', goal: '20', streak: '14', multiplier: '1,2×', item: 'Jít na pizzu', points: '1 457' };
+const MAX = 300;
+
+let texts = [{"id": 1, "c": "morning", "t": "Dobré ráno! ☀️ Karty na dnešek: {due}. Uvař si kafe a pojďme na to spolu ☕", "a": true}, {"id": 2, "c": "morning", "t": "Krásné ráno! 🌤️ Dnešní dávka karet je připravená: {due}. Zvládneš to levou zadní 💪", "a": true}, {"id": 3, "c": "morning", "t": "Dobré ráno! Nový den, nová šance naučit se něco nového 🌱", "a": true}, {"id": 4, "c": "morning", "t": "Ahoj! 👋 Dnes máš v plánu karet: {due}. Stačí pár minut a máš hotovo.", "a": true}, {"id": 5, "c": "morning", "t": "Ráno je ideální na pár karet 🧠 Pustíme se do toho?", "a": true}, {"id": 6, "c": "morning", "t": "Dobré ráno! 🔥 Série: {streak}, násobič {multiplier}. Dnes ji můžeš prodloužit!", "a": true}, {"id": 7, "c": "morning", "t": "Hezký den! ☀️ Dnešní cíl: {goal}. Půjdeme na to spolu? 🙂", "a": true}, {"id": 8, "c": "morning", "t": "Dobré ráno! 📚 Na dnešek čeká karet: {due}. Jedna po druhé a bude to hned.", "a": true}, {"id": 9, "c": "morning", "t": "Vstávej, mozek se těší! 🧠✨ Dáme si dnes pár karet?", "a": true}, {"id": 10, "c": "morning", "t": "Dobré ráno! Kafe ☕, karty 📚 a dobrá nálada. Věřím ti ❤️", "a": true}, {"id": 11, "c": "morning", "t": "Ahoj! Tvůj násobič je dnes {multiplier} 🚀 Každá správná odpověď se počítá víc.", "a": true}, {"id": 12, "c": "morning", "t": "Dobré ráno! 🌻 Pár minut učení dnes udělá radost tvému budoucímu já.", "a": true}, {"id": 13, "c": "evening", "t": "Jde ti to skvěle! 💪 Už máš {done} z {goal}. Dáme ještě kousek spolu?", "a": true}, {"id": 14, "c": "evening", "t": "Do dnešního cíle zbývá: {left}. To dáš! ✨", "a": true}, {"id": 15, "c": "evening", "t": "Večer je na karty jako stvořený 🌙 Pár minut a cíl je splněný.", "a": true}, {"id": 16, "c": "evening", "t": "Ahoj! 👋 Dnešní cíl ještě čeká. Dáme ho spolu? 🙂", "a": true}, {"id": 17, "c": "evening", "t": "Ještě kousek! 🧩 Máš {done} z {goal} a cíl je na dosah.", "a": true}, {"id": 18, "c": "evening", "t": "Zvládneš to! Věřím ti ❤️", "a": false}, {"id": 19, "c": "evening", "t": "Malá pauza na karty? ☕ Do cíle chybí: {left}.", "a": true}, {"id": 20, "c": "evening", "t": "Série: {streak} 🔥 Dnešní karty ji udrží při životě. Jdeme na to?", "a": true}, {"id": 21, "c": "evening", "t": "Krátké opakování před večeří? 🍝 Mozek ti poděkuje.", "a": true}, {"id": 22, "c": "evening", "t": "Jsi blíž, než si myslíš 🌟 Do cíle zbývá: {left}.", "a": true}, {"id": 23, "c": "last_call", "t": "Ještě je čas! ⏰ Do cíle zbývá: {left}. Série: {streak} 🔥 Udržíme ji spolu?", "a": true}, {"id": 24, "c": "last_call", "t": "Poslední výzva na dnešek 🌙 Pár karet a série zůstane v bezpečí 💚", "a": true}, {"id": 25, "c": "last_call", "t": "Psst… 🤫 Dnešní cíl ještě čeká. Stačí chvilka a série žije dál 🔥", "a": true}, {"id": 26, "c": "last_call", "t": "Ještě jedno kolo před spaním? 😴📚 Do cíle chybí: {left}.", "a": true}, {"id": 27, "c": "last_call", "t": "Tvoje série se drží 🔥 Dáme dnešní karty, ať to tak zůstane?", "a": true}, {"id": 28, "c": "last_call", "t": "Ještě to stihneš! 💪 Máš {done} z {goal}, už jen poslední kousek.", "a": true}, {"id": 29, "c": "last_call", "t": "Den ještě nekončí ✨ Pár karet a máš splněno.", "a": true}, {"id": 30, "c": "last_call", "t": "Pojďme to dnes dotáhnout 🙌 Věřím ti ❤️", "a": true}, {"id": 31, "c": "milestone", "t": "{streak} dní v řadě! 🎉 Tohle je paráda, máš můj obdiv!", "a": true}, {"id": 32, "c": "milestone", "t": "Série {streak} dní! 🔥 Bonus +{points} bodů je tvůj. Zasloužíš si ho!", "a": true}, {"id": 33, "c": "milestone", "t": "Wow, {streak} dní bez přestávky! 🏆 Násobič je teď {multiplier}.", "a": true}, {"id": 34, "c": "milestone", "t": "Milník splněn! 🎯 {streak} dní v řadě a k tomu bonus +{points} bodů 🎁", "a": true}, {"id": 35, "c": "milestone", "t": "Neuvěřitelné! 🌟 Učíš se už {streak} dní v kuse. Jen tak dál!", "a": true}, {"id": 36, "c": "milestone", "t": "Gratuluju! 🎉 Nový milník série je tady.", "a": true}, {"id": 37, "c": "milestone", "t": "Tohle je výkon! 🏅 Další milník série je za tebou 💚", "a": true}, {"id": 38, "c": "milestone", "t": "{streak} dní! 🚀 Tvoje vytrvalost je obdivuhodná.", "a": true}, {"id": 39, "c": "wishlist", "t": "Máš na to! 🎁 Body ti teď stačí na „{item}“. Zasloužíš si tu odměnu!", "a": true}, {"id": 40, "c": "wishlist", "t": "Hurá! 🥳 Na „{item}“ už máš dost bodů. Mrkni do obchodu 🛍️", "a": true}, {"id": 41, "c": "wishlist", "t": "Tvoje přání je na dosah 💛 „{item}“ si teď můžeš koupit.", "a": true}, {"id": 42, "c": "wishlist", "t": "Body na kontě: {points} 🪙 To stačí na „{item}“!", "a": true}, {"id": 43, "c": "wishlist", "t": "Splněné přání čeká! ✨ Odměna ze Seznamu přání je teď v dosahu.", "a": true}, {"id": 44, "c": "wishlist", "t": "Dřina se vyplácí 💪 Na jednu z tvých vysněných odměn už máš dost bodů 🎁", "a": true}, {"id": 45, "c": "wishlist", "t": "Šetření se vyplatilo! 🎉 „{item}“ může být tvoje.", "a": true}, {"id": 46, "c": "comeback", "t": "Vítej zpátky 💚 Série se přerušila, to se stává každému. Začneme znovu, spolu to dáme!", "a": true}, {"id": 47, "c": "comeback", "t": "Nový den, nový start 🌱 Každá série začíná jedničkou.", "a": true}, {"id": 48, "c": "comeback", "t": "Žádný stres 🤗 Jeden vynechaný den nic nemění. Dáme dnes pár karet?", "a": true}, {"id": 49, "c": "comeback", "t": "Ahoj! 👋 Karty se na tebe těší. Začneme novou sérii?", "a": true}, {"id": 50, "c": "comeback", "t": "I ty nejlepší série se někdy přeruší 💚 Hlavní je pokračovat. Jdeme na to?", "a": true}, {"id": 51, "c": "comeback", "t": "Čistý štít ✨ Dnes můžeš začít novou sérii. Věřím ti ❤️", "a": true}, {"id": 52, "c": "comeback", "t": "Dobré ráno! ☀️ Na dnešek čeká karet: {due}. Pomalu a v klidu, krok za krokem 🐢", "a": true}];
+let cat = 'morning';
+let selectedId = null;      // null = new text
+let confirmId = null;
+let nextId = 1000;
+
+const $ = (id) => document.getElementById(id);
+const esc = (s) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const placeholders = (t) => [...t.matchAll(/\{(\w+)\}/g)].map((m) => m[1]);
+const highlight = (t) => esc(t).replace(/\{(\w+)\}/g, '<span class="ph">{$1}</span>');
+const render = (t) => t.replace(/\{(\w+)\}/g, (m, k) => SAMPLE[k] ?? m);
+
+function validate(t) {
+  const errs = [];
+  if (!t.trim()) errs.push('Text nesmí být prázdný.');
+  if (t.length > MAX) errs.push(`Text má ${t.length} znaků, maximum je ${MAX}.`);
+  for (const p of placeholders(t)) if (!ALL_PHS.includes(p)) errs.push(`Neznámý zástupný symbol {${p}}.`);
+  const open = (t.match(/\{/g) || []).length, close = (t.match(/\}/g) || []).length;
+  if (open !== close) errs.push('Složené závorky nejsou spárované.');
+  return errs;
+}
+
+function renderCats() {
+  $('cats').innerHTML = CATS.map((c) => {
+    const items = texts.filter((t) => t.c === c.id);
+    const active = items.filter((t) => t.a).length;
+    return `<button type="button" role="tab" class="cat" id="tab-${c.id}" aria-selected="${c.id === cat}" data-cat="${c.id}"><b>${c.name}</b><span>${active} aktivních z ${items.length}</span></button>`;
+  }).join('');
+  const total = texts.length, active = texts.filter((t) => t.a).length;
+  $('summary').textContent = `${total} textů · ${active} aktivních`;
+}
+
+function renderList() {
+  const c = CATS.find((x) => x.id === cat);
+  const items = texts.filter((t) => t.c === cat);
+  const free = items.filter((t) => t.a && placeholders(t.t).length === 0).length;
+  $('list-title').textContent = c.name;
+  $('list-count').textContent = `${items.length} textů`;
+  $('when').innerHTML = esc(c.when).replace(/\{(\w+)\}/g, '<span class="ph">{$1}</span>');
+  $('rows').innerHTML = items.map((t) => {
+    const phs = placeholders(t.t);
+    const chips = [
+      t.a ? '<span class="chip ok">Aktivní</span>' : '<span class="chip off">Neaktivní</span>',
+      phs.length ? `<span class="chip off">${phs.map((p) => '{' + p + '}').join(' ')}</span>` : '<span class="chip off">bez zástupných symbolů</span>',
+    ].join('');
+    const confirm = confirmId === t.id
+      ? `<div class="confirm">Smazat tento text? <button type="button" class="btn small danger solid" data-del-yes="${t.id}">Smazat</button><button type="button" class="btn small" data-del-no>Ponechat</button></div>`
+      : '';
+    return `<li class="${t.id === selectedId ? 'selected' : ''} ${t.a ? '' : 'off'}">
+      <div style="flex:1;min-width:0"><div class="txt">${highlight(t.t)}</div><div class="meta">${chips}</div>${confirm}</div>
+      <div class="row-actions">
+        <button type="button" class="btn small" data-edit="${t.id}">Upravit</button>
+        <button type="button" class="btn small" data-toggle="${t.id}">${t.a ? 'Deaktivovat' : 'Aktivovat'}</button>
+        <button type="button" class="btn small danger" data-del="${t.id}" aria-label="Smazat text">Smazat</button>
+      </div></li>`;
+  }).join('') + (free < 2 ? `<li><span class="chip warn">Kategorie potřebuje aspoň 2 aktivní texty bez zástupných symbolů (pro případ, že hodnota chybí). Teď: ${free}.</span></li>` : '');
+}
+
+function renderPhs() {
+  const c = CATS.find((x) => x.id === $('f-cat').value);
+  $('phs').innerHTML = c.phs.map((p) => `<button type="button" data-ph="${p}">{${p}}</button>`).join('');
+}
+
+function renderEditor() {
+  const t = $('f-text').value;
+  const errs = validate(t);
+  $('counter').textContent = `${t.length} / ${MAX}`;
+  $('counter').classList.toggle('over', t.length > MAX);
+  $('errors').hidden = errs.length === 0 || t.length === 0;
+  $('errors').innerHTML = errs.map((e) => `<li>${esc(e)}</li>`).join('');
+  $('preview-text').textContent = t.trim() ? render(t) : 'Tady se ukáže, jak text uvidí uživatel.';
+  $('save-btn').disabled = errs.length > 0;
+  $('save-btn').style.opacity = errs.length > 0 ? 0.5 : 1;
+}
+
+function openEditor(id) {
+  selectedId = id;
+  const t = texts.find((x) => x.id === id);
+  $('editor-title').textContent = t ? 'Upravit text' : 'Nový text';
+  $('save-btn').textContent = t ? 'Uložit změny' : 'Přidat text';
+  $('f-cat').value = t ? t.c : cat;
+  $('f-text').value = t ? t.t : '';
+  $('f-active').checked = t ? t.a : true;
+  renderPhs(); renderEditor(); renderList();
+}
+
+function toast(msg) {
+  const el = $('toast'); el.textContent = msg; el.hidden = false;
+  clearTimeout(toast.t); toast.t = setTimeout(() => { el.hidden = true; }, 2200);
+}
+
+$('f-cat').innerHTML = CATS.map((c) => `<option value="${c.id}">${c.name}</option>`).join('');
+
+$('cats').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-cat]'); if (!b) return;
+  cat = b.dataset.cat; confirmId = null;
+  const first = texts.find((t) => t.c === cat);
+  renderCats(); openEditor(first ? first.id : null);
+});
+
+$('rows').addEventListener('click', (e) => {
+  const b = e.target.closest('button'); if (!b) return;
+  if (b.dataset.edit) { openEditor(+b.dataset.edit); $('f-text').focus(); }
+  else if (b.dataset.toggle) { const t = texts.find((x) => x.id === +b.dataset.toggle); t.a = !t.a; renderCats(); renderList(); if (t.id === selectedId) $('f-active').checked = t.a; toast(t.a ? 'Text je aktivní' : 'Text je neaktivní'); }
+  else if (b.dataset.del) { confirmId = +b.dataset.del; renderList(); }
+  else if (b.dataset.delYes) { texts = texts.filter((x) => x.id !== +b.dataset.delYes); confirmId = null; renderCats(); openEditor(null); toast('Text smazán'); }
+  else if ('delNo' in b.dataset) { confirmId = null; renderList(); }
+});
+
+$('phs').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-ph]'); if (!b) return;
+  const ta = $('f-text'), ins = `{${b.dataset.ph}}`;
+  const s = ta.selectionStart ?? ta.value.length, en = ta.selectionEnd ?? ta.value.length;
+  ta.value = ta.value.slice(0, s) + ins + ta.value.slice(en);
+  ta.focus(); ta.setSelectionRange(s + ins.length, s + ins.length); renderEditor();
+});
+
+$('f-text').addEventListener('input', renderEditor);
+$('f-cat').addEventListener('change', () => { renderPhs(); renderEditor(); });
+$('new-btn').addEventListener('click', () => { openEditor(null); $('f-text').focus(); });
+$('cancel-btn').addEventListener('click', () => openEditor(selectedId));
+
+$('editor').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const text = $('f-text').value.trim();
+  if (validate(text).length) return;
+  const c = $('f-cat').value, a = $('f-active').checked;
+  let t = texts.find((x) => x.id === selectedId);
+  if (t) { Object.assign(t, { c, t: text, a }); toast('Změny uloženy'); }
+  else { t = { id: nextId++, c, t: text, a }; texts.push(t); toast('Text přidán'); }
+  cat = c; renderCats(); openEditor(t.id);
+});
+
+renderCats();
+openEditor(texts.find((t) => t.c === cat)?.id ?? null);
+</script>
