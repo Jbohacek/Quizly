@@ -19,7 +19,7 @@ public class QuizlyFactory(PostgresContainer postgres) : WebApplicationFactory<P
 
     private readonly string _database = $"quizly_test_{Guid.NewGuid():N}";
 
-    /// <summary>Starts at the real current time so JWT lifetime checks (real clock) still pass.</summary>
+    /// <summary>The app's clock (issuing and validating tokens, refresh grace, throttling). Tests in a class share it.</summary>
     public FakeTimeProvider Time { get; } = new(DateTimeOffset.UtcNow);
 
     /// <summary>Extra settings for a derived factory, e.g. tight rate limits.</summary>

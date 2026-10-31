@@ -81,6 +81,22 @@ internal static class AuthSetup
                 .RequireAuthenticatedUser()
                 .RequireRole(AdminRole));
 
+        // Validate token lifetimes with the same clock that issues them (JwtTokenIssuer uses the injected TimeProvider).
+        services.AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme)
+            .Configure<TimeProvider>((options, time) =>
+            {
+                options.TimeProvider = time;
+                options.TokenValidationParameters.LifetimeValidator = (notBefore, expires, _, parameters) =>
+                {
+                    var now = time.GetUtcNow().UtcDateTime;
+                    return expires is not null
+                        && expires.Value > now - parameters.ClockSkew
+                        && (notBefore is null || notBefore.Value <= now + parameters.ClockSkew);
+                };
+            });
+        services.AddOptions<CookieAuthenticationOptions>(AdminScheme)
+            .Configure<TimeProvider>((options, time) => options.TimeProvider = time);
+
         services.AddRateLimiter(options =>
         {
             AddPerIpLimit(options, config, LoginLimit, defaultPermits: 10);

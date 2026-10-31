@@ -26,6 +26,23 @@ public sealed class AuthTests(QuizlyFactory factory) : IClassFixture<QuizlyFacto
         Assert.Equal(HttpStatusCode.OK, texts.StatusCode);
     }
 
+    [Fact]
+    public async Task Access_token_lifetime_follows_the_app_clock()
+    {
+        // Issuing and validating must use the same clock, wherever the shared fake clock currently is.
+        factory.Time.Advance(TimeSpan.FromMinutes(10));
+        var user = await factory.CreateUserAsync();
+        var tokens = await factory.LoginAsync(user.Username, user.Password);
+        using var app = factory.AppClient(tokens.AccessToken);
+
+        var fresh = await app.GetAsync("/api/notification-texts", Ct);
+        factory.Time.Advance(TimeSpan.FromMinutes(62));
+        var expired = await app.GetAsync("/api/notification-texts", Ct);
+
+        Assert.Equal(HttpStatusCode.OK, fresh.StatusCode);
+        await expired.AssertProblemAsync(HttpStatusCode.Unauthorized, "unauthorized");
+    }
+
     [Theory]
     [InlineData("wrong-password")]
     [InlineData("")]
