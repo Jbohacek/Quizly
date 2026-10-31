@@ -39,7 +39,9 @@ docker compose -f deploy/docker-compose.dev.yml up -d
 dotnet run --project src/Quizly.Web
 ```
 
-- Swagger UI: http://localhost:5278/api/docs (admin login via `POST /api/admin/auth/login`, dev credentials in `src/Quizly.Web/appsettings.Development.json`).
+- Admin dashboard: http://localhost:5278/admin (dev credentials in `src/Quizly.Web/appsettings.Development.json`).
+- Swagger UI: http://localhost:5278/api/docs (admin login via `POST /api/admin/auth/login`).
+- Deploying to the server: [`deploy/README-deploy.md`](./deploy/README-deploy.md).
 - Migrations run on startup; Development also seeds a small demo deck. Every request is in `src/Quizly.Web/Quizly.Web.http`.
 - New migration: `dotnet tool restore`, then `dotnet ef migrations add <Name> --project src/Quizly.Infrastructure --output-dir Persistence/Migrations`.
 

@@ -512,7 +512,9 @@ Streak 13 through yesterday (m = 1,1×), goal 20. Today the first 19 answers are
 
 - Credentials from `ADMIN_USERNAME` / `ADMIN_PASSWORD`; the password is hashed in memory at startup and compared with `PasswordHasher`.
 - Cookie `__Host-quizly-admin`: `HttpOnly`, `Secure`, `SameSite=Strict`, 12 h sliding expiration.
-- Login page `/admin/login`: 5 attempts / 5 min per IP.
+- Login page `/admin/login` (static server-rendered form with antiforgery): 5 failed attempts / 5 min per IP. `returnUrl` must be an `/admin` path (no open redirect).
+- Logout: `POST /admin/logout` from the sidebar form, antiforgery-checked.
+- Default authentication: `/api/*` uses the JWT, everything else (the dashboard and its Blazor circuit) the admin cookie; app and admin endpoints name their scheme explicitly, so the cookie never reaches app endpoints and app tokens never open the dashboard.
 - Admin REST endpoints (`/api/admin/*`) accept the same cookie. Writes with a body must be `application/json` (else 415); with `SameSite=Strict` this blocks CSRF.
 - `POST /api/admin/auth/login` sets the cookie for REST and Swagger use (same rate limit); the Blazor login page arrives in Etapa 4.
 - In Development and Testing the cookie is `quizly-admin` without the `Secure` requirement (plain http); in Production it is `__Host-quizly-admin`.

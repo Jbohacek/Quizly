@@ -379,7 +379,8 @@ Admin cookie (spec §9.2). Same error format. Writes with a body require `Conten
 | GET / PUT / DELETE | `/admin/decks/{id}` | PUT body as POST; DELETE → `204` (cascades, spec §2.14) |
 | GET / POST | `/admin/decks/{id}/cards` | `{ question, answer, sortOrder? }` → card |
 | PUT / DELETE | `/admin/decks/{id}/cards/{cardId}` | `{ question, answer, sortOrder }` → card |
-| GET | `/admin/decks/{id}/yaml` | → `text/yaml` export (yaml-format §2) |
+| GET | `/admin/decks/{id}/yaml` | → `text/yaml` export (yaml-format §3) |
+| GET | `/admin/decks/{id}/delete-impact` | → `{ cards, usersWithProgress }` for the delete confirmation |
 | POST | `/admin/decks/{id}/yaml/preview` | `{ yaml }` → preview (yaml-format §5) |
 | PUT | `/admin/decks/{id}/yaml` | `{ yaml, baseHash, confirmDeleteIds: [..] }` → `200` result |
 | POST | `/admin/decks/import/preview` · `/admin/decks/import` | `{ yaml }` → preview / `201` new deck |

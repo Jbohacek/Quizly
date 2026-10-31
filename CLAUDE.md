@@ -414,3 +414,9 @@ Jakub confirmed these defaults at the Etapa 0 gate (2026-10-31). Raise any of th
 | 2026-10-31 | Any existing card may be answered via `POST /api/reviews`; the new-card allowance only shapes the session queue. |
 | 2026-10-31 | A repeated claim `requestId` returns 200 with the original claim; a new claim returns 201. |
 | 2026-10-31 | `GET /api/decks` and admin `GET/POST /api/admin/claims[/{id}/confirm\|reject]` are built in Etapa 3 with the logic they expose. |
+| 2026-10-31 | Etapa 3 approved and merged (PR #3). |
+| 2026-10-31 | Dashboard routes: `/admin`, `/admin/balicky[/{id}]`, `/admin/obchod`, `/admin/uzivatele`, `/admin/texty-upozorneni`; login is a static server-rendered form, the rest Interactive Server. |
+| 2026-10-31 | Dashboard pages open a fresh DI scope (DbContext) per operation; a circuit-long DbContext would show stale data. |
+| 2026-10-31 | Default auth scheme forwards by path: `/api/*` → JWT, everything else → admin cookie. |
+| 2026-10-31 | YAML export writes multi-line text as `\|-` and quotes values other tools could read as numbers/booleans/null. |
+| 2026-10-31 | Fonts are bundled from the saved design (OFL, `wwwroot/fonts/LICENSES.txt`). Npgsql GSS encryption is disabled (password auth only). |
