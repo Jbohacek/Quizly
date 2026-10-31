@@ -16,7 +16,7 @@ Final layout for v1. Versions are pinned to the latest stable release when each 
 │  ├─ Quizly.Domain/                entities, enums, pure logic, no dependencies
 │  │  ├─ Scheduling/                FSRS-6 scheduler (Fsrs.cs, FsrsParameters.cs, CardMemory.cs)
 │  │  ├─ Gamification/              PointsCalculator, Multiplier, StreakRules, Milestones
-│  │  └─ Time/                      IClock, PragueCalendar
+│  │  └─ PragueCalendar.cs          Europe/Prague days (time comes from the injected TimeProvider)
 │  ├─ Quizly.Application/           use-case services shared by REST and Blazor
 │  │  ├─ Abstractions/              IAppDbContext (DbSets), IPasswordGenerator
 │  │  ├─ Auth/ · Session/ · Reviews/ · Stats/ · Shop/ · Decks/ · Yaml/ · Users/ · NotificationTexts/ · Overview/
@@ -49,18 +49,19 @@ Dependencies point inward: `Web → Application → Domain`, `Infrastructure →
 | --- | --- | --- |
 | `Npgsql.EntityFrameworkCore.PostgreSQL` | Infrastructure | EF Core 10 provider |
 | `EFCore.NamingConventions` | Infrastructure | snake_case tables/columns |
-| `Microsoft.EntityFrameworkCore` | Application | `IAppDbContext` with `DbSet`s |
-| `Microsoft.EntityFrameworkCore.Design` | Web (dev only) | migrations tooling |
+| `Microsoft.EntityFrameworkCore`, `Microsoft.EntityFrameworkCore.Relational` | Application | `IAppDbContext` with `DbSet`s; `FromSql` for row locks |
+| `Microsoft.EntityFrameworkCore.Design` | Infrastructure (private) | migrations tooling (`dotnet ef`, local tool in `dotnet-tools.json`) |
 | `Microsoft.AspNetCore.Authentication.JwtBearer` | Web | app auth |
 | `Microsoft.AspNetCore.OpenApi` | Web | built-in OpenAPI document |
-| `Swashbuckle.AspNetCore.SwaggerUI` | Web | Swagger UI at `/api/docs` (UI only) |
 | `Microsoft.Extensions.Diagnostics.HealthChecks.EntityFrameworkCore` | Web | `/api/health` DB check |
 | `YamlDotNet` | Application | deck YAML (representation model for line numbers) |
-| `xunit.v3`, `xunit.runner.visualstudio`, `Microsoft.NET.Test.Sdk` | Tests | test framework |
+| `xunit.v3` | Tests | test framework, runs on Microsoft.Testing.Platform (`global.json` → `test.runner`) |
 | `Microsoft.AspNetCore.Mvc.Testing` | Tests | in-memory API host |
 | `Testcontainers.PostgreSql` | Tests | real PostgreSQL in tests (needs Docker; available on GitHub runners) |
+| `Microsoft.Extensions.TimeProvider.Testing` | Tests | `FakeTimeProvider` |
 
-Built into the framework, no package needed: rate limiting, ProblemDetails, Data Protection, forwarded headers, `PasswordHasher<T>`, Blazor.
+Built into the framework, no package needed: rate limiting, ProblemDetails, Data Protection, forwarded headers, `PasswordHasher<T>`, `TimeProvider`, Blazor.
+Swagger UI is a small page at `/api/docs` that loads `swagger-ui-dist` from jsDelivr and reads the built-in OpenAPI document (no Swashbuckle, which has known issues on .NET 9+).
 No UI component library for the admin: plain Razor components and CSS with the §9.2 tokens.
 Assertions: plain xUnit `Assert` (no FluentAssertions; its v8 license is commercial).
 

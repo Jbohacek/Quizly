@@ -7,7 +7,8 @@ Base URL: `https://quizly.jbohacek.cz/api`. Rules behind the numbers are in [`sp
 - JSON, camelCase, UTF-8. Instants ISO 8601 UTC (`2026-11-02T07:10:00Z`); days `YYYY-MM-DD` (Prague); times of day `HH:mm`.
 - App endpoints need `Authorization: Bearer <accessToken>`. Admin endpoints use the admin cookie (§12).
 - Numbers are raw (`1457`, `1.1`). The app formats them in Czech (`1 457`, `1,1×`).
-- OpenAPI document at `/api/openapi/v1.json`, Swagger UI at `/api/docs` (open in Development, admin cookie in Production).
+- OpenAPI document at `/api/openapi/v1.json`, Swagger UI at `/api/docs` (open in Development, admin cookie everywhere else). The UI page loads `swagger-ui-dist` from jsDelivr.
+- JSON input is strict: exact camelCase names, no numbers in strings, no duplicate properties, required fields must be present. An unreadable body is `400 validation`.
 
 ### 1.1 Errors (RFC 7807 ProblemDetails)
 
@@ -36,11 +37,11 @@ Base URL: `https://quizly.jbohacek.cz/api`. Rules behind the numbers are in [`sp
 | Code | Status | When |
 | --- | --- | --- |
 | `validation` | 400 | input fails the rules in spec §8 |
-| `unauthorized` | 401 | missing, invalid or expired access token |
+| `unauthorized` | 401 | missing, invalid or expired access token; admin endpoint without the admin cookie |
 | `invalidCredentials` | 401 | wrong username or password |
 | `accountDisabled` | 401 | user is deactivated (login, refresh, any call) |
 | `refreshTokenInvalid` | 401 | unknown, expired, revoked or reused refresh token |
-| `forbidden` | 403 | admin endpoint without admin cookie |
+| `forbidden` | 403 | authenticated, but not allowed (reserved) |
 | `notFound` | 404 | resource doesn't exist (or is an inactive shop item for the app) |
 | `soldOut` | 409 | claim with stock 0 |
 | `insufficientBalance` | 409 | claim with balance < price |
@@ -50,6 +51,7 @@ Base URL: `https://quizly.jbohacek.cz/api`. Rules behind the numbers are in [`sp
 | `hasClaims` | 409 | deleting a shop item with claims |
 | `yamlInvalid` | 422 | YAML preview/apply has errors (body lists them) |
 | `deleteNotConfirmed` | 422 | YAML apply deletes cards that weren't confirmed |
+| `unsupportedMediaType` | 415 | admin write whose body isn't `application/json` |
 | `rateLimited` | 429 | rate limit hit; `Retry-After` header in seconds |
 | `serverError` | 500 | unexpected; logged with `traceId` |
 
@@ -355,13 +357,20 @@ Active texts only. Strong `ETag` = `version` (hash of ids + texts). `If-None-Mat
 
 ## 12. Admin endpoints (`/api/admin/*`)
 
-Admin cookie (spec §9.2). Same error format. Writes require `Content-Type: application/json`. The Blazor dashboard calls the same services directly; these endpoints exist for scripting and tests.
+Admin cookie (spec §9.2). Same error format. Writes with a body require `Content-Type: application/json`.
+
+| Method | Path | Body → Response |
+| --- | --- | --- |
+| POST | `/admin/auth/login` | `{ username, password }` → `204` + cookie; `401 invalidCredentials`; rate-limited |
+| POST | `/admin/auth/logout` | → `204` |
+| GET | `/admin/auth/me` | → `{ username }` |
+ The Blazor dashboard calls the same services directly; these endpoints exist for scripting and tests.
 
 | Method | Path | Body → Response |
 | --- | --- | --- |
 | GET | `/admin/overview` | → tiles, pending claims, users today (spec §11) |
 | GET | `/admin/users` | → list: id, username, displayName, isActive, balance, streak, bestStreak, totalReviews, successRate, lastActiveAt |
-| POST | `/admin/users` | `{ username, displayName, dailyGoal?, newCardsPerDay? }` → `201 { user, password }` (generated, shown once) |
+| POST | `/admin/users` | `{ username, displayName, password?, dailyGoal?, newCardsPerDay? }` → `201 { user, password }` (generated when omitted, shown once) |
 | PUT | `/admin/users/{id}` | `{ displayName, dailyGoal, newCardsPerDay }` → user |
 | POST | `/admin/users/{id}/reset-password` | → `{ password }` (shown once; revokes refresh tokens) |
 | POST | `/admin/users/{id}/activate` · `/deactivate` | → `204` |
