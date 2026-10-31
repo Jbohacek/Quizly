@@ -55,15 +55,70 @@ public class QuizlyFactory(PostgresContainer postgres) : WebApplicationFactory<P
     }
 
     /// <summary>Creates an app user through the admin API and returns the generated password.</summary>
-    public async Task<(int Id, string Username, string Password)> CreateUserAsync(string? username = null)
+    public async Task<(int Id, string Username, string Password)> CreateUserAsync(
+        string? username = null, int dailyGoal = 20, int newCardsPerDay = 5)
     {
         username ??= "u" + Guid.NewGuid().ToString("N")[..10];
         using var admin = await AdminClientAsync();
-        var response = await admin.PostAsJsonAsync("/api/admin/users", new { username, displayName = "Testovací uživatel" });
+        var response = await admin.PostAsJsonAsync("/api/admin/users",
+            new { username, displayName = "Testovací uživatel", dailyGoal, newCardsPerDay });
         response.EnsureSuccessStatusCode();
         var created = await response.Content.ReadFromJsonAsync<CreatedUserResponse>(Json.Options);
         return (created!.User.Id, username, created.Password);
     }
+
+    /// <summary>A fresh client for the user, logged in at the current (fake) time.</summary>
+    public async Task<HttpClient> AppClientAsync((int Id, string Username, string Password) user) =>
+        AppClient((await LoginAsync(user.Username, user.Password)).AccessToken);
+
+    /// <summary>Creates a deck with numbered cards through the admin API.</summary>
+    public async Task<(int DeckId, List<int> CardIds)> CreateDeckAsync(string name, int cards, int? sortOrder = null)
+    {
+        using var admin = await AdminClientAsync();
+        var deck = await (await admin.PostAsJsonAsync("/api/admin/decks", new { name, sortOrder })).ReadNodeAsync();
+        var deckId = (int)deck["id"]!;
+        var ids = new List<int>();
+        for (var i = 1; i <= cards; i++)
+        {
+            var card = await (await admin.PostAsJsonAsync($"/api/admin/decks/{deckId}/cards",
+                new { question = $"{name} otázka {i}", answer = $"Odpověď {i}" })).ReadNodeAsync();
+            ids.Add((int)card["id"]!);
+        }
+
+        return (deckId, ids);
+    }
+
+    /// <summary>Gives points directly in the ledger (stands in for many reviews).</summary>
+    public Task GivePointsAsync(int userId, int amount) => WithDbAsync(async db =>
+    {
+        db.PointsEntries.Add(new Domain.PointsEntry
+        {
+            UserId = userId,
+            Amount = amount,
+            Reason = Domain.PointsReason.Milestone,
+            ReferenceId = "test:" + Guid.NewGuid().ToString("N"),
+            CreatedAt = Time.GetUtcNow().UtcDateTime,
+        });
+        await db.SaveChangesAsync();
+    });
+
+    /// <summary>Moves the clock forward to the next moment that is <paramref name="local"/> in Europe/Prague.</summary>
+    public void AdvanceToPrague(TimeOnly local)
+    {
+        var now = Time.GetUtcNow().UtcDateTime;
+        var pragueNow = TimeZoneInfo.ConvertTimeFromUtc(now, Domain.PragueCalendar.Zone);
+        var day = DateOnly.FromDateTime(pragueNow);
+        var target = TimeZoneInfo.ConvertTimeToUtc(day.ToDateTime(local, DateTimeKind.Unspecified), Domain.PragueCalendar.Zone);
+        if (target <= now)
+        {
+            target = TimeZoneInfo.ConvertTimeToUtc(day.AddDays(1).ToDateTime(local, DateTimeKind.Unspecified), Domain.PragueCalendar.Zone);
+        }
+
+        Time.Advance(target - now);
+    }
+
+    /// <summary>Today in Prague by the fake clock.</summary>
+    public DateOnly PragueToday => Domain.PragueCalendar.Today(Time);
 
     public async Task<TokenResponse> LoginAsync(string username, string password)
     {
