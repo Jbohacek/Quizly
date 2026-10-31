@@ -19,4 +19,8 @@
   <ItemGroup>
     <Using Include="Xunit" />
   </ItemGroup>
+  <ItemGroup>
+    <!-- Single source of truth: the vectors generated in docs/fsrs. -->
+    <None Include="..\..\docs\fsrs\fsrs6-reference-vectors.json" Link="TestData\fsrs6-reference-vectors.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
 </Project>
