@@ -1,0 +1,53 @@
+# Quizly production stack (Portainer). Values come from the stack's environment variables (see .env.example).
+name: quizly
+
+services:
+  db:
+    image: postgres:18
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      # PostgreSQL 18 images keep data under /var/lib/postgresql/18/docker; mount the parent.
+      - pgdata:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - backend
+
+  quizly:
+    image: ghcr.io/jbohacek/quizly:${QUIZLY_TAG:-latest}
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ConnectionStrings__Default: ${ConnectionStrings__Default}
+      Jwt__SigningKey: ${Jwt__SigningKey}
+      Jwt__Issuer: ${Jwt__Issuer}
+      ADMIN_USERNAME: ${ADMIN_USERNAME}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD}
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL}
+    volumes:
+      - keys:/data/keys
+    ports:
+      # Only Nginx Proxy Manager should reach this port.
+      - "${QUIZLY_PORT:-8080}:8080"
+    networks:
+      - backend
+      - default
+
+networks:
+  # The database is not reachable from outside the stack.
+  backend:
+    internal: true
+
+volumes:
+  pgdata:
+  keys:

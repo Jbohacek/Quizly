@@ -1,0 +1,11 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Quizly.Application/Quizly.Application.csproj" />
+    <Project Path="src/Quizly.Domain/Quizly.Domain.csproj" />
+    <Project Path="src/Quizly.Infrastructure/Quizly.Infrastructure.csproj" />
+    <Project Path="src/Quizly.Web/Quizly.Web.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Quizly.Tests/Quizly.Tests.csproj" />
+  </Folder>
+</Solution>

@@ -17,7 +17,7 @@ Related documents:
 - **Instants** are UTC `timestamptz`. The API sends them as ISO 8601 with `Z`.
 - **Days** are calendar days in **Europe/Prague**, stored as `date`, sent as `YYYY-MM-DD`.
   - Conversion always goes through the IANA zone `Europe/Prague` (`TimeZoneInfo.FindSystemTimeZoneById("Europe/Prague")`, works on Linux and Windows with ICU). Never use the server's local zone.
-  - All "day" logic goes through one injectable `IClock` + `PragueCalendar` service so tests can set the time.
+  - All "day" logic goes through the injected .NET `TimeProvider` + the `PragueCalendar` helper, so tests can set the time (`FakeTimeProvider`).
 - **Times of day** in settings are `time` (no zone), interpreted in Europe/Prague on the phone. API format `HH:mm`.
 - **Server time is the truth.** A review's timestamp and day come from the moment the server receives the request, never from the phone.
 - **Database naming:** snake_case tables and columns (`EFCore.NamingConventions`).
@@ -513,7 +513,9 @@ Streak 13 through yesterday (m = 1,1×), goal 20. Today the first 19 answers are
 - Credentials from `ADMIN_USERNAME` / `ADMIN_PASSWORD`; the password is hashed in memory at startup and compared with `PasswordHasher`.
 - Cookie `__Host-quizly-admin`: `HttpOnly`, `Secure`, `SameSite=Strict`, 12 h sliding expiration.
 - Login page `/admin/login`: 5 attempts / 5 min per IP.
-- Admin REST endpoints (`/api/admin/*`) accept the same cookie and require `Content-Type: application/json` for writes (with `SameSite=Strict` this blocks CSRF).
+- Admin REST endpoints (`/api/admin/*`) accept the same cookie. Writes with a body must be `application/json` (else 415); with `SameSite=Strict` this blocks CSRF.
+- `POST /api/admin/auth/login` sets the cookie for REST and Swagger use (same rate limit); the Blazor login page arrives in Etapa 4.
+- In Development and Testing the cookie is `quizly-admin` without the `Secure` requirement (plain http); in Production it is `__Host-quizly-admin`.
 - Blazor pages call the application services directly.
 - Swagger UI `/api/docs`: open in Development, behind the admin cookie in Production.
 

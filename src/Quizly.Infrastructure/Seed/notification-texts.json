@@ -1,0 +1,210 @@
+[
+  {
+    "category": "morning",
+    "text": "Dobré ráno! ☀️ Karty na dnešek: {due}. Uvař si kafe a pojďme na to spolu ☕"
+  },
+  {
+    "category": "morning",
+    "text": "Krásné ráno! 🌤️ Dnešní dávka karet je připravená: {due}. Zvládneš to levou zadní 💪"
+  },
+  {
+    "category": "morning",
+    "text": "Dobré ráno! Nový den, nová šance naučit se něco nového 🌱"
+  },
+  {
+    "category": "morning",
+    "text": "Ahoj! 👋 Dnes máš v plánu karet: {due}. Stačí pár minut a máš hotovo."
+  },
+  {
+    "category": "morning",
+    "text": "Ráno je ideální na pár karet 🧠 Pustíme se do toho?"
+  },
+  {
+    "category": "morning",
+    "text": "Dobré ráno! 🔥 Série: {streak}, násobič {multiplier}. Dnes ji můžeš prodloužit!"
+  },
+  {
+    "category": "morning",
+    "text": "Hezký den! ☀️ Dnešní cíl: {goal}. Půjdeme na to spolu? 🙂"
+  },
+  {
+    "category": "morning",
+    "text": "Dobré ráno! 📚 Na dnešek čeká karet: {due}. Jedna po druhé a bude to hned."
+  },
+  {
+    "category": "morning",
+    "text": "Vstávej, mozek se těší! 🧠✨ Dáme si dnes pár karet?"
+  },
+  {
+    "category": "morning",
+    "text": "Dobré ráno! Kafe ☕, karty 📚 a dobrá nálada. Věřím ti ❤️"
+  },
+  {
+    "category": "morning",
+    "text": "Ahoj! Tvůj násobič je dnes {multiplier} 🚀 Každá správná odpověď se počítá víc."
+  },
+  {
+    "category": "morning",
+    "text": "Dobré ráno! 🌻 Pár minut učení dnes udělá radost tvému budoucímu já."
+  },
+  {
+    "category": "evening",
+    "text": "Jde ti to skvěle! 💪 Už máš {done} z {goal}. Dáme ještě kousek spolu?"
+  },
+  {
+    "category": "evening",
+    "text": "Do dnešního cíle zbývá: {left}. To dáš! ✨"
+  },
+  {
+    "category": "evening",
+    "text": "Večer je na karty jako stvořený 🌙 Pár minut a cíl je splněný."
+  },
+  {
+    "category": "evening",
+    "text": "Ahoj! 👋 Dnešní cíl ještě čeká. Dáme ho spolu? 🙂"
+  },
+  {
+    "category": "evening",
+    "text": "Ještě kousek! 🧩 Máš {done} z {goal} a cíl je na dosah."
+  },
+  {
+    "category": "evening",
+    "text": "Zvládneš to! Věřím ti ❤️"
+  },
+  {
+    "category": "evening",
+    "text": "Malá pauza na karty? ☕ Do cíle chybí: {left}."
+  },
+  {
+    "category": "evening",
+    "text": "Série: {streak} 🔥 Dnešní karty ji udrží při životě. Jdeme na to?"
+  },
+  {
+    "category": "evening",
+    "text": "Krátké opakování před večeří? 🍝 Mozek ti poděkuje."
+  },
+  {
+    "category": "evening",
+    "text": "Jsi blíž, než si myslíš 🌟 Do cíle zbývá: {left}."
+  },
+  {
+    "category": "last_call",
+    "text": "Ještě je čas! ⏰ Do cíle zbývá: {left}. Série: {streak} 🔥 Udržíme ji spolu?"
+  },
+  {
+    "category": "last_call",
+    "text": "Poslední výzva na dnešek 🌙 Pár karet a série zůstane v bezpečí 💚"
+  },
+  {
+    "category": "last_call",
+    "text": "Psst… 🤫 Dnešní cíl ještě čeká. Stačí chvilka a série žije dál 🔥"
+  },
+  {
+    "category": "last_call",
+    "text": "Ještě jedno kolo před spaním? 😴📚 Do cíle chybí: {left}."
+  },
+  {
+    "category": "last_call",
+    "text": "Tvoje série se drží 🔥 Dáme dnešní karty, ať to tak zůstane?"
+  },
+  {
+    "category": "last_call",
+    "text": "Ještě to stihneš! 💪 Máš {done} z {goal}, už jen poslední kousek."
+  },
+  {
+    "category": "last_call",
+    "text": "Den ještě nekončí ✨ Pár karet a máš splněno."
+  },
+  {
+    "category": "last_call",
+    "text": "Pojďme to dnes dotáhnout 🙌 Věřím ti ❤️"
+  },
+  {
+    "category": "milestone",
+    "text": "{streak} dní v řadě! 🎉 Tohle je paráda, máš můj obdiv!"
+  },
+  {
+    "category": "milestone",
+    "text": "Série {streak} dní! 🔥 Bonus +{points} bodů je tvůj. Zasloužíš si ho!"
+  },
+  {
+    "category": "milestone",
+    "text": "Wow, {streak} dní bez přestávky! 🏆 Násobič je teď {multiplier}."
+  },
+  {
+    "category": "milestone",
+    "text": "Milník splněn! 🎯 {streak} dní v řadě a k tomu bonus +{points} bodů 🎁"
+  },
+  {
+    "category": "milestone",
+    "text": "Neuvěřitelné! 🌟 Učíš se už {streak} dní v kuse. Jen tak dál!"
+  },
+  {
+    "category": "milestone",
+    "text": "Gratuluju! 🎉 Nový milník série je tady."
+  },
+  {
+    "category": "milestone",
+    "text": "Tohle je výkon! 🏅 Další milník série je za tebou 💚"
+  },
+  {
+    "category": "milestone",
+    "text": "{streak} dní! 🚀 Tvoje vytrvalost je obdivuhodná."
+  },
+  {
+    "category": "wishlist",
+    "text": "Máš na to! 🎁 Body ti teď stačí na „{item}“. Zasloužíš si tu odměnu!"
+  },
+  {
+    "category": "wishlist",
+    "text": "Hurá! 🥳 Na „{item}“ už máš dost bodů. Mrkni do obchodu 🛍️"
+  },
+  {
+    "category": "wishlist",
+    "text": "Tvoje přání je na dosah 💛 „{item}“ si teď můžeš koupit."
+  },
+  {
+    "category": "wishlist",
+    "text": "Body na kontě: {points} 🪙 To stačí na „{item}“!"
+  },
+  {
+    "category": "wishlist",
+    "text": "Splněné přání čeká! ✨ Odměna ze Seznamu přání je teď v dosahu."
+  },
+  {
+    "category": "wishlist",
+    "text": "Dřina se vyplácí 💪 Na jednu z tvých vysněných odměn už máš dost bodů 🎁"
+  },
+  {
+    "category": "wishlist",
+    "text": "Šetření se vyplatilo! 🎉 „{item}“ může být tvoje."
+  },
+  {
+    "category": "comeback",
+    "text": "Vítej zpátky 💚 Série se přerušila, to se stává každému. Začneme znovu, spolu to dáme!"
+  },
+  {
+    "category": "comeback",
+    "text": "Nový den, nový start 🌱 Každá série začíná jedničkou."
+  },
+  {
+    "category": "comeback",
+    "text": "Žádný stres 🤗 Jeden vynechaný den nic nemění. Dáme dnes pár karet?"
+  },
+  {
+    "category": "comeback",
+    "text": "Ahoj! 👋 Karty se na tebe těší. Začneme novou sérii?"
+  },
+  {
+    "category": "comeback",
+    "text": "I ty nejlepší série se někdy přeruší 💚 Hlavní je pokračovat. Jdeme na to?"
+  },
+  {
+    "category": "comeback",
+    "text": "Čistý štít ✨ Dnes můžeš začít novou sérii. Věřím ti ❤️"
+  },
+  {
+    "category": "comeback",
+    "text": "Dobré ráno! ☀️ Na dnešek čeká karet: {due}. Pomalu a v klidu, krok za krokem 🐢"
+  }
+]

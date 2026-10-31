@@ -11,8 +11,8 @@ The full brief is in [`CLAUDE.md`](./CLAUDE.md).
 | Etapa | Name | Branch | Status |
 | --- | --- | --- | --- |
 | 0 | Preparation | `main` | Approved |
-| 1 | Spec and design | `etapa-1-spec` | Waiting for review |
-| 2 | API foundation | `etapa-2-api` | Not started |
+| 1 | Spec and design | `etapa-1-spec` | Approved |
+| 2 | API foundation | `etapa-2-api` | Waiting for review |
 | 3 | Learning and game logic | `etapa-3-logic` | Not started |
 | 4 | Admin dashboard and first deploy | `etapa-4-admin` | Not started |
 | 5 | Android app core | `etapa-5-app` | Not started |
@@ -55,7 +55,7 @@ No production code in this stage.
 **Design**
 - [x] Design proposal: 10 phone screens + 4 admin pages (claude.ai Design canvas, saved copy in `docs/design/quizly-design-proposal.html`)
 - [x] Apply main color `#BAD69B` and the friendly notification tone
-- [ ] **(Jakub)** Approve the design, or list changes
+- [x] **(Jakub)** Approve the design, or list changes
 - [x] Design for the admin "Texty upozornění" page (missing from the canvas) → `docs/design/admin-texty-upozorneni.html`
 
 **Spec documents**
@@ -71,23 +71,23 @@ No production code in this stage.
 - [x] Resolve the open decisions in `CLAUDE.md` §13 with Jakub (confirmed at the Etapa 0 gate; FSRS, fuzz, goal change and design location decided 2026-10-31)
 
 **Gate**
-- [ ] Approved by Jakub (screens + spec)
+- [x] Approved by Jakub (screens + spec)
 
 ---
 
 ## Etapa 2: API foundation
 
-- [ ] Solution and projects per the agreed layout; nullable on, warnings as errors
-- [ ] EF Core + PostgreSQL, full data model, initial migration, migrations on startup
-- [ ] App auth: login, rotating refresh tokens, logout, JWT, rate limit on login
-- [ ] Admin auth from env vars (`ADMIN_USERNAME`, `ADMIN_PASSWORD`)
-- [ ] REST CRUD: users (+ reset password, activate/deactivate), decks, cards, shop items, notification texts
-- [ ] Seed notification texts; optional demo deck in Development only
-- [ ] Validation, ProblemDetails errors, OpenAPI + Swagger UI at `/api/docs`
-- [ ] `/api/health`
-- [ ] Multi-stage `Dockerfile`, `deploy/docker-compose.yml`, `deploy/.env.example`
-- [ ] GitHub Actions `api.yml`: build + test on PR, push image to GHCR on `main`
-- [ ] Tests: auth, CRUD, validation
+- [x] Solution and projects per the agreed layout; nullable on, warnings as errors
+- [x] EF Core + PostgreSQL, full data model, initial migration, migrations on startup
+- [x] App auth: login, rotating refresh tokens, logout, JWT, rate limit on login
+- [x] Admin auth from env vars (`ADMIN_USERNAME`, `ADMIN_PASSWORD`)
+- [x] REST CRUD: users (+ reset password, activate/deactivate), decks, cards, shop items, notification texts
+- [x] Seed notification texts; optional demo deck in Development only
+- [x] Validation, ProblemDetails errors, OpenAPI + Swagger UI at `/api/docs`
+- [x] `/api/health`
+- [x] Multi-stage `Dockerfile`, `deploy/docker-compose.yml`, `deploy/.env.example`
+- [x] GitHub Actions `api.yml`: build + test on PR, push image to GHCR on `main`
+- [x] Tests: auth, CRUD, validation
 
 **Gate**
 - [ ] `docker compose up` works locally, endpoints work in Swagger, CI green

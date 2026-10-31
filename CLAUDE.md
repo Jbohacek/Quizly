@@ -403,3 +403,9 @@ Jakub confirmed these defaults at the Etapa 0 gate (2026-10-31). Raise any of th
 | 2026-10-31 | Refresh-token rotation has a 60 s retry grace so flaky networks don't log the user out. |
 | 2026-10-31 | Number placeholders in notification texts are placed so Czech plurals stay correct; the §5.8 examples were rephrased accordingly. |
 | 2026-10-31 | The wishlist "reached" event is checked in review and settings responses only (a refund's event arrives with the next review). |
+| 2026-10-31 | Etapa 1 approved and merged (PR #1). |
+| 2026-10-31 | Swagger UI is a small page loading `swagger-ui-dist` from a CDN over the built-in OpenAPI document; no Swashbuckle (known issues on .NET 9+). |
+| 2026-10-31 | `POST /api/admin/auth/login` sets the admin cookie for REST and Swagger use until the Blazor login page exists (Etapa 4). |
+| 2026-10-31 | Tests run on Microsoft.Testing.Platform (xUnit v3, `global.json` `test.runner`), integration tests on PostgreSQL 18 via Testcontainers. |
+| 2026-10-31 | Time comes from the .NET `TimeProvider` (tests use `FakeTimeProvider`) instead of a custom `IClock`. |
+| 2026-10-31 | Data Protection keys persist to `/data/keys` (volume) already in Etapa 2, because the admin cookie needs them. |

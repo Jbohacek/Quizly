@@ -25,7 +25,35 @@ docs/       spec, API, YAML format, notifications, architecture, design, FSRS ve
 .github/    CI workflows
 ```
 
-Details in [`docs/architecture.md`](./docs/architecture.md). Local development instructions arrive with the code (Etapa 2 for the API, Etapa 5 for the app).
+Details in [`docs/architecture.md`](./docs/architecture.md).
+
+## Local development (API)
+
+Needs the .NET 10 SDK and Docker.
+
+```bash
+docker compose -f deploy/docker-compose.dev.yml up -d
+```
+
+```bash
+dotnet run --project src/Quizly.Web
+```
+
+- Swagger UI: http://localhost:5278/api/docs (admin login via `POST /api/admin/auth/login`, dev credentials in `src/Quizly.Web/appsettings.Development.json`).
+- Migrations run on startup; Development also seeds a small demo deck. Every request is in `src/Quizly.Web/Quizly.Web.http`.
+- New migration: `dotnet tool restore`, then `dotnet ef migrations add <Name> --project src/Quizly.Infrastructure --output-dir Persistence/Migrations`.
+
+Tests (start PostgreSQL 18 with Testcontainers, so Docker must be running):
+
+```bash
+dotnet test --solution Quizly.slnx
+```
+
+Whole stack in containers, built from this checkout (copy `deploy/.env.example` to `deploy/.env` first):
+
+```bash
+docker compose -f deploy/docker-compose.yml -f deploy/docker-compose.build.yml up --build
+```
 
 ## Secrets
 
