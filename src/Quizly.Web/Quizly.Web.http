@@ -165,3 +165,87 @@ POST {{baseUrl}}/api/auth/logout
 Content-Type: application/json
 
 { "refreshToken": "{{login.response.body.refreshToken}}" }
+
+### ---------- Study, progress and shop (JWT) ----------
+
+### Login again (the logout above revoked the first refresh token)
+# @name app
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{ "username": "petra", "password": "paste-the-generated-password" }
+
+### Profile, summary, due counts, forecast
+GET {{baseUrl}}/api/me
+Authorization: Bearer {{app.response.body.accessToken}}
+
+### Settings
+GET {{baseUrl}}/api/me/settings
+Authorization: Bearer {{app.response.body.accessToken}}
+
+### Save settings (lowering the goal can complete today → events)
+PUT {{baseUrl}}/api/me/settings
+Authorization: Bearer {{app.response.body.accessToken}}
+Content-Type: application/json
+
+{ "dailyGoal": 10, "newCardsPerDay": 5, "notificationsEnabled": true, "morningTime": "08:00", "eveningTime": "18:30", "lastCallTime": "21:00", "quietFrom": "22:00", "quietTo": "07:00", "smartTimes": true }
+
+### Decks with counts
+GET {{baseUrl}}/api/decks
+Authorization: Bearer {{app.response.body.accessToken}}
+
+### Session: all decks
+GET {{baseUrl}}/api/session
+Authorization: Bearer {{app.response.body.accessToken}}
+
+### Session: one deck
+GET {{baseUrl}}/api/session?deckId=1
+Authorization: Bearer {{app.response.body.accessToken}}
+
+### Answers (repeat the same ids → status duplicate, no extra points)
+POST {{baseUrl}}/api/reviews
+Authorization: Bearer {{app.response.body.accessToken}}
+Content-Type: application/json
+
+{ "reviews": [
+  { "id": "6f1c2a7e-3b0c-4f6e-9d51-0a2b7c9e1f42", "cardId": 1, "rating": "know" },
+  { "id": "0b9d8c3a-1e2f-4a5b-8c7d-6e5f4a3b2c1d", "cardId": 2, "rating": "dontKnow" }
+] }
+
+### Stats (all decks, or ?deckId=1)
+GET {{baseUrl}}/api/stats
+Authorization: Bearer {{app.response.body.accessToken}}
+
+### Shop
+GET {{baseUrl}}/api/shop
+Authorization: Bearer {{app.response.body.accessToken}}
+
+### Buy (repeat the same requestId → 200 with the same claim)
+POST {{baseUrl}}/api/shop/1/claim
+Authorization: Bearer {{app.response.body.accessToken}}
+Content-Type: application/json
+
+{ "requestId": "c2a1f6d4-8b3e-4c7a-9f10-2d5e6b7a8c90" }
+
+### My purchases
+GET {{baseUrl}}/api/claims
+Authorization: Bearer {{app.response.body.accessToken}}
+
+### Heart / unheart
+PUT {{baseUrl}}/api/wishlist/1
+Authorization: Bearer {{app.response.body.accessToken}}
+
+###
+DELETE {{baseUrl}}/api/wishlist/1
+Authorization: Bearer {{app.response.body.accessToken}}
+
+### ---------- Admin: purchases (run the admin login request at the top first) ----------
+
+### Pending purchases (or ?status=confirmed / rejected, or no filter)
+GET {{baseUrl}}/api/admin/claims?status=pending
+
+### Confirm
+POST {{baseUrl}}/api/admin/claims/1/confirm
+
+### Reject: refunds the points and restocks
+POST {{baseUrl}}/api/admin/claims/1/reject
