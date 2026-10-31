@@ -12,8 +12,8 @@ The full brief is in [`CLAUDE.md`](./CLAUDE.md).
 | --- | --- | --- | --- |
 | 0 | Preparation | `main` | Approved |
 | 1 | Spec and design | `etapa-1-spec` | Approved |
-| 2 | API foundation | `etapa-2-api` | Waiting for review |
-| 3 | Learning and game logic | `etapa-3-logic` | Not started |
+| 2 | API foundation | `etapa-2-api` | Approved |
+| 3 | Learning and game logic | `etapa-3-logic` | Waiting for review |
 | 4 | Admin dashboard and first deploy | `etapa-4-admin` | Not started |
 | 5 | Android app core | `etapa-5-app` | Not started |
 | 6 | Motivation layer | `etapa-6-motivation` | Not started |
@@ -90,24 +90,24 @@ No production code in this stage.
 - [x] Tests: auth, CRUD, validation
 
 **Gate**
-- [ ] `docker compose up` works locally, endpoints work in Swagger, CI green
-- [ ] Approved by Jakub
+- [x] `docker compose up` works locally, endpoints work in Swagger, CI green
+- [x] Approved by Jakub
 
 ---
 
 ## Etapa 3: Learning and game logic
 
-- [ ] FSRS scheduler (port + unit tests against reference vectors)
-- [ ] `GET /api/session`: due cards + new-card allowance, one deck or all
-- [ ] `POST /api/reviews`: batch, idempotent by client UUID
-- [ ] Points with multiplier and rounding, written to the points ledger
-- [ ] Daily activity, daily goal, streak + best streak (Europe/Prague day boundary)
-- [ ] Milestone bonuses (7 / 30 / 100 / 365)
-- [ ] Shop: claim in one transaction (no overselling), confirm, reject (refund + restock)
-- [ ] Wishlist endpoints
-- [ ] `/api/me` summary and `/api/me/settings`
-- [ ] Stats endpoint: tiles, heatmap, daily bars, weekday, best time, deck progress
-- [ ] Unit tests: FSRS, points, streak edge cases (midnight, DST, missed day, goal change), claim concurrency, idempotency
+- [x] FSRS scheduler (port + unit tests against reference vectors)
+- [x] `GET /api/session`: due cards + new-card allowance, one deck or all (+ `GET /api/decks`)
+- [x] `POST /api/reviews`: batch, idempotent by client UUID
+- [x] Points with multiplier and rounding, written to the points ledger
+- [x] Daily activity, daily goal, streak + best streak (Europe/Prague day boundary)
+- [x] Milestone bonuses (7 / 30 / 100 / 365)
+- [x] Shop: claim in one transaction (no overselling), confirm, reject (refund + restock)
+- [x] Wishlist endpoints
+- [x] `/api/me` summary and `/api/me/settings`
+- [x] Stats endpoint: tiles, heatmap, daily bars, weekday, best time, deck progress
+- [x] Unit tests: FSRS, points, streak edge cases (midnight, DST, missed day, goal change), claim concurrency, idempotency
 
 **Gate**
 - [ ] A full session can be played through Swagger; tests green
