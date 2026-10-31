@@ -224,7 +224,7 @@ Indexes: `(status, created_at)`, `(user_id, created_at)`.
 | `is_active` | `boolean` | no | |
 | `created_at` / `updated_at` | `timestamptz` | no | |
 
-Index: `(category)`. Seeded from `notification-texts.md` **only when the table is empty**, so admin edits are never overwritten.
+Index: `(category)`. Seeded from `notification-texts.md` (converted to `Seed/notification-texts.json` in Etapa 2) **only when the table is empty**, so admin edits are never overwritten.
 
 ### 2.14 Cascades and deletes
 
@@ -275,7 +275,7 @@ Index: `(category)`. Seeded from `notification-texts.md` **only when the table i
 
 ### 3.4 Reference vectors
 
-- [`fsrs/fsrs6-reference-vectors.json`](./fsrs/fsrs6-reference-vectors.json): 8 cases, 57 reviews. Each step has the review time, rating, state before, retrievability before, `elapsedDays`, `scheduledDays` and the full state after.
+- [`fsrs/fsrs6-reference-vectors.json`](./fsrs/fsrs6-reference-vectors.json): 8 cases, 61 reviews. Each step has the review time, rating, state before, retrievability before, `elapsedDays`, `scheduledDays` and the full state after.
 - Cases: `good_only`, `again_first`, `again_twice_in_learning`, `lapse_and_relearn`, `repeated_lapses`, `overdue_reviews`, `same_day_in_review`, `early_reviews`.
 - Regenerate with [`fsrs/generate_vectors.py`](./fsrs/generate_vectors.py) (`pip install fsrs==6.3.2`). The JSON is copied into the test project in Etapa 3 and the C# scheduler must reproduce every step.
 
@@ -442,13 +442,14 @@ points = round(base × m)        base: Vím 10, Nevím 2, Přeskočit 0
 
 ### 6.4 Wishlist "reached" event
 
-After any ledger change that increases the balance (review, milestone, refund): for each of the user's wishlist entries with `notified_at IS NULL`, active item, and `balance ≥ price`, set `notified_at = now` and return a `wishlistReached` event.
+At the end of every `POST /api/reviews` and `PUT /api/me/settings` (the calls whose events reach the phone): for each of the user's wishlist entries with `notified_at IS NULL`, active item, and `balance ≥ price`, set `notified_at = now` and return a `wishlistReached` event.
 - Adding a heart when the balance is already ≥ price sets `notified_at` right away (no event, the user can already see it).
 - Removing and re-adding a heart resets it.
+- A refund raises the balance in an admin action, which the phone never sees; the event then comes with the user's next review.
 
 ### 6.5 Worked example
 
-Streak 13 through yesterday (m = 1,1×), goal 20. Today: 14 Vím + 6 Nevím before the goal → 14 × 11 + 6 × 2 = 166. The 20th answer (Vím) still uses 1,1× → +11, goal met, streak 14. The 21st answer (Vím) uses 1,2× → +12. No milestone at 14. Day total: 166 + 11 + 12 = 189.
+Streak 13 through yesterday (m = 1,1×), goal 20. Today the first 19 answers are 13 Vím + 6 Nevím → 13 × 11 + 6 × 2 = 155. The 20th answer (Vím) still uses 1,1× → +11, goal met, streak 14. The 21st answer (Vím) uses 1,2× → +12. No milestone at 14. Day total: 155 + 11 + 12 = 178.
 
 ---
 
@@ -465,7 +466,7 @@ Streak 13 through yesterday (m = 1,1×), goal 20. Today: 14 Vím + 6 Nevím befo
 ### 7.2 Decide (admin)
 
 - **Confirm:** `pending → confirmed`, `decided_at = now`. Final.
-- **Reject:** `pending → rejected`, `decided_at = now`, `points_entries(+price, refund, claimId)`, `stock += 1` (also when the item is inactive). Runs the wishlist check (§6.4).
+- **Reject:** `pending → rejected`, `decided_at = now`, `points_entries(+price, refund, claimId)`, `stock += 1` (also when the item is inactive).
 - Deciding a non-pending claim → `claimNotPending` (409).
 
 ### 7.3 Visibility

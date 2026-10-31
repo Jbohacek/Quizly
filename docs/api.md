@@ -64,7 +64,7 @@ Base URL: `https://quizly.jbohacek.cz/api`. Rules behind the numbers are in [`sp
   "bestStreak": 21,
   "multiplier": 1.1,
   "nextMultiplier": { "value": 1.2, "inDays": 1 },
-  "today": { "date": "2026-11-02", "graded": 13, "correct": 11, "goal": 20, "goalMet": false, "points": 131 },
+  "today": { "date": "2026-11-02", "graded": 13, "correct": 11, "goal": 20, "goalMet": false, "points": 125 },
   "streakBroken": null
 }
 ```
@@ -129,7 +129,7 @@ Errors: `validation`, `invalidCredentials`, `accountDisabled`, `rateLimited`. `d
 }
 ```
 
-- `dueNow` = due cards + remaining new-card allowance (what "Učit se vše" would return).
+- `dueNow` = due cards + `min(unseen cards, remaining new-card allowance)`, i.e. the length of the "Učit se vše" queue.
 - `forecast.dueByNextMorning` = cards with `due ≤` the next morning time + tomorrow's new-card allowance (`min(newCardsPerDay, unseen cards)`). For the `morning` notification.
 - `smartEveningTime`: median start time of study sessions in the last 14 days, rounded to 15 min and clamped to 17:00–20:30. A session starts with a review that follows a ≥ 30 min gap. `null` with fewer than 3 sessions. Computed even when Chytré časy is off; the phone decides.
 
@@ -293,9 +293,9 @@ Active items only, by `sortOrder`. `missing = max(0, price − balance)`.
 `{ "requestId": "c2a1…uuid" }` → `201`:
 
 ```json
-{ "claim": { "id": 17, "itemId": 3, "itemName": "Jít na pizzu", "price": 1500, "status": "pending",
+{ "claim": { "id": 17, "itemId": 4, "itemName": "Kino", "price": 1200, "status": "pending",
              "createdAt": "2026-11-02T17:01:00Z", "decidedAt": null },
-  "balance": 7 }
+  "balance": 257 }
 ```
 
 A repeated `requestId` returns `200` with the same claim. Errors: `notFound`, `itemInactive`, `soldOut`, `insufficientBalance`, `validation`.
@@ -381,6 +381,6 @@ Admin cookie (spec §9.2). Same error format. Writes require `Content-Type: appl
 | PUT / DELETE | `/admin/notification-texts/{id}` | |
 | POST | `/admin/notification-texts/preview` | `{ text }` → `{ rendered }` with sample values (§13) |
 
-### 13. Preview sample values
+## 13. Preview sample values
 
 `{due}` 23 · `{left}` 7 · `{done}` 13 · `{goal}` 20 · `{streak}` 14 · `{multiplier}` 1,2× · `{item}` Jít na pizzu · `{points}` 1 457

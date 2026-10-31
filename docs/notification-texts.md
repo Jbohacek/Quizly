@@ -2,7 +2,7 @@
 
 These texts are seeded into `notification_texts` when the table is empty (spec §2.13). After that the admin edits them on **Texty upozornění**. When/how they fire: [`notifications.md`](./notifications.md).
 
-Format for the seeder: every list item under a `## <category>` heading is one active text.
+Format for the seeder: every list item under a `## <category>` heading whose name is one of the six category ids is one active text. Other headings are ignored.
 
 ## Writing rules
 

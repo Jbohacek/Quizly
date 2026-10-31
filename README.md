@@ -14,14 +14,14 @@ The project is built in stages. Progress lives in [`STAGES.md`](./STAGES.md).
 The full brief (features, business rules, data model, API, design tokens) is in [`CLAUDE.md`](./CLAUDE.md).
 Detailed specs live in [`docs/`](./docs): [spec](./docs/spec.md) · [API](./docs/api.md) · [YAML format](./docs/yaml-format.md) · [notifications](./docs/notifications.md) · [notification texts](./docs/notification-texts.md) · [architecture](./docs/architecture.md) · [design](./docs/design/).
 
-## Repository layout (planned)
+## Repository layout
 
 ```
 src/        ASP.NET Core solution (Domain, Application, Infrastructure, Web)
 tests/      xUnit tests
 app/        Flutter app
 deploy/     docker-compose.yml, .env.example, backup script, deploy guide
-docs/       spec, API, YAML deck format, notification texts
+docs/       spec, API, YAML format, notifications, architecture, design, FSRS vectors
 .github/    CI workflows
 ```
 

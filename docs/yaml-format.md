@@ -88,18 +88,18 @@ Every error has a 1-based `line` (and `column` where known) and a Czech message.
 | Code | Message (Czech UI) |
 | --- | --- |
 | `syntax` | Neplatný YAML: {detail} (řádek {line}) |
-| `notMapping` | Kořen souboru musí obsahovat klíče `deck` a `cards`. |
-| `missingKey` | Chybí povinný klíč `{key}`. |
-| `unknownKey` | Neznámý klíč `{key}`. |
-| `wrongType` | `{key}` musí být {type}. |
-| `emptyText` | `{key}` nesmí být prázdné. |
-| `tooLong` | `{key}` má {length} znaků, maximum je {max}. |
-| `invalidColor` | Barva musí být ve tvaru `#RRGGBB`. |
-| `invalidId` | `id` musí být kladné celé číslo. |
-| `duplicateId` | `id` {id} je v souboru víckrát (také na řádku {otherLine}). |
+| `notMapping` | Kořen souboru musí obsahovat klíče „deck“ a „cards“. |
+| `missingKey` | Chybí povinný klíč „{key}“. |
+| `unknownKey` | Neznámý klíč „{key}“. |
+| `wrongType` | „{key}“ musí být {type}. |
+| `emptyText` | „{key}“ nesmí být prázdné. |
+| `tooLong` | „{key}“ má {length} znaků, maximum je {max}. |
+| `invalidColor` | Barva musí být ve tvaru #RRGGBB. |
+| `invalidId` | „id“ musí být kladné celé číslo. |
+| `duplicateId` | Karta s id {id} je v souboru víckrát (také na řádku {otherLine}). |
 | `foreignId` | Karta {id} patří do jiného balíčku ({deckName}). |
-| `unknownId` | Karta {id} neexistuje. Smaž `id`, pokud má vzniknout nová karta. |
-| `idInNewDeck` | Při importu nového balíčku karty nesmí mít `id`. |
+| `unknownId` | Karta {id} neexistuje. Smaž „id“, pokud má vzniknout nová karta. |
+| `idInNewDeck` | Při importu nového balíčku karty nesmí mít „id“. |
 | `aliasNotAllowed` | Kotvy, aliasy a tagy nejsou povolené. |
 | `tooManyCards` | Balíček může mít nejvýš 2 000 karet. |
 | `fileTooLarge` | Soubor je větší než 1 MB. |

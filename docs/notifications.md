@@ -76,7 +76,7 @@ Example: morning 06:30 with quiet hours until 07:00 → no morning notification.
 
 1. Take the active texts of the category.
 2. Drop texts with a placeholder whose value is unknown (notification-texts.md table). Values per slot:
-   - morning / comeback today: `{due}` = `dueNow`; morning tomorrow: `{due}` = `forecast.dueByNextMorning`.
+   - morning / comeback today: `{due}` = `dueNow`; morning / comeback tomorrow: `{due}` = `forecast.dueByNextMorning`.
    - evening / last_call: `{done}`, `{goal}`, `{left}` from today's summary (tomorrow: done 0, left = goal, goal = current setting).
    - `{streak}` and `{multiplier}` as they will be on that day (tomorrow after an unmet today: streak unknown, multiplier 1,0×).
 3. Drop texts used recently: the last `k = min(5, ⌊n / 2⌋)` ids of the category (n = eligible texts). If nothing is left, use the least recently used eligible text.

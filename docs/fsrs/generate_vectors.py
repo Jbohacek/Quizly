@@ -133,5 +133,6 @@ output = {
     "cases": cases,
 }
 
+sys.stdout.reconfigure(encoding="utf-8", newline="\n")
 json.dump(output, sys.stdout, indent=2)
 sys.stdout.write("\n")

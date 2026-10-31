@@ -69,7 +69,7 @@ Final layout and package lists: [`docs/architecture.md`](./docs/architecture.md)
 │  └─ Quizly.Tests/          xUnit
 ├─ app/                      Flutter project
 ├─ deploy/                   docker-compose.yml, .env.example, backup.sh, README-deploy.md
-├─ docs/                     spec.md, api.md, yaml-format.md, notification-texts.md (from Etapa 1), design/ (saved design proposal)
+├─ docs/                     spec, api, yaml-format, notifications, notification-texts, architecture, design/, fsrs/
 └─ .github/workflows/        api.yml, app.yml
 ```
 
@@ -99,12 +99,12 @@ Final layout and package lists: [`docs/architecture.md`](./docs/architecture.md)
 - Runs **on the server**. Implement **FSRS-6**, ported from **py-fsrs 6.3.2**, with **default parameters**, **desired retention 0.9** and **fuzz off**. Exact rules: [`docs/spec.md`](./docs/spec.md) §3; reference vectors in `docs/fsrs/`.
 - Port carefully and **unit-test against reference values** produced by the reference implementation.
 - Only two ratings are used: **Again (1)** and **Good (3)**.
-- Per user × card store: state (New / Learning / Review / Relearning), stability, difficulty, due, last review, reps, lapses, plus anything the chosen FSRS version needs (e.g. learning step).
+- Per user × card store: state (Learning / Review / Relearning; a card with no stored state is New), stability, difficulty, due, last review, reps, lapses, plus anything the chosen FSRS version needs (e.g. learning step).
 - Keep every review in `ReviewLog` for stats and possible future parameter optimization.
 
 ### 5.4 Points
 - **Know: 10 × multiplier. Don't know: 2 × multiplier. Skip: 0.**
-- **Rounding:** to the nearest integer, halves away from zero (2 × 1.1 = 2.2 → **2**; 10 × 1.1 → **11**). ⚠ *Pending confirmation (§13).*
+- **Rounding:** to the nearest integer, halves away from zero (2 × 1.1 = 2.2 → **2**; 10 × 1.1 → **11**). Confirmed at the Etapa 0 gate.
 - **Multiplier** = `min(2.0, 1.0 + 0.1 × floor(streak / 7))`. `streak` is the current streak at the moment of the review; today counts once today's goal has been reached.
 
 ```
@@ -143,10 +143,11 @@ points = round(base × min(2.0, 1.0 + 0.1 × floor(streakDays / 7)))
 - **Texts come from the API** (`GET /api/notification-texts`), are cached on the device, and are picked at random per category, avoiding recent repeats.
 - **Tone:** warm, friendly, supportive, **emoji welcome**, **never guilt-tripping**, gender-neutral. Examples:
   - "Zvládneš to! Věřím ti ❤️"
-  - "Jde ti to skvěle! 💪 Už máš {done} z {goal} karet. Dáme ještě kousek spolu?"
-  - "Dobré ráno! ☀️ Dnes tě čeká {due} karet. Uvař si kafe a pojďme na to spolu ☕"
+  - "Jde ti to skvěle! 💪 Už máš {done} z {goal}. Dáme ještě kousek spolu?"
+  - "Dobré ráno! ☀️ Karty na dnešek: {due}. Uvař si kafe a pojďme na to spolu ☕"
   - "{streak} dní v řadě! 🎉 Tohle je paráda, máš můj obdiv!"
   - "Vítej zpátky 💚 Série se přerušila, to se stává každému. Začneme znovu, spolu to dáme!"
+- **Czech plurals:** a number placeholder goes where the grammar doesn't depend on the number (after a colon, in "{done} z {goal}"), because 1 karta · 2 karty · 5 karet. Rules: `docs/notification-texts.md`.
 - **Placeholders:** `{due}`, `{left}` (cards left to the goal), `{done}`, `{goal}`, `{streak}`, `{multiplier}`, `{item}`, `{points}`. If a value is unknown, pick a text in the same category without placeholders.
 - **≥ 50 texts** are written in Etapa 1 (`docs/notification-texts.md`), seeded into the DB, and editable by the admin.
 
@@ -199,14 +200,14 @@ Integer identity keys, except `ReviewLog.Id`, which is the client UUID. Timestam
 | `RefreshToken` | Id, UserId, TokenHash, ExpiresAt, CreatedAt, RevokedAt, ReplacedById | rotation |
 | `Deck` | Id, Name, Description, Color, SortOrder, CreatedAt, UpdatedAt | |
 | `Card` | Id, DeckId, Question, Answer, SortOrder, CreatedAt, UpdatedAt | Id is the stable id used in YAML |
-| `CardState` | (UserId, CardId) PK, State, Stability, Difficulty, Due, LastReview, Reps, Lapses, Step | FSRS memory state |
-| `ReviewLog` | Id (uuid from client), UserId, CardId, Rating, ReviewedAt, Multiplier, PointsAwarded, ElapsedDays, ScheduledDays | append-only |
-| `DailyActivity` | (UserId, Date) PK, GradedCount, CorrectCount, Points, Goal, GoalMet | updated on each review; drives streak, heatmap, charts |
+| `CardState` | (UserId, CardId) PK, State, Stability, Difficulty, Due, LastReview, FirstReview, Reps, Lapses, Step | FSRS memory state; no row = new card |
+| `ReviewLog` | Id (uuid from client), UserId, CardId, Rating, StateBefore, ReviewedAt, Day, Multiplier, PointsAwarded, ElapsedDays, ScheduledDays | append-only |
+| `DailyActivity` | (UserId, Date) PK, GradedCount, CorrectCount, Points, Goal, GoalMet, GoalMetAt | updated on each review; drives streak, heatmap, charts |
 | `PointsEntry` | Id, UserId, Amount, Reason, ReferenceId, CreatedAt | balance = SUM(Amount) |
 | `ShopItem` | Id, Name, Description, Price, InitialStock, Stock, IsActive, SortOrder, concurrency token | |
-| `Claim` | Id, UserId, ShopItemId, Price, Status (Pending/Confirmed/Rejected), CreatedAt, DecidedAt | |
+| `Claim` | Id, UserId, ShopItemId, RequestId (uuid from client), Price, Status (Pending/Confirmed/Rejected), CreatedAt, DecidedAt | RequestId makes a retried claim safe |
 | `WishlistEntry` | (UserId, ShopItemId) PK, CreatedAt, NotifiedAt | |
-| `NotificationText` | Id, Category, Text, IsActive | seeded with ≥ 50 texts |
+| `NotificationText` | Id, Category, Text, IsActive, CreatedAt, UpdatedAt | seeded with ≥ 50 texts |
 
 Deleting a card cascades to its `CardState` and `ReviewLog`. The admin UI warns about this (§8).
 
@@ -400,3 +401,5 @@ Jakub confirmed these defaults at the Etapa 0 gate (2026-10-31). Raise any of th
 | 2026-10-31 | Points use the streak just before the review; the review that meets the goal still uses the old multiplier. |
 | 2026-10-31 | Notifications use inexact scheduling only (no exact-alarm permission); the planner is pure Dart. |
 | 2026-10-31 | Refresh-token rotation has a 60 s retry grace so flaky networks don't log the user out. |
+| 2026-10-31 | Number placeholders in notification texts are placed so Czech plurals stay correct; the §5.8 examples were rephrased accordingly. |
+| 2026-10-31 | The wishlist "reached" event is checked in review and settings responses only (a refund's event arrives with the next review). |
