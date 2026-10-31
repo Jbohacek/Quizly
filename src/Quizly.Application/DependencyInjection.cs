@@ -5,9 +5,11 @@ using Quizly.Application.Decks;
 using Quizly.Application.Learning;
 using Quizly.Application.Profile;
 using Quizly.Application.NotificationTexts;
+using Quizly.Application.Overview;
 using Quizly.Application.Shop;
 using Quizly.Application.Stats;
 using Quizly.Application.Users;
+using Quizly.Application.Yaml;
 using Quizly.Domain;
 
 namespace Quizly.Application;
@@ -37,6 +39,8 @@ public static class DependencyInjection
         services.AddScoped<IShopService, ShopService>();
         services.AddScoped<IClaimAdminService, ClaimAdminService>();
         services.AddScoped<IStatsService, StatsService>();
+        services.AddScoped<IYamlDeckService, YamlDeckService>();
+        services.AddScoped<IOverviewService, OverviewService>();
         return services;
     }
 }

@@ -8,7 +8,8 @@ public sealed record AppError(
     string Code,
     int Status,
     string Title,
-    IReadOnlyDictionary<string, string[]>? Errors = null);
+    IReadOnlyDictionary<string, string[]>? Errors = null,
+    IReadOnlyDictionary<string, object?>? Extensions = null);
 
 public static class Errors
 {

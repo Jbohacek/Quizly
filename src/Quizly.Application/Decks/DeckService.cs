@@ -17,6 +17,9 @@ public interface IDeckService
 
     /// <summary>Deletes the deck, its cards and all users' progress on them (docs/spec.md §2.14).</summary>
     Task<Result> DeleteAsync(int id, CancellationToken ct);
+
+    /// <summary>Counts shown in the delete confirmation.</summary>
+    Task<Result<DeckDeleteImpact>> GetDeleteImpactAsync(int id, CancellationToken ct);
 }
 
 internal sealed class DeckService(IAppDbContext db, TimeProvider time) : IDeckService
@@ -83,6 +86,20 @@ internal sealed class DeckService(IAppDbContext db, TimeProvider time) : IDeckSe
     {
         var deleted = await db.Decks.Where(d => d.Id == id).ExecuteDeleteAsync(ct);
         return deleted == 0 ? DeckNotFound : Result.Ok();
+    }
+
+    public async Task<Result<DeckDeleteImpact>> GetDeleteImpactAsync(int id, CancellationToken ct)
+    {
+        if (!await db.Decks.AnyAsync(d => d.Id == id, ct))
+        {
+            return DeckNotFound;
+        }
+
+        var cards = await db.Cards.CountAsync(c => c.DeckId == id, ct);
+        var users = await db.CardStates
+            .Where(s => db.Cards.Any(c => c.Id == s.CardId && c.DeckId == id))
+            .Select(s => s.UserId).Distinct().CountAsync(ct);
+        return new DeckDeleteImpact(cards, users);
     }
 
     internal static AppError DeckNotFound => Errors.NotFound("Balíček neexistuje.");

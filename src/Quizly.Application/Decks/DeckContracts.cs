@@ -14,6 +14,9 @@ public sealed record DeckResponse(
 /// <summary>Payload for creating or editing a deck. Omitted color and sort order get defaults on create.</summary>
 public sealed record DeckRequest(string Name, string? Description = null, string? Color = null, int? SortOrder = null);
 
+/// <summary>What deleting a deck removes: its cards and the progress of this many users.</summary>
+public sealed record DeckDeleteImpact(int Cards, int UsersWithProgress);
+
 /// <summary>A flashcard.</summary>
 public sealed record CardResponse(
     int Id,
