@@ -14,8 +14,8 @@ The full brief is in [`CLAUDE.md`](./CLAUDE.md).
 | 1 | Spec and design | `etapa-1-spec` | Approved |
 | 2 | API foundation | `etapa-2-api` | Approved |
 | 3 | Learning and game logic | `etapa-3-logic` | Approved |
-| 4 | Admin dashboard and first deploy | `etapa-4-admin` | Waiting for review (deploy steps are Jakub's) |
-| 5 | Android app core | `etapa-5-app` | Not started |
+| 4 | Admin dashboard and first deploy | `etapa-4-admin` | Approved |
+| 5 | Android app core | `etapa-5-app` | Waiting for review (keystore + install are Jakub's) |
 | 6 | Motivation layer | `etapa-6-motivation` | Not started |
 | 7 | Notifications | `etapa-7-notifications` | Not started |
 | 8 | Release and polish | `etapa-8-release` | Not started |
@@ -126,28 +126,29 @@ No production code in this stage.
 - [x] **Texty upozornění:** CRUD by category + preview
 - [x] Forwarded headers, Data Protection keys on a volume, websockets behind the proxy (NPM switch in the guide)
 - [x] `deploy/README-deploy.md`: Portainer stack, GHCR registry, NPM proxy host, first login
-- [ ] **(Jakub)** DNS record for `quizly.jbohacek.cz`
-- [ ] **(Jakub)** Nginx Proxy Manager proxy host + SSL certificate (websockets on)
-- [ ] **(Jakub)** GitHub token with `read:packages` added to Portainer as a registry
-- [ ] **(Jakub)** Deploy the stack following the guide
+- [x] **(Jakub)** DNS record for `quizly.jbohacek.cz`
+- [x] **(Jakub)** Nginx Proxy Manager proxy host + SSL certificate (websockets on)
+- [x] **(Jakub)** GitHub token with `read:packages` added to Portainer as a registry
+- [x] **(Jakub)** Deploy the stack following the guide
 
 **Gate**
 - [ ] Jakub creates a real deck and a real user on the live dashboard
-- [ ] Approved by Jakub
+- [x] Approved by Jakub (live at `https://quizly.jbohacek.cz`, 2026-11-01)
 
 ---
 
 ## Etapa 5: Android app core
 
-- [ ] Flutter project, packages, theme tokens, bundled fonts, Czech strings file
-- [ ] API client with token refresh; tokens in secure storage
-- [ ] **Přihlášení** screen
-- [ ] **Domů:** greeting, points pill, streak card, goal ring, CTA, deck list, bottom nav
-- [ ] **Učení:** card stack, 3D flip, swipe with stamp, Vím / Nevím / Přeskočit, progress, session points, "Nevím" re-queue
-- [ ] Review submission with retry + idempotency; "Jsi offline" state
-- [ ] **Hotovo** screen (basic version)
-- [ ] **Nastavení:** daily goal, new cards per day, logout
-- [ ] GitHub Actions `app.yml`: analyze, test, signed release APK as an artifact
+- [x] Flutter project, packages, theme tokens, bundled fonts, Czech strings file
+- [x] API client with token refresh; tokens in secure storage
+- [x] **Přihlášení** screen
+- [x] **Domů:** greeting, points pill, streak card, goal ring, CTA, deck list, bottom nav (week strip moved to Etapa 6 with the other streak visuals)
+- [x] **Učení:** card stack, 3D flip, swipe with stamp, Vím / Nevím / Přeskočit, progress, session points, "Nevím" re-queue
+- [x] Review submission with retry + idempotency; "Jsi offline" state
+- [x] **Hotovo** screen (basic version)
+- [x] **Nastavení:** daily goal, new cards per day, logout
+- [x] Added at review: **Změnit heslo** in Nastavení (`POST /api/me/password`) and a **Balíček** detail with all cards and their status (`GET /api/decks/{id}/cards`)
+- [x] GitHub Actions `app.yml`: analyze, test, signed release APK as an artifact (the APK job runs on `main` once the 4 secrets exist)
 - [ ] **(Jakub)** Create the signing keystore (agent gives the command) and add the 4 GitHub Secrets
 - [ ] **(Jakub)** Allow installs from unknown sources and install the APK
 

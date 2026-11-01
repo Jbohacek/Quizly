@@ -8,6 +8,9 @@ public sealed record LoginRequest(string Username, string Password, string? Devi
 /// <summary>A refresh token to rotate or revoke.</summary>
 public sealed record RefreshRequest(string RefreshToken);
 
+/// <summary>The user's own password change (Nastavení → Změnit heslo).</summary>
+public sealed record ChangePasswordRequest(string CurrentPassword, string NewPassword);
+
 /// <summary>The signed-in app user.</summary>
 public sealed record AuthUserResponse(int Id, string Username, string DisplayName);
 

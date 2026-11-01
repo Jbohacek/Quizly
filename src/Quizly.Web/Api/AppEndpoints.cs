@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.IdentityModel.JsonWebTokens;
+using Quizly.Application.Auth;
 using Quizly.Application.Learning;
 using Quizly.Application.NotificationTexts;
 using Quizly.Application.Profile;
@@ -29,10 +30,19 @@ internal static class AppEndpoints
                 (await service.UpdateSettingsAsync(user.UserId(), request, ct)).OkOrProblem())
             .WithName("UpdateSettings").WithSummary("Save all settings")
             .WithDescription("Lowering the daily goal can complete today, so the response carries the summary and events.");
+        me.MapPost("/password", async (ChangePasswordRequest request, ClaimsPrincipal user, IAuthService auth, CancellationToken ct) =>
+                (await auth.ChangePasswordAsync(user.UserId(), request, ct)).OkOrProblem())
+            .WithName("ChangePassword").WithSummary("Change my password")
+            .WithDescription("Needs the current password. Signs out every other device and returns a new token pair for this one.");
 
         api.MapGet("/decks", async (ClaimsPrincipal user, IStudyService study, CancellationToken ct) =>
                 TypedResults.Ok(await study.GetDecksAsync(user.UserId(), ct)))
             .WithTags("Study").WithName("GetDecks").WithSummary("Decks with total, due, new available and % mastered");
+
+        api.MapGet("/decks/{deckId:int}/cards", async (int deckId, ClaimsPrincipal user, IStudyService study, CancellationToken ct) =>
+                (await study.GetDeckCardsAsync(user.UserId(), deckId, ct)).OkOrProblem())
+            .WithTags("Study").WithName("GetDeckCards")
+            .WithSummary("A deck with all its cards and my status per card (new, learning, mastered)");
 
         api.MapGet("/session", async (int? deckId, ClaimsPrincipal user, IStudyService study, CancellationToken ct) =>
                 (await study.GetSessionAsync(user.UserId(), deckId, ct)).OkOrProblem())

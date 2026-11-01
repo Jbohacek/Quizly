@@ -10,6 +10,8 @@ public interface IStudyService
     Task<Result<SessionResponse>> GetSessionAsync(int userId, int? deckId, CancellationToken ct);
 
     Task<AppDeckListResponse> GetDecksAsync(int userId, CancellationToken ct);
+
+    Task<Result<DeckCardsResponse>> GetDeckCardsAsync(int userId, int deckId, CancellationToken ct);
 }
 
 /// <summary>Session queue and deck counts (docs/spec.md §4.1, docs/api.md §4–5).</summary>
@@ -78,6 +80,39 @@ internal sealed class StudyService(IAppDbContext db, Progress progress, TimeProv
             Math.Min(r.Unseen, allowance),
             r.Total == 0 ? 0 : r.Mastered * 100 / r.Total)).ToList();
         return new AppDeckListResponse(items, allowance);
+    }
+
+    public async Task<Result<DeckCardsResponse>> GetDeckCardsAsync(int userId, int deckId, CancellationToken ct)
+    {
+        // A handful of decks: the list query gives the deck's counts the same way the home screen sees them.
+        var deck = (await GetDecksAsync(userId, ct)).Items.FirstOrDefault(d => d.Id == deckId);
+        if (deck is null)
+        {
+            return Progress.NotFoundDeck;
+        }
+
+        var cards = await db.Cards
+            .Where(c => c.DeckId == deckId)
+            .OrderBy(c => c.SortOrder).ThenBy(c => c.Id)
+            .Select(c => new
+            {
+                c.Id,
+                c.Question,
+                c.Answer,
+                State = db.CardStates.Where(s => s.UserId == userId && s.CardId == c.Id)
+                    .Select(s => new { s.State, s.Stability })
+                    .FirstOrDefault(),
+            })
+            .ToListAsync(ct);
+
+        var items = cards.Select(c => new DeckCardResponse(
+            c.Id,
+            c.Question,
+            c.Answer,
+            c.State is null ? "new"
+            : c.State.State == FsrsState.Review && c.State.Stability >= MasteredStability ? "mastered"
+            : "learning")).ToList();
+        return new DeckCardsResponse(deck, items);
     }
 
     internal IQueryable<Card> Unseen(int userId, IQueryable<Card> cards) =>

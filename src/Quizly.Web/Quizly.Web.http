@@ -190,8 +190,19 @@ Content-Type: application/json
 
 { "dailyGoal": 10, "newCardsPerDay": 5, "notificationsEnabled": true, "morningTime": "08:00", "eveningTime": "18:30", "lastCallTime": "21:00", "quietFrom": "22:00", "quietTo": "07:00", "smartTimes": true }
 
+### Change my password (other devices are signed out; returns a new token pair)
+POST {{baseUrl}}/api/me/password
+Authorization: Bearer {{app.response.body.accessToken}}
+Content-Type: application/json
+
+{ "currentPassword": "old-password", "newPassword": "new-password-123" }
+
 ### Decks with counts
 GET {{baseUrl}}/api/decks
+Authorization: Bearer {{app.response.body.accessToken}}
+
+### One deck with all its cards and my status per card
+GET {{baseUrl}}/api/decks/1/cards
 Authorization: Bearer {{app.response.body.accessToken}}
 
 ### Session: all decks
