@@ -18,6 +18,7 @@ class FakeApi implements HttpClientAdapter {
   int graded = 0;
   final reviewed = <Map<String, Object?>>[];
   String password = 'tajneheslo';
+  bool hasDeckCards = true;
   int passwordChanges = 0;
 
   Map<String, Object?> get summary => {
@@ -71,6 +72,7 @@ class FakeApi implements HttpClientAdapter {
           ],
         }),
       'POST /api/reviews' => _reviews(body as Map<String, Object?>),
+      'GET /api/decks/1/cards' when !hasDeckCards => _json({'code': 'notFound', 'title': 'Tohle jsme nenašli.'}, 404),
       'GET /api/decks/1/cards' => _json({
           'deck': {
             'id': 1, 'name': 'C# základy', 'description': 'Základní pojmy jazyka C#', 'color': '#BAD69B',
@@ -307,14 +309,28 @@ void main() {
     expect(find.text('Heslo je změněné.'), findsOneWidget);
     expect(find.text('Tvůj účet'), findsOneWidget);
   });
+  testWidgets('a server without the card list still lets the deck be studied', (tester) async {
+    final (api, _) = await _signedIn(tester, configure: (api) => api.hasDeckCards = false);
+
+    await tester.tap(find.text('C# základy'));
+    await settle(tester);
+
+    expect(find.text('Tohle jsme nenašli.'), findsOneWidget);
+    expect(find.text('Zkusit znovu'), findsOneWidget);
+    await tester.tap(find.text('Učit se · 2 karty'));
+    await settle(tester);
+    expect(find.text('Karta 1 z 2'), findsOneWidget);
+    expect(api.reviewed, isEmpty);
+  });
 }
 
 /// The app with a stored login, on the home screen.
-Future<(FakeApi, MemoryTokenStore)> _signedIn(WidgetTester tester) async {
+Future<(FakeApi, MemoryTokenStore)> _signedIn(WidgetTester tester, {void Function(FakeApi api)? configure}) async {
   tester.view.physicalSize = const Size(1080, 2340);
   tester.view.devicePixelRatio = 2.75;
   addTearDown(tester.view.reset);
   final api = FakeApi();
+  configure?.call(api);
   final store = MemoryTokenStore(AuthTokens(
     accessToken: 'A',
     accessTokenExpiresAt: DateTime.utc(2099),

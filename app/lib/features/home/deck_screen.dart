@@ -24,6 +24,8 @@ class DeckScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final data = ref.watch(deckCardsProvider(deckId));
+    // The deck as Domů knows it: enough to show the counts and "Učit se" if the card list fails.
+    final known = ref.watch(homeProvider).value?.decks.items.where((d) => d.id == deckId).firstOrNull;
     return Scaffold(
       body: SafeArea(
         bottom: false,
@@ -33,6 +35,16 @@ class DeckScreen extends ConsumerWidget {
               backgroundColor: Q.surface,
               onRefresh: () => ref.refresh(deckCardsProvider(deckId).future),
               child: _DeckBody(data: value),
+            ),
+          AsyncValue(:final error?) when known != null => RefreshIndicator(
+              color: Q.primary,
+              backgroundColor: Q.surface,
+              onRefresh: () => ref.refresh(deckCardsProvider(deckId).future),
+              child: _DeckBody(
+                data: DeckCards(deck: known, cards: const []),
+                cardsError: error is ApiException ? error.message : S.loadFailed,
+                onRetry: () => ref.invalidate(deckCardsProvider(deckId)),
+              ),
             ),
           AsyncValue(:final error?) => Column(
               children: [
@@ -53,9 +65,13 @@ class DeckScreen extends ConsumerWidget {
 }
 
 class _DeckBody extends StatelessWidget {
-  const _DeckBody({required this.data});
+  const _DeckBody({required this.data, this.cardsError, this.onRetry});
 
   final DeckCards data;
+
+  /// The card list failed to load; the rest comes from Domů and studying still works.
+  final String? cardsError;
+  final VoidCallback? onRetry;
 
   @override
   Widget build(BuildContext context) {
@@ -95,11 +111,23 @@ class _DeckBody extends StatelessWidget {
           textBaseline: TextBaseline.alphabetic,
           children: [
             Expanded(child: Text(S.cardsInDeck, style: QText.heading(19))),
-            Text(cards(data.cards.length), style: QText.body(13, color: Q.textMuted)),
+            if (cardsError == null) Text(cards(data.cards.length), style: QText.body(13, color: Q.textMuted)),
           ],
         ),
         const SizedBox(height: 10),
-        if (data.cards.isEmpty)
+        if (cardsError != null)
+          Panel(
+            radius: 18,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(cardsError!, style: QText.body(14, color: Q.textMuted, weight: FontWeight.w400, height: 1.5)),
+                const SizedBox(height: 12),
+                SecondaryButton(label: S.retry, onPressed: onRetry),
+              ],
+            ),
+          )
+        else if (data.cards.isEmpty)
           Panel(
             radius: 18,
             child: Text(S.emptyDeck, style: QText.body(14, color: Q.textMuted, weight: FontWeight.w400, height: 1.5)),
