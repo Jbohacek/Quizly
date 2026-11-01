@@ -3,8 +3,10 @@ import 'dart:async';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../features/home/week.dart';
 import '../features/session/review_sync.dart';
 import 'api/api_client.dart';
+import 'api/api_exception.dart';
 import 'api/models.dart';
 
 /// The API client, created in `main` after the stored login is restored.
@@ -74,12 +76,15 @@ final reviewSyncProvider = Provider<ReviewSync?>((ref) {
   return sync;
 });
 
-/// Home data: profile summary and decks, loaded together.
+/// Home data: profile summary and decks, loaded together, plus this week's strip.
 class HomeData {
-  const HomeData({required this.me, required this.decks});
+  const HomeData({required this.me, required this.decks, this.week});
 
   final Me me;
   final DeckList decks;
+
+  /// Mon–Sun of the current week; null if the stats couldn't be loaded (the strip is hidden).
+  final List<DayMark>? week;
 
   /// New cards left today across all decks (the "Učit se vše" queue minus due reviews).
   int get newToday => (me.dueNow - dueReviews).clamp(0, me.dueNow);
@@ -89,6 +94,57 @@ class HomeData {
 
 final homeProvider = FutureProvider.autoDispose<HomeData>((ref) async {
   final client = ref.watch(apiClientProvider);
+  // The week strip is extra: Domů still shows when the stats fail.
+  final week = client.stats().then<List<DayMark>?>((s) => weekMarks(s.heatmap), onError: (Object _) => null);
   final results = await Future.wait<Object>([client.me(), client.decks()]);
-  return HomeData(me: results[0] as Me, decks: results[1] as DeckList);
+  return HomeData(me: results[0] as Me, decks: results[1] as DeckList, week: await week);
 });
+
+/// Statistiky for all decks (null) or one deck.
+final statsProvider = FutureProvider.autoDispose.family<Stats, int?>(
+  (ref, deckId) => ref.watch(apiClientProvider).stats(deckId: deckId),
+);
+
+/// Moje nákupy, newest first.
+final claimsProvider = FutureProvider.autoDispose<List<Claim>>((ref) => ref.watch(apiClientProvider).claims());
+
+/// Obchod: items, hearts and balance.
+class ShopController extends AsyncNotifier<Shop> {
+  @override
+  Future<Shop> build() => ref.watch(apiClientProvider).shop();
+
+  /// Hearts or un-hearts [item] right away; reverts if the server refuses.
+  Future<void> toggleWishlist(ShopItem item) async {
+    final shop = state.value;
+    if (shop == null) return;
+    final next = item.copyWith(wishlisted: !item.wishlisted);
+    state = AsyncData(shop.withItem(next));
+    try {
+      await ref.read(apiClientProvider).setWishlist(item.id, on: next.wishlisted);
+    } on ApiException {
+      final now = state.value;
+      if (ref.mounted && now != null) state = AsyncData(now.withItem(item));
+      rethrow;
+    }
+  }
+
+  /// Buys [item]. The same [requestId] makes a retry safe. Reloads the shop, claims and Domů.
+  Future<void> buy(ShopItem item, String requestId) async {
+    await ref.read(apiClientProvider).claim(item.id, requestId);
+    if (!ref.mounted) return;
+    ref
+      ..invalidate(claimsProvider)
+      ..invalidate(homeProvider)
+      ..invalidateSelf();
+  }
+}
+
+final shopProvider = AsyncNotifierProvider.autoDispose<ShopController, Shop>(ShopController.new);
+
+/// Everything that changes after a study session or a purchase.
+void invalidateProgress(WidgetRef ref) {
+  ref
+    ..invalidate(homeProvider)
+    ..invalidate(statsProvider)
+    ..invalidate(shopProvider);
+}

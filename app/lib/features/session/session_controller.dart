@@ -13,11 +13,14 @@ enum SessionPhase { loading, error, empty, studying, saving, finished }
 
 /// What the Hotovo screen shows (spec §4.3).
 class SessionResult {
-  const SessionResult({required this.deckId, required this.tally, required this.summary});
+  const SessionResult({required this.deckId, required this.tally, required this.summary, required this.knowPoints});
 
   final int? deckId;
   final SessionTally tally;
   final Summary summary;
+
+  /// What the next Vím is worth (for "to je zhruba N × Vím" on the wishlist card).
+  final int knowPoints;
 }
 
 /// One study session: loads the queue, records answers into the outbox, follows the
@@ -51,6 +54,9 @@ class SessionController extends ChangeNotifier {
   SessionResult? result;
   bool offline = false;
 
+  /// The answer just given and its predicted points (the floating "+N"); null after a skip.
+  ({Rating rating, int points})? lastAnswer;
+
   /// Changes on every answer or skip; keys the card widget so a returning card starts fresh.
   int turn = 0;
 
@@ -81,6 +87,7 @@ class SessionController extends ChangeNotifier {
     final card = queue.current!;
     final item = ReviewItem(id: _newId(), cardId: card.cardId, rating: rating);
     tally.add(item, points.of(rating));
+    lastAnswer = (rating: rating, points: points.of(rating));
     queue.answer(rating);
     turn++;
     unawaited(_sync.add(item));
@@ -94,6 +101,7 @@ class SessionController extends ChangeNotifier {
   void skip() {
     if (!canAnswer) return;
     queue.skip();
+    lastAnswer = null;
     turn++;
     _notify();
   }
@@ -114,7 +122,7 @@ class SessionController extends ChangeNotifier {
       phase = SessionPhase.error;
       error = null;
     } else {
-      result = SessionResult(deckId: deckId, tally: tally, summary: s);
+      result = SessionResult(deckId: deckId, tally: tally, summary: s, knowPoints: points.know);
       phase = SessionPhase.finished;
     }
     _notify();

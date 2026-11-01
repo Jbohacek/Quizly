@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -12,6 +13,7 @@ import '../../core/strings.dart';
 import '../../core/theme/theme.dart';
 import '../../core/theme/tokens.dart';
 import '../../core/widgets/widgets.dart';
+import 'week.dart';
 
 /// Domů (design screen 2): greeting, points, streak, daily goal, CTA and decks.
 class HomeScreen extends ConsumerWidget {
@@ -53,7 +55,7 @@ class _HomeBody extends StatelessWidget {
       children: [
         _Header(name: me.user.displayName, balance: me.summary.balance),
         const SizedBox(height: 16),
-        _StreakCard(summary: me.summary),
+        _StreakCard(summary: me.summary, week: data.week),
         const SizedBox(height: 16),
         _GoalCard(today: me.summary.today, due: data.dueReviews, fresh: data.newToday),
         const SizedBox(height: 16),
@@ -109,42 +111,19 @@ class _Header extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 12),
-        Semantics(
-          button: true,
-          label: S.pointsPill(balance),
-          excludeSemantics: true,
-          child: Material(
-            color: Q.surface2,
-            shape: const StadiumBorder(),
-            child: InkWell(
-              customBorder: const StadiumBorder(),
-              onTap: () => context.go('/shop'),
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(minHeight: 44),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 14),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(Icons.star_rounded, color: Q.points, size: 20),
-                      const SizedBox(width: 6),
-                      Text(formatInt(balance), style: QText.body(16, color: Q.points, weight: FontWeight.w800)),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
+        PointsPill(balance: balance, semanticsLabel: S.pointsPill(balance), onTap: () => context.go('/shop')),
       ],
     );
   }
 }
 
 class _StreakCard extends StatelessWidget {
-  const _StreakCard({required this.summary});
+  const _StreakCard({required this.summary, required this.week});
 
   final Summary summary;
+
+  /// Null when the stats couldn't be loaded; the strip is left out then.
+  final List<DayMark>? week;
 
   @override
   Widget build(BuildContext context) {
@@ -154,49 +133,166 @@ class _StreakCard extends StatelessWidget {
         : next == null
             ? S.maxMultiplier
             : S.nextMultiplier(next.inDays, next.value);
+    final week = this.week;
     return Panel(
-      child: Row(
+      child: Column(
         children: [
-          Container(
-            width: 56,
-            height: 56,
-            decoration: BoxDecoration(color: Q.tint(Q.primary), borderRadius: BorderRadius.circular(18)),
-            child: const Icon(Icons.local_fire_department_rounded, color: Q.primary, size: 32),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.baseline,
-                  textBaseline: TextBaseline.alphabetic,
+          Row(
+            children: [
+              Container(
+                width: 56,
+                height: 56,
+                decoration: BoxDecoration(color: Q.tint(Q.primary), borderRadius: BorderRadius.circular(18)),
+                child: _Flame(lit: summary.streak > 0),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(formatInt(summary.streak), style: QText.heading(40, color: Q.primary).copyWith(height: 1)),
-                    const SizedBox(width: 8),
-                    Flexible(child: Text(S.streakLabel(summary.streak), style: QText.body(17, weight: FontWeight.w800))),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.baseline,
+                      textBaseline: TextBaseline.alphabetic,
+                      children: [
+                        Text(formatInt(summary.streak), style: QText.heading(40, color: Q.primary).copyWith(height: 1)),
+                        const SizedBox(width: 8),
+                        Flexible(child: Text(S.streakLabel(summary.streak), style: QText.body(17, weight: FontWeight.w800))),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text(hint, style: QText.body(13, color: Q.textMuted)),
                   ],
                 ),
-                const SizedBox(height: 4),
-                Text(hint, style: QText.body(13, color: Q.textMuted)),
-              ],
-            ),
+              ),
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(color: Q.tint(Q.multiplier), borderRadius: BorderRadius.circular(12)),
+                child: Column(
+                  children: [
+                    Text(formatMultiplier(summary.multiplier), style: QText.heading(18, color: Q.multiplier)),
+                    Text(S.multiplier, style: QText.body(11, color: Q.multiplier, weight: FontWeight.w700)),
+                  ],
+                ),
+              ),
+            ],
           ),
-          const SizedBox(width: 8),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            decoration: BoxDecoration(color: Q.tint(Q.multiplier), borderRadius: BorderRadius.circular(12)),
-            child: Column(
-              children: [
-                Text(formatMultiplier(summary.multiplier), style: QText.heading(18, color: Q.multiplier)),
-                Text(S.multiplier, style: QText.body(11, color: Q.multiplier, weight: FontWeight.w700)),
-              ],
-            ),
-          ),
+          if (week != null && week.length == 7) ...[
+            const SizedBox(height: 16),
+            _WeekStrip(marks: week),
+          ],
         ],
       ),
     );
   }
+}
+
+/// The streak flame; it breathes gently while a streak is going (off with reduce motion).
+class _Flame extends StatelessWidget {
+  const _Flame({required this.lit});
+
+  final bool lit;
+
+  @override
+  Widget build(BuildContext context) {
+    const icon = Icon(Icons.local_fire_department_rounded, color: Q.primary, size: 32);
+    if (!lit || MediaQuery.disableAnimationsOf(context)) return icon;
+    return icon
+        .animate(onPlay: (controller) => controller.repeat(reverse: true))
+        .scaleXY(begin: 1, end: 1.12, duration: 900.ms, curve: Curves.easeInOut);
+  }
+}
+
+/// Mon–Sun of this week: met days ticked, today dashed (design screen 2).
+class _WeekStrip extends StatelessWidget {
+  const _WeekStrip({required this.marks});
+
+  final List<DayMark> marks;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      container: true,
+      label: S.thisWeek,
+      child: Row(
+        children: [
+          for (var i = 0; i < 7; i++)
+            Expanded(
+              child: Semantics(
+                container: true,
+                label: '${S.weekdaysLong[i]}: ${_meaning(marks[i])}',
+                excludeSemantics: true,
+                child: Column(
+                  children: [
+                    Text(
+                      S.weekdaysShort[i],
+                      style: QText.body(12, color: marks[i] == DayMark.today ? Q.primary : Q.textMuted, weight: FontWeight.w700),
+                    ),
+                    const SizedBox(height: 6),
+                    _Dot(mark: marks[i]),
+                  ],
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  static String _meaning(DayMark mark) => switch (mark) {
+        DayMark.done => S.dayDone,
+        DayMark.today => S.dayToday,
+        DayMark.missed => S.dayMissed,
+        DayMark.future => S.dayFuture,
+      };
+}
+
+class _Dot extends StatelessWidget {
+  const _Dot({required this.mark});
+
+  final DayMark mark;
+
+  @override
+  Widget build(BuildContext context) {
+    return switch (mark) {
+      DayMark.done => Container(
+          width: 32,
+          height: 32,
+          decoration: const BoxDecoration(color: Q.primary, shape: BoxShape.circle),
+          child: const Icon(Icons.check_rounded, color: Q.onPrimary, size: 20),
+        ),
+      DayMark.today => CustomPaint(size: const Size.square(32), painter: _DashedCircle()),
+      DayMark.missed => Container(
+          width: 32,
+          height: 32,
+          decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: Q.inputBorder, width: 1.5)),
+        ),
+      DayMark.future => Container(
+          width: 32,
+          height: 32,
+          decoration: const BoxDecoration(color: Q.surface2, shape: BoxShape.circle),
+        ),
+    };
+  }
+}
+
+/// Today in the week strip: a dashed primary ring.
+class _DashedCircle extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = Q.primary
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2;
+    const dashes = 12;
+    const sweep = 2 * math.pi / dashes;
+    for (var i = 0; i < dashes; i++) {
+      canvas.drawArc((Offset.zero & size).deflate(1), i * sweep, sweep * 0.55, false, paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(_DashedCircle oldDelegate) => false;
 }
 
 class _GoalCard extends StatelessWidget {

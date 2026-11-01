@@ -452,3 +452,267 @@ class SettingsUpdate {
   final Summary summary;
   final List<AppEvent> events;
 }
+
+// Stats (api.md §7, spec §10)
+
+int? _intOrNull(Object? v) => v == null ? null : _int(v);
+
+DateTime _day(Object? v) => DateTime.parse(v! as String);
+
+class StatsTiles {
+  const StatsTiles({
+    required this.streak,
+    required this.bestStreak,
+    required this.successRate30d,
+    required this.sparkline,
+    required this.totalReviews,
+    required this.totalPointsEarned,
+  });
+
+  factory StatsTiles.fromJson(Json j) => StatsTiles(
+        streak: _int(j['streak']),
+        bestStreak: _int(j['bestStreak']),
+        successRate30d: _intOrNull(j['successRate30d']),
+        sparkline: [for (final v in j['sparkline'] as List) _intOrNull(v)],
+        totalReviews: _int(j['totalReviews']),
+        totalPointsEarned: _int(j['totalPointsEarned']),
+      );
+
+  final int streak;
+  final int bestStreak;
+  final int? successRate30d;
+
+  /// 30 daily success rates, oldest first; null on days without reviews.
+  final List<int?> sparkline;
+  final int totalReviews;
+  final int totalPointsEarned;
+}
+
+/// 17 weeks × 7 days, Monday first. Levels 0–4, null after today.
+class Heatmap {
+  const Heatmap({required this.from, required this.today, required this.weeks});
+
+  factory Heatmap.fromJson(Json j) => Heatmap(
+        from: _day(j['from']),
+        today: _day(j['today']),
+        weeks: [
+          for (final w in j['weeks'] as List) [for (final v in w as List) _intOrNull(v)],
+        ],
+      );
+
+  /// The Monday of the first week.
+  final DateTime from;
+  final DateTime today;
+  final List<List<int?>> weeks;
+
+  /// The day in [week] (0 = oldest) and [weekday] (0 = Monday).
+  DateTime dayAt(int week, int weekday) => DateTime.utc(from.year, from.month, from.day + week * 7 + weekday);
+}
+
+class DayCount {
+  const DayCount({required this.date, required this.graded});
+
+  factory DayCount.fromJson(Json j) => DayCount(date: _day(j['date']), graded: _int(j['graded']));
+
+  final DateTime date;
+  final int graded;
+}
+
+class WeekdayStat {
+  const WeekdayStat({required this.weekday, required this.successRate, required this.graded});
+
+  factory WeekdayStat.fromJson(Json j) =>
+      WeekdayStat(weekday: _int(j['weekday']), successRate: _intOrNull(j['successRate']), graded: _int(j['graded']));
+
+  /// 1 = Monday … 7 = Sunday.
+  final int weekday;
+
+  /// Null below the minimum sample size.
+  final int? successRate;
+  final int graded;
+}
+
+class BestTime {
+  const BestTime({required this.from, required this.to, required this.successRate, required this.graded});
+
+  factory BestTime.fromJson(Json j) => BestTime(
+        from: j['from'] as String,
+        to: j['to'] as String,
+        successRate: _int(j['successRate']),
+        graded: _int(j['graded']),
+      );
+
+  /// `HH:mm`.
+  final String from;
+  final String to;
+  final int successRate;
+  final int graded;
+}
+
+/// Zvládnuto / Učím se / Nové card counts (spec §3.5).
+class Progress {
+  const Progress({required this.mastered, required this.learning, required this.fresh});
+
+  factory Progress.fromJson(Json j) =>
+      Progress(mastered: _int(j['mastered']), learning: _int(j['learning']), fresh: _int(j['new']));
+
+  final int mastered;
+  final int learning;
+  final int fresh;
+
+  int get total => mastered + learning + fresh;
+}
+
+class DeckProgress {
+  const DeckProgress({required this.deckId, required this.name, required this.progress});
+
+  factory DeckProgress.fromJson(Json j) =>
+      DeckProgress(deckId: _int(j['deckId']), name: j['name'] as String, progress: Progress.fromJson(j));
+
+  final int deckId;
+  final String name;
+  final Progress progress;
+}
+
+class Stats {
+  const Stats({
+    required this.deckId,
+    required this.tiles,
+    required this.heatmap,
+    required this.goal,
+    required this.daily,
+    required this.weekdays,
+    required this.bestTime,
+    required this.deckProgress,
+  });
+
+  factory Stats.fromJson(Json j) {
+    final daily = j['daily'] as Json;
+    return Stats(
+      deckId: _intOrNull(j['deckId']),
+      tiles: StatsTiles.fromJson(j['tiles'] as Json),
+      heatmap: Heatmap.fromJson(j['heatmap'] as Json),
+      goal: _int(daily['goal']),
+      daily: [for (final d in daily['days'] as List) DayCount.fromJson(d as Json)],
+      weekdays: [for (final w in j['weekdays'] as List) WeekdayStat.fromJson(w as Json)],
+      bestTime: j['bestTime'] == null ? null : BestTime.fromJson(j['bestTime'] as Json),
+      deckProgress: [for (final d in j['deckProgress'] as List) DeckProgress.fromJson(d as Json)],
+    );
+  }
+
+  final int? deckId;
+  final StatsTiles tiles;
+  final Heatmap heatmap;
+
+  /// The current daily goal (the dashed line).
+  final int goal;
+
+  /// The last 14 days, oldest first.
+  final List<DayCount> daily;
+  final List<WeekdayStat> weekdays;
+  final BestTime? bestTime;
+  final List<DeckProgress> deckProgress;
+}
+
+// Shop (api.md §8)
+
+class ShopItem {
+  const ShopItem({
+    required this.id,
+    required this.name,
+    required this.description,
+    required this.price,
+    required this.stock,
+    required this.soldOut,
+    required this.wishlisted,
+    required this.missing,
+  });
+
+  factory ShopItem.fromJson(Json j) => ShopItem(
+        id: _int(j['id']),
+        name: j['name'] as String,
+        description: j['description'] as String,
+        price: _int(j['price']),
+        stock: _int(j['stock']),
+        soldOut: j['soldOut'] as bool,
+        wishlisted: j['wishlisted'] as bool,
+        missing: _int(j['missing']),
+      );
+
+  final int id;
+  final String name;
+  final String description;
+  final int price;
+  final int stock;
+  final bool soldOut;
+  final bool wishlisted;
+
+  /// Points still missing: `max(0, price − balance)`.
+  final int missing;
+
+  bool get canBuy => !soldOut && missing == 0;
+
+  ShopItem copyWith({bool? wishlisted}) => ShopItem(
+        id: id,
+        name: name,
+        description: description,
+        price: price,
+        stock: stock,
+        soldOut: soldOut,
+        wishlisted: wishlisted ?? this.wishlisted,
+        missing: missing,
+      );
+}
+
+class Shop {
+  const Shop({required this.balance, required this.items});
+
+  factory Shop.fromJson(Json j) => Shop(
+        balance: _int(j['balance']),
+        items: [for (final i in j['items'] as List) ShopItem.fromJson(i as Json)],
+      );
+
+  final int balance;
+  final List<ShopItem> items;
+
+  Shop withItem(ShopItem item) => Shop(balance: balance, items: [for (final i in items) i.id == item.id ? item : i]);
+}
+
+enum ClaimStatus {
+  pending('pending'),
+  confirmed('confirmed'),
+  rejected('rejected');
+
+  const ClaimStatus(this.json);
+
+  final String json;
+
+  static ClaimStatus parse(String value) => values.firstWhere((s) => s.json == value, orElse: () => pending);
+}
+
+class Claim {
+  const Claim({
+    required this.id,
+    required this.itemName,
+    required this.price,
+    required this.status,
+    required this.createdAt,
+    required this.decidedAt,
+  });
+
+  factory Claim.fromJson(Json j) => Claim(
+        id: _int(j['id']),
+        itemName: j['itemName'] as String,
+        price: _int(j['price']),
+        status: ClaimStatus.parse(j['status'] as String),
+        createdAt: DateTime.parse(j['createdAt'] as String),
+        decidedAt: j['decidedAt'] == null ? null : DateTime.parse(j['decidedAt'] as String),
+      );
+
+  final int id;
+  final String itemName;
+  final int price;
+  final ClaimStatus status;
+  final DateTime createdAt;
+  final DateTime? decidedAt;
+}

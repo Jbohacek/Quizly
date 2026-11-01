@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'core/providers.dart';
-import 'core/strings.dart';
 import 'features/auth/login_screen.dart';
 import 'features/home/deck_screen.dart';
 import 'features/home/home_screen.dart';
@@ -13,6 +12,8 @@ import 'features/session/session_screen.dart';
 import 'features/settings/change_password_screen.dart';
 import 'features/settings/settings_screen.dart';
 import 'features/shell/app_shell.dart';
+import 'features/shop/shop_screen.dart';
+import 'features/stats/stats_screen.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   final auth = ValueNotifier(ref.read(authProvider));
@@ -51,15 +52,13 @@ final routerProvider = Provider<GoRouter>((ref) {
           StatefulShellBranch(routes: [
             GoRoute(
               path: '/stats',
-              builder: (context, state) =>
-                  const ComingSoon(title: S.navStats, text: S.statsSoon, icon: Icons.bar_chart_rounded),
+              builder: (context, state) => const StatsScreen(),
             ),
           ]),
           StatefulShellBranch(routes: [
             GoRoute(
               path: '/shop',
-              builder: (context, state) =>
-                  const ComingSoon(title: S.navShop, text: S.shopSoon, icon: Icons.card_giftcard_rounded),
+              builder: (context, state) => const ShopScreen(),
             ),
           ]),
           StatefulShellBranch(

@@ -116,6 +116,27 @@ class ApiClient {
         await _send<Json>('POST', '/reviews', data: {'reviews': [for (final r in reviews) r.toJson()]}),
       );
 
+  Future<Stats> stats({int? deckId}) async =>
+      Stats.fromJson(await _send<Json>('GET', '/stats', query: {'deckId': ?deckId}));
+
+  Future<Shop> shop() async => Shop.fromJson(await _send<Json>('GET', '/shop'));
+
+  /// Buys a reward and returns the new balance. Retrying with the same [requestId]
+  /// returns the same purchase (api.md §8).
+  Future<int> claim(int itemId, String requestId) async {
+    final json = await _send<Json>('POST', '/shop/$itemId/claim', data: {'requestId': requestId});
+    return (json['balance'] as num).toInt();
+  }
+
+  Future<List<Claim>> claims() async {
+    final json = await _send<Json>('GET', '/claims');
+    return [for (final c in json['items'] as List) Claim.fromJson(c as Json)];
+  }
+
+  /// Hearts ([on]) or un-hearts an item. Both are idempotent.
+  Future<void> setWishlist(int itemId, {required bool on}) =>
+      _send<Object?>(on ? 'PUT' : 'DELETE', '/wishlist/$itemId');
+
   Future<T> _send<T>(String method, String path, {Object? data, Map<String, Object?>? query, bool auth = true}) async {
     try {
       final response = await _dio.request<T>(

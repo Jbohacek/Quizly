@@ -66,6 +66,7 @@ class _Entry {
 class SessionTally {
   final _answers = <String, _Answer>{};
   final _milestones = <AppEvent>[];
+  final _wishlistReached = <AppEvent>[];
   bool goalMetInSession = false;
   double? lastMultiplier;
 
@@ -89,6 +90,7 @@ class SessionTally {
     for (final e in response.events) {
       if (e.type == 'goalMet') goalMetInSession = true;
       if (e.type == 'milestone') _milestones.add(e);
+      if (e.type == 'wishlistReached') _wishlistReached.add(e);
     }
   }
 
@@ -100,6 +102,9 @@ class SessionTally {
   int get knowPoints => _of(Rating.know).fold(0, (sum, a) => sum + a.points);
   int get dontKnowPoints => _of(Rating.dontKnow).fold(0, (sum, a) => sum + a.points);
   List<AppEvent> get milestones => List.unmodifiable(_milestones);
+
+  /// Wishlist items the balance reached during this session.
+  List<AppEvent> get wishlistReached => List.unmodifiable(_wishlistReached);
   int get bonusPoints => _milestones.fold(0, (sum, e) => sum + (e.bonus ?? 0));
 
   /// Everything earned in this session.
