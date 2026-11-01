@@ -33,6 +33,7 @@ class FakeServer implements HttpClientAdapter {
   String validRefresh = 'R1';
   int refreshCalls = 0;
   bool rejectRefresh = false;
+  bool texts = false;
   final requests = <String>[];
 
   @override
@@ -52,6 +53,17 @@ class FakeServer implements HttpClientAdapter {
     }
     if (options.headers['Authorization'] != 'Bearer $validAccess') {
       return _json(401, {'code': 'unauthorized', 'title': 'Nepřihlášeno.'});
+    }
+    if (texts && path == '/api/notification-texts') {
+      if (options.headers['If-None-Match'] == '"v1"') return ResponseBody.fromString('', 304);
+      return _json(200, {
+        'version': 'v1',
+        'categories': {
+          'morning': [
+            {'id': 1, 'text': 'Dobré ráno! ☀️'},
+          ],
+        },
+      });
     }
     return _json(200, settingsJson);
   }
@@ -110,6 +122,29 @@ void main() {
     expect(server.refreshCalls, 1);
     expect(server.requests.first, 'POST /api/auth/refresh');
     expect(server.requests.last, 'GET /api/me/settings Bearer A2');
+  });
+
+  test('tokens rotated by the background refresh are used instead of the old refresh token', () async {
+    final c = client();
+    await c.restore();
+    // The background isolate refreshed with R1 and stored the new pair.
+    server
+      ..validAccess = 'A9'
+      ..validRefresh = 'R9';
+    store.tokens = tokens('A9', 'R9');
+    await c.settings();
+    expect(server.refreshCalls, 0);
+    expect(server.requests.last, 'GET /api/me/settings Bearer A9');
+  });
+
+  test('notification texts: 200 with the texts, 304 when the ETag still matches', () async {
+    final c = client();
+    await c.restore();
+    server.texts = true;
+    final texts = await c.notificationTexts();
+    expect(texts!.version, 'v1');
+    expect(texts.categories['morning']!.single.text, 'Dobré ráno! ☀️');
+    expect(await c.notificationTexts(etag: 'v1'), isNull);
   });
 
   test('a rejected refresh token signs out and clears the stored login', () async {

@@ -4,6 +4,7 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../features/home/week.dart';
+import '../features/notifications/notifications.dart';
 import '../features/session/review_sync.dart';
 import 'api/api_client.dart';
 import 'api/api_exception.dart';
@@ -11,6 +12,9 @@ import 'api/models.dart';
 
 /// The API client, created in `main` after the stored login is restored.
 final apiClientProvider = Provider<ApiClient>((ref) => throw UnimplementedError('Overridden in main'));
+
+/// Scheduled reminders, created in `main` (tests use a fake platform).
+final notificationsProvider = Provider<Notifications>((ref) => throw UnimplementedError('Overridden in main'));
 
 /// Where the review outbox is stored (overridden in tests).
 final outboxStoreProvider = Provider<OutboxStore>((ref) => PrefsOutboxStore());
@@ -57,10 +61,17 @@ final authProvider = NotifierProvider<AuthController, AuthState>(AuthController.
 final reviewSyncProvider = Provider<ReviewSync?>((ref) {
   final userId = ref.watch(authProvider.select((s) => s.user?.id));
   if (userId == null) return null;
+  final client = ref.watch(apiClientProvider);
+  final notifications = ref.watch(notificationsProvider);
   final sync = ReviewSync(
     userId: userId,
     store: ref.watch(outboxStoreProvider),
-    send: ref.watch(apiClientProvider).postReviews,
+    send: (batch) async {
+      final result = await client.postReviews(batch);
+      // Every answer can change the plan: goal met, milestone, a reward within reach.
+      unawaited(notifications.onSummary(result.summary, result.events));
+      return result;
+    },
   );
   unawaited(sync.start().then((_) async {
     // Answers left over from the last run go out now; refresh home once they're in.
@@ -75,6 +86,25 @@ final reviewSyncProvider = Provider<ReviewSync?>((ref) {
   ref.onDispose(sync.dispose);
   return sync;
 });
+
+/// Keeps the reminders of the logged-in user going; logout stops them.
+final notificationSyncProvider = Provider<void>((ref) {
+  final userId = ref.watch(authProvider.select((s) => s.user?.id));
+  final notifications = ref.watch(notificationsProvider);
+  if (userId == null) {
+    unawaited(notifications.signedOut());
+    return;
+  }
+  unawaited(notifications.signedIn());
+  unawaited(notifications.refresh(ref.read(apiClientProvider)));
+});
+
+/// The system allows notifications; refreshed when the app comes back to the front.
+final notificationPermissionProvider =
+    FutureProvider.autoDispose<bool>((ref) => ref.watch(notificationsProvider).permitted());
+
+/// Show the "Mám ti připomínat učení?" card on Domů.
+final notificationAskProvider = FutureProvider.autoDispose<bool>((ref) => ref.watch(notificationsProvider).shouldAsk());
 
 /// Home data: profile summary and decks, loaded together, plus this week's strip.
 class HomeData {
@@ -97,7 +127,9 @@ final homeProvider = FutureProvider.autoDispose<HomeData>((ref) async {
   // The week strip is extra: Domů still shows when the stats fail.
   final week = client.stats().then<List<DayMark>?>((s) => weekMarks(s.heatmap), onError: (Object _) => null);
   final results = await Future.wait<Object>([client.me(), client.decks()]);
-  return HomeData(me: results[0] as Me, decks: results[1] as DeckList, week: await week);
+  final me = results[0] as Me;
+  unawaited(ref.read(notificationsProvider).onMe(me));
+  return HomeData(me: me, decks: results[1] as DeckList, week: await week);
 });
 
 /// Statistiky for all decks (null) or one deck.

@@ -16,8 +16,8 @@ The full brief is in [`CLAUDE.md`](./CLAUDE.md).
 | 3 | Learning and game logic | `etapa-3-logic` | Approved |
 | 4 | Admin dashboard and first deploy | `etapa-4-admin` | Approved |
 | 5 | Android app core | `etapa-5-app` | Approved |
-| 6 | Motivation layer | `etapa-6-motivation` | Waiting for review |
-| 7 | Notifications | `etapa-7-notifications` | Not started |
+| 6 | Motivation layer | `etapa-6-motivation` | Approved |
+| 7 | Notifications | `etapa-7-notifications` | Waiting for review |
 | 8 | Release and polish | `etapa-8-release` | Not started |
 
 Update the **Status** column when a stage starts, waits for review, or is approved.
@@ -168,21 +168,21 @@ No production code in this stage.
 - [x] Respect "reduce motion"
 
 **Gate**
-- [ ] One full day works end to end: study → points → streak → buy → admin confirms → status shows in the app
-- [ ] Approved by Jakub
+- [x] One full day works end to end: study → points → streak → buy → admin confirms → status shows in the app
+- [x] Approved by Jakub (merged PR #6, 2026-11-01)
 
 ---
 
 ## Etapa 7: Notifications
 
-- [ ] Notification permission flow (Android 13+)
-- [ ] Download and cache texts; random pick without recent repeats; placeholders
-- [ ] Morning, evening and last-call scheduling; cancel when the goal is met
-- [ ] Milestone, wishlist and comeback notifications
-- [ ] Quiet hours and **Chytré časy**
-- [ ] Background refresh (WorkManager) for due counts and texts
-- [ ] **Nastavení** wired to all notification options
-- [ ] Unit tests for the scheduling logic (pure Dart)
+- [x] Notification permission flow (Android 13+)
+- [x] Download and cache texts; random pick without recent repeats; placeholders
+- [x] Morning, evening and last-call scheduling; cancel when the goal is met
+- [x] Milestone, wishlist and comeback notifications
+- [x] Quiet hours and **Chytré časy**
+- [x] Background refresh (WorkManager) for due counts and texts
+- [x] **Nastavení** wired to all notification options
+- [x] Unit tests for the scheduling logic (pure Dart)
 
 **Gate**
 - [ ] Notifications arrive at the right times over a few days of real use

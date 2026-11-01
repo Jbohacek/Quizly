@@ -8,7 +8,7 @@ All notifications are **local**, scheduled on the phone with `flutter_local_noti
 | --- | --- |
 | `POST_NOTIFICATIONS` (Android 13+, API 33) | Runtime permission. Asked once after the first login, from an in-app explainer on Domů ("Mám ti připomínat učení? 🔔" → **Povolit** opens the system dialog / **Teď ne**). Android stops showing the dialog after two denials, so after that Nastavení shows "Upozornění jsou vypnutá v systému" with a button that opens the app's system notification settings. |
 | Android 8–12 (API 26–32) | No runtime permission. Channels are required from API 26. |
-| Exact alarms (`SCHEDULE_EXACT_ALARM`, Android 12+; denied by default for new installs on Android 14+) | **Not used.** All scheduling is inexact: `AndroidScheduleMode.inexactAllowWhileIdle`. No `SCHEDULE_EXACT_ALARM` or `USE_EXACT_ALARM` in the manifest. A reminder may arrive some minutes late in Doze; that is fine for this app. |
+| Exact alarms (`SCHEDULE_EXACT_ALARM`, Android 12+; denied by default for new installs on Android 14+) | **Not used.** All scheduling is inexact: `AndroidScheduleMode.inexactAllowWhileIdle`. No `SCHEDULE_EXACT_ALARM` or `USE_EXACT_ALARM` in the manifest. Android delivers an inexact alarm within a window of up to an hour after its time (seen as `window=+1h` in `dumpsys alarm`); that is fine for this app. |
 | Reboot | The plugin re-registers scheduled notifications after boot (`RECEIVE_BOOT_COMPLETED` + its boot receiver in the manifest). |
 | Channels | `reminders` "Připomínky" (morning, evening, last_call, comeback) and `achievements` "Úspěchy" (milestone, wishlist). Default importance. |
 | Tap | Opens the app: wishlist → Obchod, everything else → Domů. |
@@ -21,6 +21,8 @@ If `notificationsEnabled` is off (Nastavení) or the system permission is missin
 - Settings (`/api/me/settings`).
 - Texts (`/api/notification-texts`, cached with ETag).
 - Local text history (last used ids per category).
+
+The cached numbers belong to the Prague day they were fetched on. When the planner runs on a later day (the app wasn't opened and the background refresh failed), it rolls them forward day by day: a met day keeps the streak going into the next day, an unmet day with a streak makes the next day a `comeback` day and the streak 0. `{due}` is known only for the day it was fetched (`dueNow`) or for the morning of `forecast.nextMorning` (`dueByNextMorning`); after answers it's unknown until `/me` is loaded again.
 
 ## 3. Planner
 
@@ -56,7 +58,7 @@ Rules for "streak on `d` > 0" and "streak breaks at the start of `d`":
 
 So reaching today's goal (a review response with `goalMet`) re-plans: today's `evening` and `last_call` disappear, tomorrow's `last_call` appears, and tomorrow's slot 1 changes from `comeback` to `morning`.
 
-Slots whose time has already passed today are not scheduled.
+Slots whose time has already passed today are not scheduled. A day whose goal is already met gets no reminder at all, the morning one included.
 
 ### 3.2 Quiet hours
 

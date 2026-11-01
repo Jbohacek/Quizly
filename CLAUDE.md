@@ -439,3 +439,8 @@ Jakub confirmed these defaults at the Etapa 0 gate (2026-10-31). Raise any of th
 | 2026-11-01 | "Kdy ti to jde nejlíp" shows the best weekday and the best 2-hour window as two sentences (they're independent stats); the canvas's "Připomínky se tomu přizpůsobí" is left out, since Chytré časy use the median start time. |
 | 2026-11-01 | Obchod: tapping a reward card also opens the purchase sheet (it shows the description); after a purchase the Moje nákupy tab opens. Price and button sit on separate rows, because "Chybí 1 436" doesn't fit next to the price on a phone. |
 | 2026-11-01 | Motion: the streak flame breathes while a streak is going, confetti plays when the goal or a milestone is reached in a session. All animations (and the floating "+N") are off with the system's reduce-motion setting. |
+| 2026-11-01 | Etapa 6 approved and merged (PR #6). |
+| 2026-11-01 | Notifications: a day whose goal is already met gets no reminder, the morning one included. Numbers cached from an earlier day are rolled forward (met day keeps the streak, unmet day ends it), so the plan stays right when the app isn't opened. |
+| 2026-11-01 | Notifications have no action buttons (the canvas shows "Jdu na to"); a tap opens Obchod (wishlist) or Domů and reloads that screen. "Otevřít nastavení" uses a small method channel in `MainActivity`, no extra package. |
+| 2026-11-01 | Before refreshing tokens the API client re-reads the stored pair, because the background refresh (another isolate) may have rotated them already. |
+| 2026-11-01 | Nastavení: quiet hours are set with two time pickers (od, do); with Chytré časy on and a smart time known, the evening row says "S Chytrými časy teď v 19:15". |
