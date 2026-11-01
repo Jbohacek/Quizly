@@ -138,6 +138,15 @@ void main() {
     );
     expect(store.tokens, isNotNull);
   });
+  test('a network failure while refreshing is reported as network, not 401, and keeps the login', () async {
+    store = MemoryTokenStore(tokens('A1', 'R1', validFor: const Duration(seconds: 10)));
+    final dio = Dio()..httpClientAdapter = _Offline();
+    final c = ApiClient(baseUrl: 'https://quizly.test', store: store, dio: dio, now: () => now);
+    await c.restore();
+    await expectLater(c.settings(), throwsA(isA<ApiException>().having((e) => e.isNetwork, 'isNetwork', isTrue)));
+    expect(store.tokens!.refreshToken, 'R1');
+    expect(c.user, isNotNull);
+  });
 }
 
 class _Offline implements HttpClientAdapter {

@@ -62,7 +62,16 @@ class SwipeCardState extends State<SwipeCard> with TickerProviderStateMixin {
     if (!_reduceMotion) {
       await _animateTo(target, const Duration(milliseconds: 260), Curves.easeIn);
     }
-    if (mounted) widget.onAnswer(rating);
+    if (!mounted) return;
+    widget.onAnswer(rating);
+    // An accepted answer replaces this card (new key). If it was refused (e.g. offline
+    // since the throw started), bring the card back instead of leaving it off screen.
+    if (mounted) {
+      setState(() {
+        _flying = false;
+        _drag = Offset.zero;
+      });
+    }
   }
 
   Future<void> _animateTo(Offset target, Duration duration, Curve curve) {

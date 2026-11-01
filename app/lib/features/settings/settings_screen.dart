@@ -51,9 +51,15 @@ class _SettingsBody extends ConsumerStatefulWidget {
 class _SettingsBodyState extends ConsumerState<_SettingsBody> {
   late UserSettings _settings = widget.initial;
   late UserSettings _saved = widget.initial;
-  late final ApiClient _client = ref.read(apiClientProvider);
+  late final ApiClient _client;
   Timer? _debounce;
   int _saveVersion = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _client = ref.read(apiClientProvider);
+  }
 
   @override
   void dispose() {

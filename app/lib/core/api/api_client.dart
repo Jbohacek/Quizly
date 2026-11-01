@@ -130,7 +130,11 @@ class ApiClient {
   Future<void> _onRequest(RequestOptions options, RequestInterceptorHandler handler) async {
     if (options.extra['auth'] == false) return handler.next(options);
     if (_tokens != null && _tokens!.accessTokenExpiresAt.difference(_now()) < _refreshAhead) {
-      await _refresh();
+      try {
+        await _refresh();
+      } on ApiException catch (e) {
+        return handler.reject(DioException(requestOptions: options, error: e));
+      }
     }
     final tokens = _tokens;
     if (tokens == null) {
@@ -156,7 +160,13 @@ class ApiClient {
     final sentWith = options.headers['Authorization'];
     // Another request may have refreshed already; only refresh if our token is still current.
     final current = _tokens == null ? null : 'Bearer ${_tokens!.accessToken}';
-    final ok = sentWith != current || await _refresh(force: true);
+    final bool ok;
+    try {
+      ok = sentWith != current || await _refresh(force: true);
+    } on ApiException catch (e) {
+      // The refresh itself failed (network, 5xx): report that, not the 401, so callers retry.
+      return handler.next(DioException(requestOptions: options, error: e));
+    }
     if (!ok || _tokens == null) return handler.next(error);
     try {
       options.extra['retried'] = true;
@@ -167,6 +177,7 @@ class ApiClient {
   }
 
   /// Rotates the tokens once, however many requests ask at the same time.
+  /// Returns false when the login ended; throws [ApiException] when the refresh couldn't be done now.
   Future<bool> _refresh({bool force = false}) {
     return _refreshing ??= _doRefresh(force).whenComplete(() => _refreshing = null);
   }
@@ -183,10 +194,10 @@ class ApiClient {
       if (e.code == 'refreshTokenInvalid' || e.code == 'accountDisabled') {
         await _setTokens(null);
         _signedOut.add(e.code == 'accountDisabled' ? SignOutReason.accountDisabled : SignOutReason.sessionExpired);
-      } else {
-        debugPrint('Token refresh failed: ${e.code}');
+        return false;
       }
-      return false;
+      debugPrint('Token refresh failed: ${e.code}');
+      rethrow;
     }
   }
 }
