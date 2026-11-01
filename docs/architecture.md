@@ -26,7 +26,7 @@ Final layout for v1. Versions are pinned to the latest stable release when each 
 │  └─ Quizly.Web/                   ASP.NET Core host
 │     ├─ Api/                       minimal API endpoint groups per feature, ProblemDetails mapping
 │     ├─ Auth/                      JWT (app), cookie (admin), rate-limit policies
-│     ├─ Components/                Blazor: App.razor, Layout/, Pages/Admin/*, Shared/
+│     ├─ Components/                Blazor: App/Routes, Layout/ (AdminLayout), Pages/ (Login, Overview, Decks, DeckDetail, Shop, Users, NotificationTexts), Shared/, AdminPage (one DI scope per operation)
 │     ├─ wwwroot/                   admin CSS (tokens from CLAUDE.md §9.2), bundled fonts
 │     └─ Program.cs
 ├─ tests/

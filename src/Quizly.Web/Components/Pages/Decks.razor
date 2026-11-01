@@ -1,0 +1,171 @@
+@page "/admin/balicky"
+@attribute [Authorize(Policy = AuthSetup.AdminPolicy)]
+@inherits AdminPage
+@using Quizly.Application.Decks
+@using Quizly.Application.Yaml
+@inject NavigationManager Navigation
+
+<PageTitle>Balíčky · Quizly Admin</PageTitle>
+
+<header class="page-head">
+    <div>
+        <span class="eyebrow">@(_decks is null ? "" : $"{_decks.Count} {Cz.Plural(_decks.Count, "balíček", "balíčky", "balíčků")} · {Cz.Cards(_decks.Sum(d => d.CardCount))}")</span>
+        <h1>Balíčky</h1>
+    </div>
+    <div class="row">
+        <button class="btn" @onclick="() => { _mode = _mode == Mode.Import ? Mode.None : Mode.Import; ClearMessages(); }">Importovat YAML</button>
+        <button class="btn primary" @onclick="() => { _mode = _mode == Mode.Create ? Mode.None : Mode.Create; ClearMessages(); }">Nový balíček</button>
+    </div>
+</header>
+
+<Messages Error="@Error" Notice="@Notice" />
+
+@if (_mode == Mode.Create)
+{
+    <section class="card form" aria-labelledby="new-deck">
+        <h2 id="new-deck">Nový balíček</h2>
+        <div class="row">
+            <div class="field" style="flex: 3 1 260px">
+                <label for="d-name">Název</label>
+                <input id="d-name" @bind="_name" maxlength="@Limits.DeckNameMax" />
+                <FieldMessage Message="@FieldError("name")" />
+            </div>
+            <div class="field" style="flex: 0 0 auto">
+                <label for="d-color">Barva</label>
+                <input id="d-color" type="color" @bind="_color" />
+            </div>
+        </div>
+        <div class="field">
+            <label for="d-desc">Popis</label>
+            <input id="d-desc" @bind="_description" maxlength="@Limits.DeckDescriptionMax" />
+            <FieldMessage Message="@FieldError("description")" />
+        </div>
+        <div class="row">
+            <button class="btn primary" @onclick="CreateAsync" disabled="@_busy">Vytvořit balíček</button>
+            <button class="btn" @onclick="() => _mode = Mode.None">Zrušit</button>
+        </div>
+    </section>
+}
+
+@if (_mode == Mode.Import)
+{
+    <section class="card form" aria-labelledby="import-deck">
+        <div class="card-head">
+            <h2 id="import-deck">Importovat YAML jako nový balíček</h2>
+            <label class="btn small">
+                Nahrát soubor
+                <InputFile OnChange="LoadFileAsync" accept=".yaml,.yml,text/yaml" style="display:none" />
+            </label>
+        </div>
+        <p class="hint">Karty nesmí mít <code>id</code>. Formát popisuje <code>docs/yaml-format.md</code>.</p>
+        <textarea class="yaml" @bind="_yaml" @bind:event="oninput" @bind:after="() => _preview = null" spellcheck="false" aria-label="YAML"></textarea>
+        <div class="row">
+            <button class="btn" @onclick="PreviewImportAsync" disabled="@(_busy || string.IsNullOrWhiteSpace(_yaml))">Náhled</button>
+            <button class="btn primary" @onclick="ImportAsync" disabled="@(_busy || _preview is not { Valid: true })">Vytvořit balíček</button>
+        </div>
+        <YamlPreview Preview="@_preview" />
+    </section>
+}
+
+<section class="card" aria-label="Seznam balíčků">
+    @if (_decks is null)
+    {
+        <p class="muted">Načítám…</p>
+    }
+    else if (_decks.Count == 0)
+    {
+        <p class="empty">Zatím žádné balíčky. Vytvoř první, nebo importuj YAML.</p>
+    }
+    else
+    {
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr><th>Balíček</th><th class="right">Karet</th><th class="right">Pořadí</th><th>Upraveno</th><th></th></tr>
+                </thead>
+                <tbody>
+                    @foreach (var d in _decks)
+                    {
+                        <tr>
+                            <td>
+                                <span class="stack">
+                                    <a class="strong" href="/admin/balicky/@d.Id"><span class="swatch" style="background:@d.Color"></span>@d.Name</a>
+                                    @if (d.Description.Length > 0)
+                                    {
+                                        <span class="small muted">@d.Description</span>
+                                    }
+                                </span>
+                            </td>
+                            <td class="right num">@Cz.Number(d.CardCount)</td>
+                            <td class="right num">@d.SortOrder</td>
+                            <td class="muted">@Cz.DateTime(d.UpdatedAt)</td>
+                            <td class="actions"><a class="btn small" href="/admin/balicky/@d.Id">Otevřít</a></td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</section>
+
+@code {
+    private enum Mode { None, Create, Import }
+
+    private IReadOnlyList<DeckResponse>? _decks;
+    private Mode _mode;
+    private bool _busy;
+    private string _name = "";
+    private string _description = "";
+    private string _color = Limits.DefaultDeckColor;
+    private string _yaml = "";
+    private YamlPreviewResponse? _preview;
+
+    protected override async Task OnInitializedAsync() =>
+        _decks = await UseAsync<IDeckService, IReadOnlyList<DeckResponse>>(s => s.ListAsync(CancellationToken.None));
+
+    private async Task CreateAsync()
+    {
+        _busy = true;
+        var result = await UseAsync<IDeckService, Result<DeckResponse>>(s =>
+            s.CreateAsync(new DeckRequest(_name, _description, _color), CancellationToken.None));
+        _busy = false;
+        if (Handle(result))
+        {
+            Navigation.NavigateTo($"/admin/balicky/{result.Value!.Id}");
+        }
+    }
+
+    private async Task LoadFileAsync(InputFileChangeEventArgs e)
+    {
+        ClearMessages();
+        try
+        {
+            using var reader = new StreamReader(e.File.OpenReadStream(DeckYaml.MaxBytes), System.Text.Encoding.UTF8);
+            _yaml = await reader.ReadToEndAsync();
+            _preview = null;
+        }
+        catch (IOException)
+        {
+            Error = new AppError("fileTooLarge", 400, "Soubor je větší než 1 MB.");
+        }
+    }
+
+    private async Task PreviewImportAsync()
+    {
+        _busy = true;
+        ClearMessages();
+        _preview = await UseAsync<IYamlDeckService, YamlPreviewResponse>(s => s.PreviewNewDeckAsync(new YamlRequest(_yaml), CancellationToken.None));
+        _busy = false;
+    }
+
+    private async Task ImportAsync()
+    {
+        _busy = true;
+        var result = await UseAsync<IYamlDeckService, Result<DeckResponse>>(s => s.ImportNewDeckAsync(new YamlRequest(_yaml), CancellationToken.None));
+        _busy = false;
+        if (Handle(result))
+        {
+            Navigation.NavigateTo($"/admin/balicky/{result.Value!.Id}");
+        }
+    }
+}

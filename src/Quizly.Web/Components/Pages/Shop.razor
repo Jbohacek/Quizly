@@ -1,0 +1,282 @@
+@page "/admin/obchod"
+@attribute [Authorize(Policy = AuthSetup.AdminPolicy)]
+@inherits AdminPage
+@using Quizly.Application.Shop
+
+<PageTitle>Obchod · Quizly Admin</PageTitle>
+
+<header class="page-head">
+    <div>
+        <span class="eyebrow">@(_items is null ? "" : $"{_items.Count} {Cz.Plural(_items.Count, "odměna", "odměny", "odměn")} · {_items.Sum(i => i.PendingClaims)} čeká na schválení")</span>
+        <h1>Obchod</h1>
+    </div>
+    <button class="btn primary" @onclick="New">Nová odměna</button>
+</header>
+
+<Messages Error="@Error" Notice="@Notice" />
+
+<div class="grid">
+    <section class="card wide" aria-labelledby="items-title">
+        <h2 id="items-title">Odměny</h2>
+        @if (_items is null)
+        {
+            <p class="muted">Načítám…</p>
+        }
+        else if (_items.Count == 0)
+        {
+            <p class="empty">Zatím žádné odměny. Přidej první, třeba „Jít na pizzu“.</p>
+        }
+        else
+        {
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr><th>Odměna</th><th class="right">Cena</th><th>Skladem</th><th class="right">Čeká</th><th class="right">Přání</th><th>Stav</th><th></th></tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var i in _items)
+                        {
+                            <tr class="@(i.IsActive ? "" : "dim")">
+                                <td><span class="stack"><span class="strong">@i.Name</span><span class="small muted">@i.Description</span></span></td>
+                                <td class="right num">@Cz.Points(i.Price)</td>
+                                <td class="num">@i.Stock z @i.InitialStock</td>
+                                <td class="right num">@i.PendingClaims</td>
+                                <td class="right num">@i.OnWishlists</td>
+                                <td>
+                                    @if (!i.IsActive)
+                                    {
+                                        <span class="chip neutral">Skryto</span>
+                                    }
+                                    else if (i.Stock == 0)
+                                    {
+                                        <span class="chip rejected">Vyprodáno</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="chip confirmed">V nabídce</span>
+                                    }
+                                </td>
+                                <td class="actions"><button class="btn small" @onclick="() => Edit(i)">Upravit</button></td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </section>
+
+    @if (_form is not null)
+    {
+        <section class="card side form" aria-labelledby="item-form">
+            <h2 id="item-form">@(_form.Id is null ? "Nová odměna" : "Upravit odměnu")</h2>
+            <div class="field">
+                <label for="i-name">Název</label>
+                <input id="i-name" @bind="_form.Name" maxlength="@Limits.ShopItemNameMax" />
+                <FieldMessage Message="@FieldError("name")" />
+            </div>
+            <div class="field">
+                <label for="i-desc">Popis</label>
+                <textarea id="i-desc" @bind="_form.Description" maxlength="@Limits.ShopItemDescriptionMax" style="min-height:70px"></textarea>
+                <FieldMessage Message="@FieldError("description")" />
+            </div>
+            <div class="row">
+                <div class="field">
+                    <label for="i-price">Cena (body)</label>
+                    <input id="i-price" type="number" min="@Limits.PriceMin" max="@Limits.PriceMax" @bind="_form.Price" />
+                    <FieldMessage Message="@FieldError("price")" />
+                </div>
+                <div class="field">
+                    <label for="i-stock">Kusů celkem</label>
+                    <input id="i-stock" type="number" min="0" max="@Limits.StockMax" @bind="_form.InitialStock" />
+                    <FieldMessage Message="@FieldError("initialStock")" />
+                </div>
+            </div>
+            @if (_form.Id is not null)
+            {
+                <p class="hint">Změna celkového počtu o N změní i zbývající kusy o N. Zbývá teď @_form.Stock.</p>
+                <div class="field" style="max-width:140px">
+                    <label for="i-order">Pořadí</label>
+                    <input id="i-order" type="number" @bind="_form.SortOrder" />
+                </div>
+            }
+            <label class="check"><input type="checkbox" @bind="_form.IsActive" /> V nabídce (vypnuté odměny aplikace nezobrazí)</label>
+            <div class="row">
+                <button class="btn primary" @onclick="SaveAsync" disabled="@_busy">@(_form.Id is null ? "Přidat odměnu" : "Uložit změny")</button>
+                <button class="btn" @onclick="() => _form = null">Zavřít</button>
+                @if (_form.Id is not null)
+                {
+                    <button class="btn danger" @onclick="() => _deleting = true" style="margin-left:auto">Smazat</button>
+                }
+            </div>
+        </section>
+    }
+</div>
+
+<section class="card" aria-labelledby="history-title">
+    <div class="card-head">
+        <h2 id="history-title">Historie nákupů</h2>
+        <div class="segments" role="group" aria-label="Filtr">
+            <button class="@(_filter is null ? "on" : "")" @onclick="() => FilterAsync(null)">Vše</button>
+            <button class="@(_filter == ClaimStatus.Pending ? "on" : "")" @onclick="() => FilterAsync(ClaimStatus.Pending)">Čeká</button>
+            <button class="@(_filter == ClaimStatus.Confirmed ? "on" : "")" @onclick="() => FilterAsync(ClaimStatus.Confirmed)">Schváleno</button>
+            <button class="@(_filter == ClaimStatus.Rejected ? "on" : "")" @onclick="() => FilterAsync(ClaimStatus.Rejected)">Zamítnuto</button>
+        </div>
+    </div>
+    @if (_claims is { Count: 0 })
+    {
+        <p class="empty">Žádné nákupy.</p>
+    }
+    else if (_claims is not null)
+    {
+        <div class="table-wrap">
+            <table>
+                <thead><tr><th>Kdy</th><th>Uživatel</th><th>Odměna</th><th class="right">Cena</th><th>Stav</th><th></th></tr></thead>
+                <tbody>
+                    @foreach (var c in _claims)
+                    {
+                        <tr>
+                            <td class="muted">@Cz.DateTime(c.CreatedAt)</td>
+                            <td><span class="stack"><span class="strong">@c.DisplayName</span><span class="small muted">@c.Username</span></span></td>
+                            <td>@c.ItemName</td>
+                            <td class="right num">@Cz.Points(c.Price)</td>
+                            <td><ClaimStatusChip Status="c.Status" />@if (c.DecidedAt is { } decided) { <span class="small muted"> @Cz.DateTime(decided)</span> }</td>
+                            <td class="actions">
+                                @if (c.Status == ClaimStatus.Pending)
+                                {
+                                    <button class="btn small primary" @onclick="() => DecideAsync(c, confirm: true)" disabled="@_busy">Schválit</button>
+                                    <button class="btn small danger" @onclick="() => _rejecting = c" disabled="@_busy">Zamítnout</button>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</section>
+
+<ConfirmDialog Open="_rejecting is not null" Title="Zamítnout nákup?" ConfirmText="Zamítnout" Danger="true" Busy="_busy"
+               OnConfirm="() => DecideAsync(_rejecting!, confirm: false)" OnCancel="() => _rejecting = null">
+    <p>„@_rejecting?.ItemName“ pro @_rejecting?.DisplayName. Body se vrátí a kus se vrátí do obchodu.</p>
+</ConfirmDialog>
+
+<ConfirmDialog Open="_deleting" Title="Smazat odměnu?" ConfirmText="Smazat" Danger="true" Busy="_busy"
+               OnConfirm="DeleteAsync" OnCancel="() => _deleting = false">
+    <p>„@_form?.Name“ zmizí z obchodu i ze seznamů přání. Odměnu, kterou už někdo koupil, smazat nejde, jen skrýt.</p>
+</ConfirmDialog>
+
+@code {
+    private IReadOnlyList<ShopItemResponse>? _items;
+    private IReadOnlyList<AdminClaimResponse>? _claims;
+    private ClaimStatus? _filter = ClaimStatus.Pending;
+    private ItemForm? _form;
+    private AdminClaimResponse? _rejecting;
+    private bool _deleting;
+    private bool _busy;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadItemsAsync();
+        await LoadClaimsAsync();
+    }
+
+    private async Task LoadItemsAsync() =>
+        _items = await UseAsync<IShopItemService, IReadOnlyList<ShopItemResponse>>(s => s.ListAsync(CancellationToken.None));
+
+    private async Task LoadClaimsAsync() =>
+        _claims = await UseAsync<IClaimAdminService, IReadOnlyList<AdminClaimResponse>>(s => s.ListAsync(_filter, CancellationToken.None));
+
+    private async Task FilterAsync(ClaimStatus? status)
+    {
+        _filter = status;
+        await LoadClaimsAsync();
+    }
+
+    private void New()
+    {
+        ClearMessages();
+        _form = new ItemForm();
+    }
+
+    private void Edit(ShopItemResponse item)
+    {
+        ClearMessages();
+        _form = new ItemForm
+        {
+            Id = item.Id,
+            Name = item.Name,
+            Description = item.Description,
+            Price = item.Price,
+            InitialStock = item.InitialStock,
+            Stock = item.Stock,
+            IsActive = item.IsActive,
+            SortOrder = item.SortOrder,
+            Version = item.Version,
+        };
+    }
+
+    private async Task SaveAsync()
+    {
+        var f = _form!;
+        _busy = true;
+        var result = await UseAsync<IShopItemService, Result<ShopItemResponse>>(s => f.Id is int id
+            ? s.UpdateAsync(id, new UpdateShopItemRequest(f.Name, f.Description, f.Price, f.InitialStock, f.IsActive, f.SortOrder, f.Version), CancellationToken.None)
+            : s.CreateAsync(new CreateShopItemRequest(f.Name, f.Description, f.Price, f.InitialStock, f.IsActive), CancellationToken.None));
+        if (Handle(result, f.Id is null ? "Odměna přidána." : "Odměna uložena."))
+        {
+            _form = null;
+            await LoadItemsAsync();
+        }
+
+        _busy = false;
+    }
+
+    private async Task DeleteAsync()
+    {
+        var id = _form!.Id!.Value;
+        _busy = true;
+        var result = await UseAsync<IShopItemService, Result>(s => s.DeleteAsync(id, CancellationToken.None));
+        _deleting = false;
+        if (Handle(result, "Odměna smazána."))
+        {
+            _form = null;
+            await LoadItemsAsync();
+        }
+
+        _busy = false;
+    }
+
+    private async Task DecideAsync(AdminClaimResponse claim, bool confirm)
+    {
+        _busy = true;
+        var result = await UseAsync<IClaimAdminService, Result<AdminClaimResponse>>(s => confirm
+            ? s.ConfirmAsync(claim.Id, CancellationToken.None)
+            : s.RejectAsync(claim.Id, CancellationToken.None));
+        Handle(result, confirm ? $"Schváleno: {claim.ItemName} pro {claim.DisplayName}." : $"Zamítnuto, body vráceny: {claim.ItemName}.");
+        _rejecting = null;
+        await LoadItemsAsync();
+        await LoadClaimsAsync();
+        _busy = false;
+    }
+
+    private sealed class ItemForm
+    {
+        public int? Id { get; set; }
+
+        public string Name { get; set; } = "";
+
+        public string Description { get; set; } = "";
+
+        public int Price { get; set; } = 100;
+
+        public int InitialStock { get; set; } = 1;
+
+        public int Stock { get; set; }
+
+        public bool IsActive { get; set; } = true;
+
+        public int SortOrder { get; set; }
+
+        public uint Version { get; set; }
+    }
+}

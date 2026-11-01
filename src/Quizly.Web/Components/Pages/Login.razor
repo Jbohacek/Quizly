@@ -1,0 +1,82 @@
+@page "/admin/login"
+@layout EmptyLayout
+@using System.Security.Claims
+@using Microsoft.AspNetCore.Authentication
+@using Quizly.Application.Auth
+@inject IAdminAuthenticator Admin
+@inject ILoginThrottle Throttle
+@inject NavigationManager Navigation
+
+<PageTitle>Přihlášení · Quizly Admin</PageTitle>
+
+<div class="login">
+    <form class="card login-card" method="post" @onsubmit="SubmitAsync" @formname="admin-login">
+        <AntiforgeryToken />
+        <div class="brand">
+            <span class="logo">Q</span>
+            <span><b>Quizly</b><small>Administrace</small></span>
+        </div>
+        <h1>Přihlášení</h1>
+        @if (_error is not null)
+        {
+            <p class="alert error" role="alert">@_error</p>
+        }
+        <div class="field">
+            <label for="username">Uživatelské jméno</label>
+            <input id="username" name="Model.Username" @bind="Model!.Username" autocomplete="username" required autofocus />
+        </div>
+        <div class="field">
+            <label for="password">Heslo</label>
+            <input id="password" name="Model.Password" type="password" @bind="Model!.Password" autocomplete="current-password" required />
+        </div>
+        <button class="btn primary block" type="submit">Přihlásit se</button>
+    </form>
+</div>
+
+@code {
+    private string? _error;
+
+    [CascadingParameter]
+    private HttpContext HttpContext { get; set; } = default!;
+
+    [SupplyParameterFromForm]
+    private LoginForm? Model { get; set; }
+
+    [SupplyParameterFromQuery(Name = "returnUrl")]
+    private string? ReturnUrl { get; set; }
+
+    protected override void OnInitialized() => Model ??= new LoginForm();
+
+    private async Task SubmitAsync()
+    {
+        Model ??= new LoginForm();
+        // Login page attempts per IP (docs/spec.md §9.2).
+        var key = "admin-login:" + (HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown");
+        if (Throttle.IsBlocked(key))
+        {
+            _error = "Příliš mnoho pokusů. Zkus to prosím za chvíli.";
+            return;
+        }
+
+        if (!Admin.Verify(Model.Username ?? "", Model.Password ?? ""))
+        {
+            Throttle.RecordFailure(key);
+            _error = "Nesprávné uživatelské jméno nebo heslo.";
+            return;
+        }
+
+        Throttle.Reset(key);
+        var identity = new ClaimsIdentity(
+            [new System.Security.Claims.Claim(ClaimTypes.Name, Admin.Username), new System.Security.Claims.Claim(ClaimTypes.Role, AuthSetup.AdminRole)],
+            AuthSetup.AdminScheme);
+        await HttpContext.SignInAsync(AuthSetup.AdminScheme, new ClaimsPrincipal(identity));
+        Navigation.NavigateTo(AdminDashboard.SafeReturnUrl(ReturnUrl), forceLoad: true);
+    }
+
+    private sealed class LoginForm
+    {
+        public string? Username { get; set; }
+
+        public string? Password { get; set; }
+    }
+}

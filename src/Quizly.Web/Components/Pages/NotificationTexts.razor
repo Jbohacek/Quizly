@@ -1,0 +1,277 @@
+@page "/admin/texty-upozorneni"
+@attribute [Authorize(Policy = AuthSetup.AdminPolicy)]
+@inherits AdminPage
+@using System.Text.RegularExpressions
+@using Quizly.Application.NotificationTexts
+@inject IJSRuntime JS
+
+<PageTitle>Texty upozornění · Quizly Admin</PageTitle>
+
+<header class="page-head">
+    <div>
+        <span class="eyebrow">@(_texts is null ? "" : $"{_texts.Count} textů · {_texts.Count(t => t.IsActive)} aktivních")</span>
+        <h1>Texty upozornění</h1>
+    </div>
+    <button class="btn primary" @onclick="New">Nový text</button>
+</header>
+
+<Messages Error="@(_editor is null ? Error : null)" Notice="@Notice" />
+
+<div class="segments" role="tablist" aria-label="Kategorie">
+    @foreach (var c in Categories)
+    {
+        var items = _texts?.Where(t => t.Category == c.Category).ToList() ?? [];
+        <button role="tab" class="@(c.Category == _category ? "on" : "")" aria-selected="@(c.Category == _category)" @onclick="() => Select(c.Category)">
+            @c.Name <span class="small">@items.Count(t => t.IsActive)/@items.Count</span>
+        </button>
+    }
+</div>
+
+<div class="grid">
+    <section class="card wide" aria-labelledby="list-title">
+        <div class="card-head">
+            <h2 id="list-title">@Current.Name</h2>
+            <span class="eyebrow">@InCategory.Count textů</span>
+        </div>
+        <p class="hint">@Current.When</p>
+        @if (FreeActive < 2 && _texts is not null)
+        {
+            <p class="alert warn">Kategorie potřebuje aspoň 2 aktivní texty bez zástupných symbolů (pro případ, že hodnota chybí). Teď: @FreeActive.</p>
+        }
+        <ul class="text-list">
+            @foreach (var t in InCategory)
+            {
+                <li class="@(t.Id == _editor?.Id ? "selected" : "") @(t.IsActive ? "" : "off")">
+                    <div style="flex:1; min-width:0">
+                        <div class="txt">@Highlight(t.Text)</div>
+                        <div class="row" style="gap:6px; margin-top:6px">
+                            <span class="chip @(t.IsActive ? "confirmed" : "neutral")">@(t.IsActive ? "Aktivní" : "Neaktivní")</span>
+                            @if (!Placeholder().IsMatch(t.Text))
+                            {
+                                <span class="chip neutral">bez zástupných symbolů</span>
+                            }
+                        </div>
+                    </div>
+                    <div class="actions" style="display:flex; gap:6px; flex-wrap:wrap; justify-content:flex-end">
+                        <button class="btn small" @onclick="() => Edit(t)">Upravit</button>
+                        <button class="btn small" @onclick="() => ToggleAsync(t)">@(t.IsActive ? "Deaktivovat" : "Aktivovat")</button>
+                        <button class="btn small danger" @onclick="() => _deleting = t">Smazat</button>
+                    </div>
+                </li>
+            }
+        </ul>
+    </section>
+
+    @if (_editor is not null)
+    {
+        <section class="card side form" aria-labelledby="editor-title">
+            <h2 id="editor-title">@(_editor.Id is null ? "Nový text" : "Upravit text")</h2>
+            <Messages Error="@Error" />
+            <div class="field">
+                <label for="t-cat">Kategorie</label>
+                <select id="t-cat" @bind="_editor.Category">
+                    @foreach (var c in Categories)
+                    {
+                        <option value="@c.Category">@c.Name</option>
+                    }
+                </select>
+            </div>
+            <div class="field">
+                <span class="label-row" style="display:flex; justify-content:space-between">
+                    <label for="t-text">Text</label>
+                    <span class="hint num" style="color:@(_editor.Text.Length > Limits.NotificationTextMax ? "var(--bad-fg)" : "")">@_editor.Text.Length / @Limits.NotificationTextMax</span>
+                </span>
+                <textarea id="t-text" @ref="_textArea" @bind="_editor.Text" @bind:event="oninput" @bind:after="RenderPreview"></textarea>
+                <div class="phs" aria-label="Vložit zástupný symbol">
+                    @foreach (var p in CategoryInfo(_editor.Category).Placeholders)
+                    {
+                        <button type="button" @onclick="() => InsertAsync(p)">{@p}</button>
+                    }
+                </div>
+                <span class="hint">Piš neutrálně (žádné „zvládl/a“, „připravený/á“). Čísla dávej za dvojtečku nebo do tvaru „{done} z {goal}“, ať sedí skloňování.</span>
+                <FieldMessage Message="@FieldError("text")" />
+            </div>
+            <label class="check"><input type="checkbox" @bind="_editor.IsActive" /> Aktivní</label>
+            <div class="field">
+                <span class="label-row">Náhled na telefonu</span>
+                <div class="phone">
+                    <div class="notif">
+                        <span class="ic">Q</span>
+                        <div style="min-width:0">
+                            <div class="top"><b>Quizly</b><span>· teď</span></div>
+                            <p>@(_preview ?? "Tady se ukáže, jak text uvidí uživatel.")</p>
+                        </div>
+                    </div>
+                </div>
+                <span class="hint">Ukázkové hodnoty: {due} 23 · {left} 7 · {done} 13 · {goal} 20 · {streak} 14 · {multiplier} 1,2× · {item} Jít na pizzu · {points} 1 457</span>
+            </div>
+            <div class="row">
+                <button class="btn primary" @onclick="SaveAsync" disabled="@_busy">@(_editor.Id is null ? "Přidat text" : "Uložit změny")</button>
+                <button class="btn" @onclick="() => _editor = null">Zavřít</button>
+            </div>
+        </section>
+    }
+</div>
+
+<ConfirmDialog Open="_deleting is not null" Title="Smazat text?" ConfirmText="Smazat" Danger="true" Busy="_busy"
+               OnConfirm="DeleteAsync" OnCancel="() => _deleting = null">
+    <p>„@_deleting?.Text“</p>
+    <p class="hint">Pokud ho chceš jen dočasně vypnout, použij Deaktivovat.</p>
+</ConfirmDialog>
+
+@code {
+    private sealed record CategoryDef(NotificationCategory Category, string Name, string When, string[] Placeholders);
+
+    // When each category fires (docs/notifications.md) and the placeholders that make sense in it.
+    private static readonly CategoryDef[] Categories =
+    [
+        new(NotificationCategory.Morning, "Ráno", "Každý den v čas ranního upozornění uživatele (výchozí 08:00), s počtem karet na dnešek.", ["due", "streak", "multiplier", "goal"]),
+        new(NotificationCategory.Evening, "Večer", "Ve večerní čas (výchozí 18:30, nebo podle Chytrých časů), jen když denní cíl ještě není splněný.", ["done", "goal", "left", "streak"]),
+        new(NotificationCategory.LastCall, "Poslední výzva", "Ve 21:00 (nastavitelné), když cíl není splněný a série je větší než 0.", ["left", "done", "goal", "streak"]),
+        new(NotificationCategory.Milestone, "Milník série", "Hned po dosažení série 7, 30, 100 nebo 365 dní. {points} je bonus, {streak} dosažený milník.", ["streak", "points", "multiplier"]),
+        new(NotificationCategory.Wishlist, "Seznam přání", "Když body poprvé dosáhnou ceny odměny ze Seznamu přání. {points} je zůstatek.", ["item", "points"]),
+        new(NotificationCategory.Comeback, "Návrat", "Ráno po dni, kdy se přerušila série. Místo běžného ranního textu.", ["due"]),
+    ];
+
+    private IReadOnlyList<NotificationTextResponse>? _texts;
+    private NotificationCategory _category = NotificationCategory.Morning;
+    private EditorForm? _editor;
+    private string? _preview;
+    private NotificationTextResponse? _deleting;
+    private ElementReference _textArea;
+    private bool _busy;
+
+    private CategoryDef Current => CategoryInfo(_category);
+
+    private List<NotificationTextResponse> InCategory => _texts?.Where(t => t.Category == _category).ToList() ?? [];
+
+    private int FreeActive => InCategory.Count(t => t.IsActive && !Placeholder().IsMatch(t.Text));
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync() =>
+        _texts = await UseAsync<INotificationTextService, IReadOnlyList<NotificationTextResponse>>(s => s.ListAsync(null, CancellationToken.None));
+
+    private static CategoryDef CategoryInfo(NotificationCategory category) => Categories.First(c => c.Category == category);
+
+    private void Select(NotificationCategory category)
+    {
+        _category = category;
+        _editor = null;
+        ClearMessages();
+    }
+
+    private void New()
+    {
+        ClearMessages();
+        _editor = new EditorForm { Category = _category };
+        _preview = null;
+    }
+
+    private void Edit(NotificationTextResponse text)
+    {
+        ClearMessages();
+        _editor = new EditorForm { Id = text.Id, Category = text.Category, Text = text.Text, IsActive = text.IsActive };
+        RenderPreview();
+    }
+
+    private void RenderPreview()
+    {
+        if (_editor is null || _editor.Text.Trim().Length == 0)
+        {
+            _preview = null;
+            return;
+        }
+
+        // Rendering is pure (sample values), so the service runs without a database round trip.
+        using var scope = ScopeFactoryProvider.CreateScope();
+        var result = scope.ServiceProvider.GetRequiredService<INotificationTextService>().Preview(new NotificationPreviewRequest(_editor.Text));
+        _preview = result.IsSuccess ? result.Value!.Rendered : null;
+        Error = result.IsSuccess ? null : result.Error;
+    }
+
+    private async Task InsertAsync(string placeholder)
+    {
+        _editor!.Text = await JS.InvokeAsync<string>("quizly.insertAtCaret", _textArea, $"{{{placeholder}}}");
+        RenderPreview();
+    }
+
+    private async Task SaveAsync()
+    {
+        var f = _editor!;
+        _busy = true;
+        var request = new NotificationTextRequest(f.Category, f.Text, f.IsActive);
+        var result = await UseAsync<INotificationTextService, Result<NotificationTextResponse>>(s => f.Id is int id
+            ? s.UpdateAsync(id, request, CancellationToken.None)
+            : s.CreateAsync(request, CancellationToken.None));
+        if (Handle(result, f.Id is null ? "Text přidán." : "Změny uloženy."))
+        {
+            _category = f.Category;
+            _editor = null;
+            await LoadAsync();
+        }
+
+        _busy = false;
+    }
+
+    private async Task ToggleAsync(NotificationTextResponse text)
+    {
+        var request = new NotificationTextRequest(text.Category, text.Text, !text.IsActive);
+        var result = await UseAsync<INotificationTextService, Result<NotificationTextResponse>>(s => s.UpdateAsync(text.Id, request, CancellationToken.None));
+        Handle(result, text.IsActive ? "Text je neaktivní." : "Text je aktivní.");
+        await LoadAsync();
+    }
+
+    private async Task DeleteAsync()
+    {
+        var id = _deleting!.Id;
+        _busy = true;
+        var result = await UseAsync<INotificationTextService, Result>(s => s.DeleteAsync(id, CancellationToken.None));
+        Handle(result, "Text smazán.");
+        _deleting = null;
+        if (_editor?.Id == id)
+        {
+            _editor = null;
+        }
+
+        await LoadAsync();
+        _busy = false;
+    }
+
+    /// <summary>The text with {placeholders} as chips.</summary>
+    private static RenderFragment Highlight(string text) => builder =>
+    {
+        var seq = 0;
+        var last = 0;
+        foreach (Match m in Placeholder().Matches(text))
+        {
+            builder.AddContent(seq++, text[last..m.Index]);
+            builder.OpenElement(seq++, "span");
+            builder.AddAttribute(seq++, "class", "ph");
+            builder.AddContent(seq++, m.Value);
+            builder.CloseElement();
+            last = m.Index + m.Length;
+        }
+
+        builder.AddContent(seq, text[last..]);
+    };
+
+    // [GeneratedRegex] doesn't run on Razor-generated code.
+    private static readonly Regex PlaceholderRegex = new(@"\{\w+\}", RegexOptions.Compiled);
+
+    private static Regex Placeholder() => PlaceholderRegex;
+
+    [Inject]
+    private IServiceScopeFactory ScopeFactoryProvider { get; set; } = default!;
+
+    private sealed class EditorForm
+    {
+        public int? Id { get; set; }
+
+        public NotificationCategory Category { get; set; }
+
+        public string Text { get; set; } = "";
+
+        public bool IsActive { get; set; } = true;
+    }
+}

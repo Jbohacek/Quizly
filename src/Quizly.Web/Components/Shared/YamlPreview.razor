@@ -1,0 +1,99 @@
+@using Quizly.Application.Yaml
+
+@if (Preview is null)
+{
+    return;
+}
+
+<div class="diff" aria-live="polite">
+    @if (!Preview.Valid)
+    {
+        <p class="alert error">YAML obsahuje @Preview.Errors.Count @Cz.Plural(Preview.Errors.Count, "chybu", "chyby", "chyb"). Oprav je a zkus náhled znovu.</p>
+        <ul>
+            @foreach (var e in Preview.Errors)
+            {
+                <li>
+                    @if (e.Line is int line)
+                    {
+                        <span class="line-ref">řádek @line@(e.Column is int col ? $":{col}" : "")</span>
+                    }
+                    @e.Message
+                </li>
+            }
+        </ul>
+    }
+    else
+    {
+        var c = Preview.Counts;
+        <div class="counts">
+            <span class="chip confirmed">Nové: @c.New</span>
+            <span class="chip pending">Změněné: @c.Changed</span>
+            <span class="chip rejected">Smazané: @c.Deleted</span>
+            <span class="chip neutral">Beze změny: @c.Unchanged</span>
+            @if (Preview.OrderChanged)
+            {
+                <span class="chip neutral">Pořadí karet se změní</span>
+            }
+            @if (Preview.Deck is { } deck && (deck.NameChanged || deck.DescriptionChanged || deck.ColorChanged))
+            {
+                <span class="chip neutral">Mění se @string.Join(", ", DeckChanges(deck))</span>
+            }
+        </div>
+
+        @if (Preview.New.Count > 0)
+        {
+            <h3>Nové karty</h3>
+            <ul>
+                @foreach (var n in Preview.New)
+                {
+                    <li><span class="line-ref">řádek @n.Line</span> @n.Question</li>
+                }
+            </ul>
+        }
+
+        @if (Preview.Changed.Count > 0)
+        {
+            <h3>Změněné karty</h3>
+            <ul>
+                @foreach (var ch in Preview.Changed)
+                {
+                    <li>
+                        <span class="line-ref">#@ch.Id · řádek @ch.Line</span> <span class="strong">@ch.Question</span>
+                        @if (ch.Before.Question is not null)
+                        {
+                            <div class="small muted">Otázka byla: @ch.Before.Question</div>
+                        }
+                        @if (ch.Before.Answer is not null)
+                        {
+                            <div class="small muted">Odpověď byla: @ch.Before.Answer</div>
+                            <div class="small">Nová odpověď: @ch.After.Answer</div>
+                        }
+                    </li>
+                }
+            </ul>
+        }
+
+        @if (Preview.Deleted.Count > 0)
+        {
+            <h3>Smazané karty (i s postupem uživatelů)</h3>
+            <ul>
+                @foreach (var d in Preview.Deleted)
+                {
+                    <li><span class="line-ref">#@d.Id</span> @d.Question <span class="muted">· postup: @d.UsersWithProgress @Cz.Plural(d.UsersWithProgress, "uživatel", "uživatelé", "uživatelů")</span></li>
+                }
+            </ul>
+        }
+    }
+</div>
+
+@code {
+    [Parameter]
+    public YamlPreviewResponse? Preview { get; set; }
+
+    private static IEnumerable<string> DeckChanges(YamlDeckChanges deck)
+    {
+        if (deck.NameChanged) yield return "název";
+        if (deck.DescriptionChanged) yield return "popis";
+        if (deck.ColorChanged) yield return "barva";
+    }
+}

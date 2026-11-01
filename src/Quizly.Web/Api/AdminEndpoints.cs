@@ -3,8 +3,10 @@ using Microsoft.AspNetCore.Http.HttpResults;
 using Quizly.Application.Common;
 using Quizly.Application.Decks;
 using Quizly.Application.NotificationTexts;
+using Quizly.Application.Overview;
 using Quizly.Application.Shop;
 using Quizly.Application.Users;
+using Quizly.Application.Yaml;
 using Quizly.Domain;
 using Quizly.Web.Auth;
 using Quizly.Web.Middleware;
@@ -20,9 +22,13 @@ internal static class AdminEndpoints
             .RequireAuthorization(AuthSetup.AdminPolicy)
             .AddEndpointFilter<JsonOnlyFilter>();
 
+        admin.MapGet("/overview", async (IOverviewService overview, CancellationToken ct) => TypedResults.Ok(await overview.GetAsync(ct)))
+            .WithTags("Admin: overview").WithName("GetOverview").WithSummary("Tiles, pending purchases and users today");
+
         MapUsers(admin.MapGroup("/users").WithTags("Admin: users"));
         MapDecks(admin.MapGroup("/decks").WithTags("Admin: decks"));
         MapCards(admin.MapGroup("/decks/{deckId:int}/cards").WithTags("Admin: cards"));
+        MapYaml(admin.MapGroup("/decks").WithTags("Admin: deck YAML"));
         MapShopItems(admin.MapGroup("/shop-items").WithTags("Admin: shop items"));
         MapNotificationTexts(admin.MapGroup("/notification-texts").WithTags("Admin: notification texts"));
         MapClaims(admin.MapGroup("/claims").WithTags("Admin: claims"));
@@ -79,6 +85,38 @@ internal static class AdminEndpoints
         g.MapDelete("/{id:int}", async (int id, IDeckService decks, CancellationToken ct) =>
                 (await decks.DeleteAsync(id, ct)).NoContentOrProblem())
             .WithName("DeleteDeck").WithSummary("Delete a deck with its cards and all users' progress on them");
+    }
+
+    private static void MapYaml(RouteGroupBuilder g)
+    {
+        g.MapGet("/{id:int}/yaml", async Task<Results<ContentHttpResult, ProblemHttpResult>> (int id, IYamlDeckService yaml, CancellationToken ct) =>
+            {
+                var export = await yaml.ExportAsync(id, ct);
+                return export.IsSuccess ? TypedResults.Text(export.Value, "text/yaml; charset=utf-8") : export.Error.ToProblem();
+            })
+            .WithName("ExportDeckYaml").WithSummary("Export the deck as YAML v1 (every card with its id)");
+
+        g.MapPost("/{id:int}/yaml/preview", async (int id, YamlRequest request, IYamlDeckService yaml, CancellationToken ct) =>
+                (await yaml.PreviewAsync(id, request, ct)).OkOrProblem())
+            .WithName("PreviewDeckYaml").WithSummary("Dry run: new / changed / deleted / unchanged cards and errors with line numbers")
+            .WithDescription("Always 200 for an existing deck; valid=false lists the errors. Nothing is written.");
+
+        g.MapPut("/{id:int}/yaml", async (int id, YamlApplyRequest request, IYamlDeckService yaml, CancellationToken ct) =>
+                (await yaml.ApplyAsync(id, request, ct)).OkOrProblem())
+            .WithName("ApplyDeckYaml").WithSummary("Apply YAML previewed against baseHash")
+            .WithDescription("422 yamlInvalid (with yamlErrors), 409 concurrencyConflict when the deck changed, 422 deleteNotConfirmed unless confirmDeleteIds lists exactly the cards to delete.");
+
+        g.MapPost("/import/preview", async (YamlRequest request, IYamlDeckService yaml, CancellationToken ct) =>
+                TypedResults.Ok(await yaml.PreviewNewDeckAsync(request, ct)))
+            .WithName("PreviewDeckImport").WithSummary("Dry run of importing YAML as a new deck (cards without ids)");
+
+        g.MapPost("/import", async (YamlRequest request, IYamlDeckService yaml, CancellationToken ct) =>
+                (await yaml.ImportNewDeckAsync(request, ct)).CreatedOrProblem(d => $"/api/admin/decks/{d.Id}"))
+            .WithName("ImportDeck").WithSummary("Create a new deck from YAML");
+
+        g.MapGet("/{id:int}/delete-impact", async (int id, IDeckService decks, CancellationToken ct) =>
+                (await decks.GetDeleteImpactAsync(id, ct)).OkOrProblem())
+            .WithName("GetDeckDeleteImpact").WithSummary("How many cards and users' progress deleting the deck removes");
     }
 
     private static void MapCards(RouteGroupBuilder g)

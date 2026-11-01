@@ -45,7 +45,7 @@ cards:
 
 - Header comment `# Quizly balíček · formát v1`, then `deck`, then `cards` in card sort order.
 - Every card has `id`. `description` is always written, `color` quoted.
-- Single-line text is a plain scalar, quoted only where YAML needs it. Multi-line text uses a literal block `|`.
+- Single-line text is a plain scalar; it is double-quoted when YAML needs it or when other tools could read it as a number, boolean or null (`"42"`, `"yes"`). Multi-line text uses a literal block `|-` (the importer accepts `|` too).
 - UTF-8 without BOM, LF line endings, 2-space indent. Czech characters are written as is (no `\u` escapes).
 - **Round trip:** exporting and re-importing without edits gives a preview with 0 changes.
 

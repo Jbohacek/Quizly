@@ -13,8 +13,8 @@ The full brief is in [`CLAUDE.md`](./CLAUDE.md).
 | 0 | Preparation | `main` | Approved |
 | 1 | Spec and design | `etapa-1-spec` | Approved |
 | 2 | API foundation | `etapa-2-api` | Approved |
-| 3 | Learning and game logic | `etapa-3-logic` | Waiting for review |
-| 4 | Admin dashboard and first deploy | `etapa-4-admin` | Not started |
+| 3 | Learning and game logic | `etapa-3-logic` | Approved |
+| 4 | Admin dashboard and first deploy | `etapa-4-admin` | Waiting for review (deploy steps are Jakub's) |
 | 5 | Android app core | `etapa-5-app` | Not started |
 | 6 | Motivation layer | `etapa-6-motivation` | Not started |
 | 7 | Notifications | `etapa-7-notifications` | Not started |
@@ -110,22 +110,22 @@ No production code in this stage.
 - [x] Unit tests: FSRS, points, streak edge cases (midnight, DST, missed day, goal change), claim concurrency, idempotency
 
 **Gate**
-- [ ] A full session can be played through Swagger; tests green
-- [ ] Approved by Jakub
+- [x] A full session can be played through Swagger; tests green
+- [x] Approved by Jakub
 
 ---
 
 ## Etapa 4: Admin dashboard and first deploy
 
-- [ ] Blazor admin layout (sidebar, responsive), login / logout
-- [ ] **Přehled:** tiles, pending claims with Schválit / Zamítnout, "Uživatelé dnes"
-- [ ] **Balíčky:** list, detail, cards CRUD, deck settings
-- [ ] **YAML:** export, copy, download, paste/import, preview diff, validation with line numbers, delete confirmation, apply; import as a new deck
-- [ ] **Obchod:** items CRUD, purchase history with filters, confirm / reject
-- [ ] **Uživatelé:** list, create (password shown once), edit, reset password, activate / deactivate
-- [ ] **Texty upozornění:** CRUD by category + preview
-- [ ] Forwarded headers, Data Protection keys on a volume, websockets behind the proxy
-- [ ] `deploy/README-deploy.md`: Portainer stack, GHCR registry, NPM proxy host, first login
+- [x] Blazor admin layout (sidebar, responsive), login / logout
+- [x] **Přehled:** tiles, pending claims with Schválit / Zamítnout, "Uživatelé dnes"
+- [x] **Balíčky:** list, detail, cards CRUD, deck settings
+- [x] **YAML:** export, copy, download, paste/import, preview diff, validation with line numbers, delete confirmation, apply; import as a new deck
+- [x] **Obchod:** items CRUD, purchase history with filters, confirm / reject
+- [x] **Uživatelé:** list, create (password shown once), edit, reset password, activate / deactivate
+- [x] **Texty upozornění:** CRUD by category + preview
+- [x] Forwarded headers, Data Protection keys on a volume, websockets behind the proxy (NPM switch in the guide)
+- [x] `deploy/README-deploy.md`: Portainer stack, GHCR registry, NPM proxy host, first login
 - [ ] **(Jakub)** DNS record for `quizly.jbohacek.cz`
 - [ ] **(Jakub)** Nginx Proxy Manager proxy host + SSL certificate (websockets on)
 - [ ] **(Jakub)** GitHub token with `read:packages` added to Portainer as a registry

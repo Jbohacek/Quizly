@@ -19,6 +19,10 @@ public static class DependencyInjection
         return services;
     }
 
-    internal static void Configure(DbContextOptionsBuilder options, string connectionString) =>
-        options.UseNpgsql(connectionString).UseSnakeCaseNamingConvention();
+    internal static void Configure(DbContextOptionsBuilder options, string connectionString)
+    {
+        // Password auth only; without this Npgsql probes GSS encryption and logs a missing libgssapi in the slim image.
+        var builder = new Npgsql.NpgsqlConnectionStringBuilder(connectionString) { GssEncryptionMode = Npgsql.GssEncryptionMode.Disable };
+        options.UseNpgsql(builder.ConnectionString).UseSnakeCaseNamingConvention();
+    }
 }

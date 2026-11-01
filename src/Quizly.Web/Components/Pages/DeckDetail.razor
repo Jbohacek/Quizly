@@ -1,0 +1,379 @@
+@page "/admin/balicky/{Id:int}"
+@attribute [Authorize(Policy = AuthSetup.AdminPolicy)]
+@inherits AdminPage
+@using Quizly.Application.Decks
+@using Quizly.Application.Yaml
+@inject NavigationManager Navigation
+@inject IJSRuntime JS
+
+<PageTitle>@(_deck?.Name ?? "Balíček") · Quizly Admin</PageTitle>
+
+@if (_deck is null)
+{
+    <Messages Error="@Error" Notice="@Notice" />
+    <p class="muted">@(_missing ? "Balíček neexistuje." : "Načítám…") <a href="/admin/balicky">Zpět na balíčky</a></p>
+    return;
+}
+
+<header class="page-head">
+    <div>
+        <a class="eyebrow" href="/admin/balicky">← Balíčky</a>
+        <h1><span class="swatch" style="background:@_deck.Color; width:22px; height:22px; border-radius:7px"></span>@_deck.Name</h1>
+        <span class="muted">@Cz.Cards(_deck.CardCount)@(_deck.Description.Length > 0 ? $" · {_deck.Description}" : "")</span>
+    </div>
+</header>
+
+<nav class="tabs" aria-label="Části balíčku">
+    <button class="@(_tab == Tab.Cards ? "on" : "")" @onclick="() => SwitchAsync(Tab.Cards)">Karty</button>
+    <button class="@(_tab == Tab.Yaml ? "on" : "")" @onclick="() => SwitchAsync(Tab.Yaml)">YAML</button>
+    <button class="@(_tab == Tab.Settings ? "on" : "")" @onclick="() => SwitchAsync(Tab.Settings)">Nastavení</button>
+</nav>
+
+<Messages Error="@Error" Notice="@Notice" />
+
+@switch (_tab)
+{
+    case Tab.Cards:
+        <section class="card form" aria-labelledby="add-card">
+            <h2 id="add-card">@(_editing is null ? "Nová karta" : $"Upravit kartu #{_editing.Id}")</h2>
+            <div class="row">
+                <div class="field" style="flex: 1 1 280px">
+                    <label for="c-q">Otázka <span class="hint">(@_question.Length / @Limits.QuestionMax)</span></label>
+                    <textarea id="c-q" @bind="_question" @bind:event="oninput" maxlength="@Limits.QuestionMax" style="min-height:80px"></textarea>
+                    <FieldMessage Message="@FieldError("question")" />
+                </div>
+                <div class="field" style="flex: 1 1 280px">
+                    <label for="c-a">Odpověď <span class="hint">(@_answer.Length / @Limits.AnswerMax)</span></label>
+                    <textarea id="c-a" @bind="_answer" @bind:event="oninput" maxlength="@Limits.AnswerMax" style="min-height:80px"></textarea>
+                    <FieldMessage Message="@FieldError("answer")" />
+                </div>
+            </div>
+            <div class="row">
+                <button class="btn primary" @onclick="SaveCardAsync" disabled="@_busy">@(_editing is null ? "Přidat kartu" : "Uložit kartu")</button>
+                @if (_editing is not null)
+                {
+                    <button class="btn" @onclick="CancelEdit">Zrušit úpravy</button>
+                }
+            </div>
+        </section>
+
+        <section class="card" aria-label="Karty">
+            @if (_cards is null)
+            {
+                <p class="muted">Načítám…</p>
+            }
+            else if (_cards.Count == 0)
+            {
+                <p class="empty">Balíček je prázdný. Přidej první kartu, nebo vlož karty přes YAML.</p>
+            }
+            else
+            {
+                <div class="table-wrap">
+                    <table>
+                        <thead><tr><th class="right">#</th><th>Otázka</th><th>Odpověď</th><th></th></tr></thead>
+                        <tbody>
+                            @foreach (var c in _cards)
+                            {
+                                <tr>
+                                    <td class="right muted num">@c.Id</td>
+                                    <td style="white-space: pre-line">@c.Question</td>
+                                    <td style="white-space: pre-line" class="muted">@c.Answer</td>
+                                    <td class="actions">
+                                        <button class="btn small" @onclick="() => Edit(c)">Upravit</button>
+                                        <button class="btn small danger" @onclick="() => _deletingCard = c">Smazat</button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </section>
+        break;
+
+    case Tab.Yaml:
+        <section class="card form" aria-labelledby="yaml-title">
+            <div class="card-head">
+                <h2 id="yaml-title">YAML</h2>
+                <div class="row">
+                    <button class="btn small" @onclick="CopyAsync">Kopírovat</button>
+                    <button class="btn small" @onclick="DownloadAsync">Stáhnout</button>
+                    <button class="btn small" @onclick="LoadExportAsync">Obnovit z balíčku</button>
+                </div>
+            </div>
+            <p class="hint">
+                Zkopíruj YAML, nech AI přidat nebo upravit karty (existující <code>id</code> musí zůstat, nové karty bez <code>id</code>),
+                vlož ho zpět a zobraz náhled. Karta, která v souboru chybí, se smaže i s postupem uživatelů.
+            </p>
+            <textarea class="yaml" @bind="_yaml" @bind:event="oninput" @bind:after="() => _preview = null" spellcheck="false" aria-label="YAML balíčku"></textarea>
+            <div class="row">
+                <button class="btn" @onclick="PreviewAsync" disabled="@_busy">Náhled</button>
+                <button class="btn primary" @onclick="ApplyAsync" disabled="@(_busy || _preview is not { Valid: true } || NothingToApply)">Uložit</button>
+            </div>
+            <YamlPreview Preview="@_preview" />
+        </section>
+        break;
+
+    case Tab.Settings:
+        <section class="card form" aria-labelledby="settings-title">
+            <h2 id="settings-title">Nastavení balíčku</h2>
+            <div class="row">
+                <div class="field" style="flex: 3 1 260px">
+                    <label for="s-name">Název</label>
+                    <input id="s-name" @bind="_name" maxlength="@Limits.DeckNameMax" />
+                    <FieldMessage Message="@FieldError("name")" />
+                </div>
+                <div class="field" style="flex: 0 0 auto">
+                    <label for="s-color">Barva</label>
+                    <input id="s-color" type="color" @bind="_color" />
+                    <FieldMessage Message="@FieldError("color")" />
+                </div>
+                <div class="field" style="flex: 0 1 120px">
+                    <label for="s-order">Pořadí</label>
+                    <input id="s-order" type="number" @bind="_sortOrder" />
+                </div>
+            </div>
+            <div class="field">
+                <label for="s-desc">Popis</label>
+                <input id="s-desc" @bind="_description" maxlength="@Limits.DeckDescriptionMax" />
+                <FieldMessage Message="@FieldError("description")" />
+            </div>
+            <div class="row">
+                <button class="btn primary" @onclick="SaveDeckAsync" disabled="@_busy">Uložit nastavení</button>
+            </div>
+        </section>
+
+        <section class="card" aria-labelledby="danger-title">
+            <h2 id="danger-title">Smazání balíčku</h2>
+            <p class="muted">Smaže balíček, všechny jeho karty a postup všech uživatelů v nich. Body ani historie dnů se nemění.</p>
+            <div><button class="btn danger" @onclick="AskDeleteDeckAsync">Smazat balíček</button></div>
+        </section>
+        break;
+}
+
+<ConfirmDialog Open="_deletingCard is not null" Title="Smazat kartu?" ConfirmText="Smazat kartu" Danger="true" Busy="_busy"
+               OnConfirm="DeleteCardAsync" OnCancel="() => _deletingCard = null">
+    <p>„@_deletingCard?.Question“ se smaže i s postupem všech uživatelů.</p>
+</ConfirmDialog>
+
+<ConfirmDialog Open="_confirmYamlDeletes" Title="@($"Smazat {Cz.CardsAccusative(_preview?.Deleted.Count ?? 0)} i s postupem uživatelů?")"
+               ConfirmText="Smazat a uložit" Danger="true" Busy="_busy" OnConfirm="() => ApplyConfirmedAsync()" OnCancel="() => _confirmYamlDeletes = false">
+    <ul>
+        @foreach (var d in _preview?.Deleted ?? [])
+        {
+            <li>#@d.Id @d.Question <span class="muted">(@d.UsersWithProgress @Cz.Plural(d.UsersWithProgress, "uživatel", "uživatelé", "uživatelů"))</span></li>
+        }
+    </ul>
+</ConfirmDialog>
+
+<ConfirmDialog Open="_deleteImpact is not null" Title="Smazat celý balíček?" ConfirmText="Smazat balíček" Danger="true" Busy="_busy"
+               OnConfirm="DeleteDeckAsync" OnCancel="() => _deleteImpact = null">
+    <p>Smaže se „@_deck.Name“: @Cz.Cards(_deleteImpact?.Cards ?? 0) a postup @(_deleteImpact?.UsersWithProgress ?? 0) @Cz.Plural(_deleteImpact?.UsersWithProgress ?? 0, "uživatele", "uživatelů", "uživatelů"). Nejde to vrátit.</p>
+</ConfirmDialog>
+
+@code {
+    private enum Tab { Cards, Yaml, Settings }
+
+    [Parameter]
+    public int Id { get; set; }
+
+    private DeckResponse? _deck;
+    private bool _missing;
+    private Tab _tab;
+    private bool _busy;
+    private IReadOnlyList<CardResponse>? _cards;
+    private CardResponse? _editing;
+    private CardResponse? _deletingCard;
+    private string _question = "";
+    private string _answer = "";
+    private string _yaml = "";
+    private YamlPreviewResponse? _preview;
+    private bool _confirmYamlDeletes;
+    private string _name = "";
+    private string _description = "";
+    private string _color = Limits.DefaultDeckColor;
+    private int _sortOrder;
+    private DeckDeleteImpact? _deleteImpact;
+
+    private bool NothingToApply => _preview is { Counts: { New: 0, Changed: 0, Deleted: 0 }, OrderChanged: false, Deck: { NameChanged: false, DescriptionChanged: false, ColorChanged: false } };
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await LoadDeckAsync();
+        await LoadCardsAsync();
+    }
+
+    private async Task LoadDeckAsync()
+    {
+        var result = await UseAsync<IDeckService, Result<DeckResponse>>(s => s.GetAsync(Id, CancellationToken.None));
+        _missing = !result.IsSuccess;
+        _deck = result.Value;
+        if (_deck is not null)
+        {
+            (_name, _description, _color, _sortOrder) = (_deck.Name, _deck.Description, _deck.Color, _deck.SortOrder);
+        }
+    }
+
+    private async Task LoadCardsAsync()
+    {
+        var result = await UseAsync<ICardService, Result<IReadOnlyList<CardResponse>>>(s => s.ListAsync(Id, CancellationToken.None));
+        _cards = result.Value;
+    }
+
+    private async Task SwitchAsync(Tab tab)
+    {
+        _tab = tab;
+        ClearMessages();
+        if (tab == Tab.Yaml && _yaml.Length == 0)
+        {
+            await LoadExportAsync();
+        }
+    }
+
+    private void Edit(CardResponse card)
+    {
+        ClearMessages();
+        (_editing, _question, _answer) = (card, card.Question, card.Answer);
+    }
+
+    private void CancelEdit() => (_editing, _question, _answer) = (null, "", "");
+
+    private async Task SaveCardAsync()
+    {
+        _busy = true;
+        var request = new CardRequest(_question, _answer);
+        var editing = _editing;
+        var result = await UseAsync<ICardService, Result<CardResponse>>(s => editing is null
+            ? s.CreateAsync(Id, request, CancellationToken.None)
+            : s.UpdateAsync(Id, editing.Id, request, CancellationToken.None));
+        if (Handle(result, editing is null ? "Karta přidána." : "Karta uložena."))
+        {
+            CancelEdit();
+            _yaml = "";
+            await LoadDeckAsync();
+            await LoadCardsAsync();
+        }
+
+        _busy = false;
+    }
+
+    private async Task DeleteCardAsync()
+    {
+        var card = _deletingCard!;
+        _busy = true;
+        var result = await UseAsync<ICardService, Result>(s => s.DeleteAsync(Id, card.Id, CancellationToken.None));
+        Handle(result, "Karta smazána.");
+        _deletingCard = null;
+        if (_editing?.Id == card.Id)
+        {
+            CancelEdit();
+        }
+
+        _yaml = "";
+        await LoadDeckAsync();
+        await LoadCardsAsync();
+        _busy = false;
+    }
+
+    private async Task LoadExportAsync()
+    {
+        var result = await UseAsync<IYamlDeckService, Result<string>>(s => s.ExportAsync(Id, CancellationToken.None));
+        _yaml = result.Value ?? "";
+        _preview = null;
+    }
+
+    private async Task CopyAsync()
+    {
+        var ok = await JS.InvokeAsync<bool>("quizly.copy", _yaml);
+        Notice = ok ? "YAML zkopírován do schránky." : null;
+        Error = ok ? null : new AppError("copy", 400, "Prohlížeč nepovolil schránku. Označ text a zkopíruj ho ručně.");
+    }
+
+    private async Task DownloadAsync() =>
+        await JS.InvokeVoidAsync("quizly.download", $"{Slug(_deck!.Name)}.yaml", _yaml, "text/yaml");
+
+    private async Task PreviewAsync()
+    {
+        _busy = true;
+        ClearMessages();
+        var result = await UseAsync<IYamlDeckService, Result<YamlPreviewResponse>>(s => s.PreviewAsync(Id, new YamlRequest(_yaml), CancellationToken.None));
+        Handle(result);
+        _preview = result.Value;
+        _busy = false;
+    }
+
+    private Task ApplyAsync()
+    {
+        if (_preview is { Deleted.Count: > 0 })
+        {
+            _confirmYamlDeletes = true;
+            return Task.CompletedTask;
+        }
+
+        return ApplyConfirmedAsync();
+    }
+
+    private async Task ApplyConfirmedAsync()
+    {
+        _busy = true;
+        var request = new YamlApplyRequest(_yaml, _preview!.BaseHash!, _preview.Deleted.Select(d => d.Id).ToList());
+        var result = await UseAsync<IYamlDeckService, Result<YamlApplyResponse>>(s => s.ApplyAsync(Id, request, CancellationToken.None));
+        _confirmYamlDeletes = false;
+        if (Handle(result))
+        {
+            var c = result.Value!.Counts;
+            Notice = $"Uloženo: nové {c.New}, změněné {c.Changed}, smazané {c.Deleted}.";
+            _yaml = result.Value.Yaml;
+            _preview = null;
+            await LoadDeckAsync();
+            await LoadCardsAsync();
+        }
+
+        _busy = false;
+    }
+
+    private async Task SaveDeckAsync()
+    {
+        _busy = true;
+        var request = new DeckRequest(_name, _description, _color, _sortOrder);
+        var result = await UseAsync<IDeckService, Result<DeckResponse>>(s => s.UpdateAsync(Id, request, CancellationToken.None));
+        if (Handle(result, "Nastavení uloženo."))
+        {
+            _yaml = "";
+            await LoadDeckAsync();
+        }
+
+        _busy = false;
+    }
+
+    private async Task AskDeleteDeckAsync()
+    {
+        var result = await UseAsync<IDeckService, Result<DeckDeleteImpact>>(s => s.GetDeleteImpactAsync(Id, CancellationToken.None));
+        if (Handle(result))
+        {
+            _deleteImpact = result.Value;
+        }
+    }
+
+    private async Task DeleteDeckAsync()
+    {
+        _busy = true;
+        var result = await UseAsync<IDeckService, Result>(s => s.DeleteAsync(Id, CancellationToken.None));
+        _busy = false;
+        if (Handle(result))
+        {
+            Navigation.NavigateTo("/admin/balicky");
+        }
+    }
+
+    /// <summary>File name from the deck name: lowercase ASCII, dashes.</summary>
+    private static string Slug(string name)
+    {
+        var normalized = name.Normalize(System.Text.NormalizationForm.FormD);
+        var chars = normalized
+            .Where(c => System.Globalization.CharUnicodeInfo.GetUnicodeCategory(c) != System.Globalization.UnicodeCategory.NonSpacingMark)
+            .Select(c => char.IsLetterOrDigit(c) && c < 128 ? char.ToLowerInvariant(c) : '-');
+        var slug = string.Join('-', new string([.. chars]).Split('-', StringSplitOptions.RemoveEmptyEntries));
+        return slug.Length == 0 ? "balicek" : slug;
+    }
+}

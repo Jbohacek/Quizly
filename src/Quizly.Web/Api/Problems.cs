@@ -24,6 +24,11 @@ internal static class Problems
             problem.Extensions["errors"] = error.Errors;
         }
 
+        foreach (var (key, value) in error.Extensions ?? new Dictionary<string, object?>())
+        {
+            problem.Extensions[key] = value;
+        }
+
         return TypedResults.Problem(problem);
     }
 

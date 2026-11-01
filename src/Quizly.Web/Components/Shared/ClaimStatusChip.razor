@@ -1,0 +1,21 @@
+<span class="chip @Css">@Text</span>
+
+@code {
+    [Parameter]
+    public ClaimStatus Status { get; set; }
+
+    private string Css => Status switch
+    {
+        ClaimStatus.Pending => "pending",
+        ClaimStatus.Confirmed => "confirmed",
+        _ => "rejected",
+    };
+
+    // Glossary terms (CLAUDE.md §9.5).
+    private string Text => Status switch
+    {
+        ClaimStatus.Pending => "Čeká na schválení",
+        ClaimStatus.Confirmed => "Schváleno",
+        _ => "Zamítnuto",
+    };
+}
