@@ -102,5 +102,5 @@ app/lib/
 └─ features/
    ├─ auth/ · home/ (Domů, Balíček, week strip) · session/ (queue + tally, review outbox sync, controller, swipe card, Hotovo)
    ├─ shell/ (bottom navigation) · stats/ (screen + pure helpers) · shop/ (screen, wishlist target) · settings/
-   └─ notifications/   planner.dart (pure Dart, docs/notifications.md) · scheduler.dart (plugin glue) · background.dart
+   └─ notifications/   planner.dart (pure Dart, docs/notifications.md) · notifications.dart (cache + re-plan) · notification_platform.dart (plugin glue) · notification_store.dart · background.dart · ask_card.dart
 ```
