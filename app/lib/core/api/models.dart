@@ -171,6 +171,48 @@ class Deck {
   final int masteredPercent;
 }
 
+/// My progress on one card (spec §3.5): Nová, Učím se, Zvládnuto.
+enum CardStatus {
+  newCard('new'),
+  learning('learning'),
+  mastered('mastered');
+
+  const CardStatus(this.json);
+
+  final String json;
+
+  static CardStatus parse(String value) => values.firstWhere((s) => s.json == value, orElse: () => learning);
+}
+
+class DeckCard {
+  const DeckCard({required this.id, required this.question, required this.answer, required this.status});
+
+  factory DeckCard.fromJson(Json j) => DeckCard(
+        id: _int(j['id']),
+        question: j['question'] as String,
+        answer: j['answer'] as String,
+        status: CardStatus.parse(j['status'] as String),
+      );
+
+  final int id;
+  final String question;
+  final String answer;
+  final CardStatus status;
+}
+
+/// `GET /decks/{id}/cards`: the deck with my counts and all its cards in order.
+class DeckCards {
+  const DeckCards({required this.deck, required this.cards});
+
+  factory DeckCards.fromJson(Json j) => DeckCards(
+        deck: Deck.fromJson(j['deck'] as Json),
+        cards: [for (final c in j['cards'] as List) DeckCard.fromJson(c as Json)],
+      );
+
+  final Deck deck;
+  final List<DeckCard> cards;
+}
+
 class DeckList {
   const DeckList({required this.items, required this.newAllowanceLeft});
 

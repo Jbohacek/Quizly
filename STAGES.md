@@ -147,6 +147,7 @@ No production code in this stage.
 - [x] Review submission with retry + idempotency; "Jsi offline" state
 - [x] **Hotovo** screen (basic version)
 - [x] **Nastavení:** daily goal, new cards per day, logout
+- [x] Added at review: **Změnit heslo** in Nastavení (`POST /api/me/password`) and a **Balíček** detail with all cards and their status (`GET /api/decks/{id}/cards`)
 - [x] GitHub Actions `app.yml`: analyze, test, signed release APK as an artifact (the APK job runs on `main` once the 4 secrets exist)
 - [ ] **(Jakub)** Create the signing keystore (agent gives the command) and add the 4 GitHub Secrets
 - [ ] **(Jakub)** Allow installs from unknown sources and install the APK

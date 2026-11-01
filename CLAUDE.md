@@ -136,6 +136,7 @@ points = round(base × min(2.0, 1.0 + 0.1 × floor(streakDays / 7)))
 - **App users** are created by the admin (username, display name, password, default daily goal and new cards per day). **No self-registration.** Usernames are lowercase letters and digits, unique.
 - **Login:** username + password → **access token** (JWT, ~60 min) + **refresh token** (rotating, ~90 days, stored hashed in the DB). The app keeps tokens in secure storage, and the user **stays logged in until logout**.
 - The admin can **reset a password** (generates a new one, shown once) and **deactivate or activate** a user. A deactivated user can't log in or refresh.
+- A user can **change their own password** in Nastavení (current + new, 8–128 chars). Every other device is signed out; this one stays logged in. A forgotten password is still reset by the admin.
 - Hash passwords with ASP.NET Core `PasswordHasher<T>`. Rate-limit `/api/auth/login`.
 
 ### 5.8 Notifications (local, scheduled on the phone)
@@ -228,7 +229,9 @@ Everything is under `/api`: JSON, camelCase, errors as RFC 7807 ProblemDetails. 
 | POST | `/api/auth/logout` | revoke the refresh token |
 | GET | `/api/me` | profile, balance, streak, best streak, multiplier, today's progress |
 | GET / PUT | `/api/me/settings` | user settings (§6 UserSettings) |
+| POST | `/api/me/password` | change my password (current + new) → new token pair, other devices signed out |
 | GET | `/api/decks` | decks with counts: total, due now, new available, % mastered |
+| GET | `/api/decks/{id}/cards` | one deck with counts and every card (question, answer, my status: new / learning / mastered) |
 | GET | `/api/session?deckId={id}` | session queue (omit `deckId` for all decks) |
 | POST | `/api/reviews` | batch `[{ id: uuid, cardId, rating: "know" \| "dontKnow" }]` → points per review + updated summary (balance, streak, multiplier, today, milestone events) |
 | GET | `/api/stats?deckId={id}` | tiles, heatmap, daily bars, weekday, best time, deck progress |
@@ -315,14 +318,15 @@ Status chips: pending `#FFF1D6` / `#8A5300` · confirmed `#E3F4E6` / `#1F7A3A` �
 
 ### 9.4 Phone screens
 1. **Přihlášení:** logo, username, password with show toggle, "Přihlásit se", note "Účet ti založí správce aplikace. Zapomenuté heslo ti také resetuje správce."
-2. **Domů:** date + greeting, points pill (→ shop), streak card (days, multiplier, Mon–Sun week strip, "Za 2 dny násobič stoupne na 1,2×"), daily goal ring `13/20`, CTA **"Učit se vše · 23 karet"**, deck list (due count, mastered bar). Bottom nav: **Domů / Statistiky / Obchod / Nastavení**.
+2. **Domů:** date + greeting, points pill (→ shop), streak card (days, multiplier, Mon–Sun week strip, "Za 2 dny násobič stoupne na 1,2×"), daily goal ring `13/20`, CTA **"Učit se vše · 23 karet"**, deck list (due count, mastered bar; tap → deck detail). Bottom nav: **Domů / Statistiky / Obchod / Nastavení**.
+   - **Balíček** (deck detail, added after the canvas): name, description, tiles (cards, due, new today, % mastered), **"Učit se · N karet"**, and every card with a status chip (*Nová / Učím se / Zvládnuto*); tapping a card shows its answer.
 3. **Učení, otázka:** close button, progress bar "Karta 8 z 23", session points, deck/mode/multiplier chips, card stack, hint row, buttons **Nevím / Přeskočit / Vím**.
 4. **Učení, odpověď:** flipped card mid-swipe with the "VÍM" stamp and floating "+11".
 5. **Hotovo:** streak circle, **"Denní cíl splněn!"**, tiles (cards, % correct, points), points breakdown, new balance, wishlist progress card, "Učit se dál" / "Hotovo".
 6. **Statistiky:** see §5.9.
 7. **Obchod:** balance, "Šetříš na" wishlist card, tabs **Odměny / Moje nákupy**, item grid (name, stock line, price, **Koupit** or "Chybí X" / "Vyprodáno", heart), my claims with status chips.
 8. **Potvrzení nákupu** (bottom sheet): title, description, price / balance / after purchase, info that points are deducted now and the admin approves; **Zrušit / Koupit za X**.
-9. **Nastavení:** account ("Přihlášen jako …"), **Denní cíl** stepper, **Nové karty denně** stepper, notifications toggle, morning / evening / last-call times, quiet hours, **Chytré časy** toggle, "Odhlásit se", version.
+9. **Nastavení:** account ("Tvůj účet"), **Změnit heslo** (current, new, new again), **Denní cíl** stepper, **Nové karty denně** stepper, notifications toggle, morning / evening / last-call times, quiet hours, **Chytré časy** toggle, "Odhlásit se", version.
 10. **Upozornění:** examples of every notification category (§5.8).
 
 ### 9.5 Czech UI glossary (use these exact terms)
@@ -424,6 +428,7 @@ Jakub confirmed these defaults at the Etapa 0 gate (2026-10-31). Raise any of th
 | 2026-11-01 | App: Flutter 3.47 / Dart 3.13, Riverpod 3, go_router 18, application id `cz.jbohacek.quizly`. `versionCode` = CI run number, `versionName` from `pubspec.yaml`. |
 | 2026-11-01 | App fonts are static TTF weights cut from the Google Fonts variable fonts (OFL); the design bundle only has woff2, and Flutter doesn't map `FontWeight` to a variable `wght` axis. |
 | 2026-11-01 | Nastavení shows "Tvůj účet" instead of "Přihlášen jako" (gendered past participle, §2.11). |
+| 2026-11-01 | Jakub (Etapa 5 review): users can change their own password, and can browse a deck's cards. `POST /api/me/password` deletes the user's refresh tokens (deleted, not revoked, so another device's next refresh isn't taken for token theft) and returns a new pair; wrong current passwords count toward the login throttle. `GET /api/decks/{id}/cards`; tapping a deck on Domů opens its detail instead of starting a session; answers are hidden until a card is tapped. |
 | 2026-11-01 | Until Etapa 6 the Statistiky and Obchod tabs show an "Už brzy" placeholder; the home week strip, floating "+N", confetti and wishlist card on Hotovo come with Etapa 6. |
 | 2026-11-01 | Plain HTTP only in debug builds (local API); release builds are HTTPS only. `android:allowBackup="false"` (Keystore-encrypted tokens can't be restored on another device). |
 | 2026-11-01 | `flutter_localizations` is used only for Material's own Czech texts (text selection menu etc.); all app strings stay in `lib/core/strings.dart`. |

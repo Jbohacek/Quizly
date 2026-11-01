@@ -9,6 +9,7 @@ import '../../core/strings.dart';
 import '../../core/theme/theme.dart';
 import '../../core/theme/tokens.dart';
 import '../../core/widgets/widgets.dart';
+import '../home/deck_screen.dart';
 import 'session_controller.dart';
 import 'swipe_card.dart';
 
@@ -52,7 +53,9 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
   void _onChange() {
     final result = _controller.result;
     if (_controller.phase == SessionPhase.finished && result != null) {
-      ref.invalidate(homeProvider);
+      ref
+        ..invalidate(homeProvider)
+        ..invalidate(deckCardsProvider);
       context.pushReplacement('/done', extra: result);
     } else {
       setState(() {});
@@ -75,7 +78,9 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
       );
       if (leave != true || !mounted) return;
     }
-    ref.invalidate(homeProvider);
+    ref
+      ..invalidate(homeProvider)
+      ..invalidate(deckCardsProvider);
     if (mounted) context.pop();
   }
 

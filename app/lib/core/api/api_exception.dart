@@ -4,7 +4,7 @@ import '../strings.dart';
 
 /// A failed API call: a ProblemDetails response (api.md §1.1) or a network failure ([status] null).
 class ApiException implements Exception {
-  const ApiException({required this.status, required this.code, this.title, this.retryAfter});
+  const ApiException({required this.status, required this.code, this.title, this.retryAfter, this.errors = const {}});
 
   factory ApiException.fromDio(DioException e) {
     final response = e.response;
@@ -20,6 +20,11 @@ class ApiException implements Exception {
         code: data['code'] as String,
         title: data['title'] as String?,
         retryAfter: retryAfter == null ? null : Duration(seconds: retryAfter),
+        errors: {
+          if (data['errors'] case final Map<String, dynamic> errors)
+            for (final e in errors.entries)
+              if (e.value case final List<dynamic> messages) e.key: [for (final m in messages) '$m'],
+        },
       );
     }
     return ApiException(
@@ -38,6 +43,12 @@ class ApiException implements Exception {
   /// Czech message from the server, safe to show as is.
   final String? title;
   final Duration? retryAfter;
+
+  /// Field errors of a `validation` problem: camelCase field → Czech messages.
+  final Map<String, List<String>> errors;
+
+  /// The first message for [field], if any.
+  String? fieldError(String field) => errors[field]?.firstOrNull;
 
   bool get isNetwork => status == null;
 

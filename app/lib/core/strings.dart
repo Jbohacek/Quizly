@@ -61,6 +61,20 @@ abstract final class S {
   static String deckMeta(int total, int mastered) => '${cards(total)} · ${formatPercent(mastered)} zvládnuto';
   static const noDecks = 'Zatím tu nejsou žádné balíčky. Správce je brzy přidá.';
 
+  // Deck detail
+  static const back = 'Zpět';
+  static String studyDeck(int count) => 'Učit se · ${cards(count)}';
+  static const tileTotal = 'karet';
+  static const tileDue = 'k opakování';
+  static const tileNew = 'nových dnes';
+  static const tileMastered = 'zvládnuto';
+  static const cardsInDeck = 'Karty v balíčku';
+  static const statusNew = 'Nová';
+  static const statusLearning = 'Učím se';
+  static const statusMastered = 'Zvládnuto';
+  static const showAnswer = 'Klepni pro odpověď';
+  static const emptyDeck = 'V tomhle balíčku zatím nejsou žádné karty.';
+
   // Session
   static const closeSession = 'Ukončit učení';
   static String cardOf(int index, int total) => 'Karta $index z $total';
@@ -113,7 +127,16 @@ abstract final class S {
   // Settings
   static const settings = 'Nastavení';
   static const account = 'Tvůj účet';
-  static const passwordByAdmin = 'Heslo mění\nsprávce';
+  static const changePassword = 'Změnit heslo';
+  static const changePasswordHint = 'Ostatní zařízení se odhlásí';
+  static const currentPassword = 'Současné heslo';
+  static const newPassword = 'Nové heslo';
+  static const newPasswordAgain = 'Nové heslo znovu';
+  static const passwordRules = 'Aspoň 8 znaků. Zapomenuté heslo ti resetuje správce.';
+  static const passwordTooShort = 'Nové heslo musí mít aspoň 8 znaků.';
+  static const passwordsDiffer = 'Hesla se neshodují.';
+  static const fillCurrentPassword = 'Vyplň současné heslo.';
+  static const passwordChanged = 'Heslo je změněné.';
   static const learning = 'Učení';
   static const dailyGoalHint = 'Tolik karet a den se počítá do série';
   static const decreaseGoal = 'Snížit denní cíl';

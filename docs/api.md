@@ -159,6 +159,18 @@ Lowering the goal can complete today (spec §5.3), so the response carries a sum
 
 ---
 
+### POST `/me/password`
+
+```json
+{ "currentPassword": "••••••••", "newPassword": "••••••••" }
+```
+
+`200`: a new token pair, same shape as `/auth/login`. All the user's other refresh tokens are deleted, so every other device is signed out at its next refresh (`refreshTokenInvalid`); this device continues with the returned tokens.
+
+Errors: `validation` (`errors.currentPassword` "Současné heslo nesedí.", `errors.newPassword` length 8–128 or same as the current one), `rateLimited` (wrong current passwords count toward the login throttle per username, spec §9.1).
+
+---
+
 ## 4. Decks
 
 ### GET `/decks`
@@ -174,6 +186,22 @@ Lowering the goal can complete today (spec §5.3), so the response carries a sum
 ```
 
 Ordered by deck `sortOrder`. `newAvailable` = `min(unseen cards in the deck, newAllowanceLeft)`. Decks with 0 cards are included.
+
+---
+
+### GET `/decks/{id}/cards`
+
+```json
+{
+  "deck": { "id": 1, "name": "C# základy", "…": "same object as in GET /decks" },
+  "cards": [
+    { "id": 101, "question": "Jaký je rozdíl mezi struct a class v C#?", "answer": "struct je hodnotový typ…", "status": "mastered" },
+    { "id": 140, "question": "Co je record v C#?", "answer": "Typ s hodnotovou rovností…", "status": "new" }
+  ]
+}
+```
+
+Cards in deck order (`sortOrder`, then id). `status` is the mastery bucket (spec §3.5): `new` · `learning` · `mastered`. `404 notFound` for an unknown deck.
 
 ---
 

@@ -17,6 +17,8 @@ class FakeApi implements HttpClientAdapter {
   int balance = 1240;
   int graded = 0;
   final reviewed = <Map<String, Object?>>[];
+  String password = 'tajneheslo';
+  int passwordChanges = 0;
 
   Map<String, Object?> get summary => {
         'balance': balance,
@@ -69,8 +71,46 @@ class FakeApi implements HttpClientAdapter {
           ],
         }),
       'POST /api/reviews' => _reviews(body as Map<String, Object?>),
+      'GET /api/decks/1/cards' => _json({
+          'deck': {
+            'id': 1, 'name': 'C# základy', 'description': 'Základní pojmy jazyka C#', 'color': '#BAD69B',
+            'totalCards': 3, 'dueNow': 1, 'newAvailable': 1, 'masteredPercent': 33,
+          },
+          'cards': [
+            {'id': 101, 'question': 'Co je struct?', 'answer': 'Hodnotový typ.', 'status': 'mastered'},
+            {'id': 102, 'question': 'Co je class?', 'answer': 'Referenční typ.', 'status': 'learning'},
+            {'id': 103, 'question': 'Co je record?', 'answer': 'Typ s hodnotovou rovností.', 'status': 'new'},
+          ],
+        }),
+      'POST /api/me/password' => _changePassword(body as Map<String, Object?>),
+      'GET /api/me/settings' => _json({
+          'dailyGoal': 20, 'newCardsPerDay': 5, 'notificationsEnabled': true,
+          'morningTime': '08:00', 'eveningTime': '18:30', 'lastCallTime': '21:00',
+          'quietFrom': '22:00', 'quietTo': '07:00', 'smartTimes': true,
+        }),
       _ => _json({'code': 'notFound', 'title': 'Nenalezeno.'}, 404),
     };
+  }
+
+  ResponseBody _changePassword(Map<String, Object?> body) {
+    if (body['currentPassword'] != password) {
+      return _json({
+        'code': 'validation',
+        'title': 'Některé údaje nejsou v pořádku.',
+        'errors': {
+          'currentPassword': ['Současné heslo nesedí.'],
+        },
+      }, 400);
+    }
+    password = body['newPassword']! as String;
+    passwordChanges++;
+    return _json({
+      'accessToken': 'A2',
+      'accessTokenExpiresAt': '2099-01-01T00:00:00Z',
+      'refreshToken': 'R2',
+      'refreshTokenExpiresAt': '2099-01-01T00:00:00Z',
+      'user': {'id': 2, 'username': 'kuba', 'displayName': 'Kuba'},
+    });
   }
 
   ResponseBody _reviews(Map<String, Object?> body) {
@@ -207,4 +247,86 @@ void main() {
     // Home was refreshed after the leftover answer went in.
     expect(find.text('1 251'), findsOneWidget);
   });
+  testWidgets('a deck shows its cards with status; tapping a card shows the answer', (tester) async {
+    final (api, _) = await _signedIn(tester);
+
+    await tester.tap(find.text('C# základy'));
+    await settle(tester);
+
+    expect(find.text('Základní pojmy jazyka C#'), findsOneWidget);
+    expect(find.text('Učit se · 2 karty'), findsOneWidget);
+    expect(find.text('33 %'), findsOneWidget);
+    expect(find.text('Zvládnuto'), findsOneWidget);
+    expect(find.text('Učím se'), findsOneWidget);
+    expect(find.text('Nová'), findsOneWidget);
+    expect(find.text('Hodnotový typ.'), findsNothing);
+    await tester.tap(find.text('Co je struct?'));
+    await settle(tester);
+    expect(find.text('Hodnotový typ.'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('Zpět'));
+    await settle(tester);
+    expect(find.text('Ahoj, Kuba!'), findsOneWidget);
+    expect(api.reviewed, isEmpty);
+  });
+
+  testWidgets('change password: local checks, server field error, then success keeps the login', (tester) async {
+    final (api, store) = await _signedIn(tester);
+
+    await tester.tap(find.text('Nastavení'));
+    await settle(tester);
+    await tester.tap(find.text('Změnit heslo'));
+    await settle(tester);
+
+    final fields = find.byType(TextField);
+    await tester.enterText(fields.at(0), 'spatne-heslo');
+    await tester.enterText(fields.at(1), 'nove-heslo-1');
+    await tester.enterText(fields.at(2), 'nove-heslo-2');
+    await tester.tap(find.widgetWithText(FilledButton, 'Změnit heslo'));
+    await settle(tester);
+    expect(find.text('Hesla se neshodují.'), findsOneWidget);
+    expect(api.passwordChanges, 0);
+
+    await tester.enterText(fields.at(2), 'nove-heslo-1');
+    await tester.tap(find.widgetWithText(FilledButton, 'Změnit heslo'));
+    await settle(tester);
+    expect(find.text('Současné heslo nesedí.'), findsOneWidget);
+
+    await tester.enterText(fields.at(0), 'tajneheslo');
+    await tester.tap(find.widgetWithText(FilledButton, 'Změnit heslo'));
+    await settle(tester);
+    expect(api.passwordChanges, 1);
+    expect(api.password, 'nove-heslo-1');
+    expect(store.tokens!.refreshToken, 'R2');
+    expect(find.text('Heslo je změněné.'), findsOneWidget);
+    expect(find.text('Tvůj účet'), findsOneWidget);
+  });
+}
+
+/// The app with a stored login, on the home screen.
+Future<(FakeApi, MemoryTokenStore)> _signedIn(WidgetTester tester) async {
+  tester.view.physicalSize = const Size(1080, 2340);
+  tester.view.devicePixelRatio = 2.75;
+  addTearDown(tester.view.reset);
+  final api = FakeApi();
+  final store = MemoryTokenStore(AuthTokens(
+    accessToken: 'A',
+    accessTokenExpiresAt: DateTime.utc(2099),
+    refreshToken: 'R',
+    refreshTokenExpiresAt: DateTime.utc(2099),
+    user: const AppUser(id: 2, username: 'kuba', displayName: 'Kuba'),
+  ));
+  final client = ApiClient(baseUrl: 'https://quizly.test', store: store, dio: Dio()..httpClientAdapter = api);
+  await client.restore();
+  await tester.pumpWidget(ProviderScope(
+    retry: (retryCount, error) => null,
+    overrides: [
+      apiClientProvider.overrideWithValue(client),
+      outboxStoreProvider.overrideWithValue(MemoryOutboxStore()),
+      connectivityProvider.overrideWith((ref) => Stream.value(true)),
+    ],
+    child: const QuizlyApp(),
+  ));
+  await settle(tester);
+  return (api, store);
 }

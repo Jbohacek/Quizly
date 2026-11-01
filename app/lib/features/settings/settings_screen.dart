@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
 import '../../core/api/api_client.dart';
@@ -119,6 +120,35 @@ class _SettingsBodyState extends ConsumerState<_SettingsBody> {
         SizedBox(height: 48, child: Align(alignment: Alignment.centerLeft, child: Text(S.settings, style: QText.heading(28)))),
         const SizedBox(height: 16),
         if (user != null) _Account(user: user),
+        const SizedBox(height: 10),
+        Material(
+          color: Q.surface,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20), side: const BorderSide(color: Q.border)),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: () => context.go('/settings/password'),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 14, 14, 14),
+              child: Row(
+                children: [
+                  const Icon(Icons.lock_outline_rounded, color: Q.textMuted),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(S.changePassword, style: QText.body(15, weight: FontWeight.w800)),
+                        const SizedBox(height: 2),
+                        Text(S.changePasswordHint, style: QText.body(12, color: Q.textMuted, weight: FontWeight.w400)),
+                      ],
+                    ),
+                  ),
+                  const Icon(Icons.chevron_right_rounded, color: Q.textMuted),
+                ],
+              ),
+            ),
+          ),
+        ),
         const SizedBox(height: 16),
         _SectionTitle(S.learning),
         Panel(
@@ -196,11 +226,6 @@ class _Account extends StatelessWidget {
                 Text(user.username, style: QText.body(13, color: Q.textMuted, weight: FontWeight.w600)),
               ],
             ),
-          ),
-          Text(
-            S.passwordByAdmin,
-            textAlign: TextAlign.right,
-            style: QText.body(12, color: Q.textMuted, weight: FontWeight.w700),
           ),
         ],
       ),

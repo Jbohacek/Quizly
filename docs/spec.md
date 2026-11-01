@@ -482,7 +482,7 @@ Streak 13 through yesterday (m = 1,1×), goal 20. Today the first 19 answers are
 | --- | --- |
 | Username | `^[a-z0-9]{3,32}$`, unique (case: input lowercased first) |
 | Display name | 1–50 chars |
-| Password (admin-set) | 8–128 chars |
+| Password (admin-set or changed by the user) | 8–128 chars; a changed one must differ from the current one |
 | Generated password | 12 chars from `abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789`, crypto RNG |
 | Deck name / description / color | 1–100 / ≤ 500 / `#RRGGBB` |
 | Card question / answer | 1–500 / 1–2 000 chars |
@@ -505,6 +505,7 @@ Streak 13 through yesterday (m = 1,1×), goal 20. Today the first 19 answers are
 - **Reuse detection:** any other use of a revoked token revokes **all** the user's refresh tokens → 401 `refreshTokenInvalid`.
 - **Every authenticated request** checks `users.is_active` (a lookup by id, fine for a few users). Inactive → 401 `accountDisabled`. Deactivating a user also revokes all refresh tokens.
 - **Logout** revokes the presented refresh token.
+- **Password change** (`POST /api/me/password`): the current password is verified (failures count toward the per-username login throttle), then all the user's refresh tokens are **deleted** and a new pair is issued. Deleted rather than revoked: another device presenting its old token gets `refreshTokenInvalid` without triggering reuse detection, which would otherwise also revoke the new token.
 - **Rate limits:** `/api/auth/login` 10 requests / 5 min per IP and 5 failed attempts / 5 min per username; `/api/auth/refresh` 30 / 5 min per IP. Exceeded → 429 with `Retry-After`.
 - Wrong username and wrong password give the same error (`invalidCredentials`); inactive accounts give `accountDisabled` only after a correct password.
 

@@ -278,7 +278,7 @@ class _DeckTile extends StatelessWidget {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18), side: const BorderSide(color: Q.border)),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
-        onTap: canStudy ? () => context.push('/session?deck=${deck.id}') : null,
+        onTap: () => context.go('/home/deck/${deck.id}'),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           child: Row(

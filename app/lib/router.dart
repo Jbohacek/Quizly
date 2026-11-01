@@ -5,10 +5,12 @@ import 'package:go_router/go_router.dart';
 import 'core/providers.dart';
 import 'core/strings.dart';
 import 'features/auth/login_screen.dart';
+import 'features/home/deck_screen.dart';
 import 'features/home/home_screen.dart';
 import 'features/session/done_screen.dart';
 import 'features/session/session_controller.dart';
 import 'features/session/session_screen.dart';
+import 'features/settings/change_password_screen.dart';
 import 'features/settings/settings_screen.dart';
 import 'features/shell/app_shell.dart';
 
@@ -34,7 +36,18 @@ final routerProvider = Provider<GoRouter>((ref) {
       StatefulShellRoute.indexedStack(
         builder: (context, state, shell) => AppShell(shell: shell),
         branches: [
-          StatefulShellBranch(routes: [GoRoute(path: '/home', builder: (context, state) => const HomeScreen())]),
+          StatefulShellBranch(routes: [
+            GoRoute(
+              path: '/home',
+              builder: (context, state) => const HomeScreen(),
+              routes: [
+                GoRoute(
+                  path: 'deck/:id',
+                  builder: (context, state) => DeckScreen(deckId: int.parse(state.pathParameters['id']!)),
+                ),
+              ],
+            ),
+          ]),
           StatefulShellBranch(routes: [
             GoRoute(
               path: '/stats',
@@ -50,7 +63,13 @@ final routerProvider = Provider<GoRouter>((ref) {
             ),
           ]),
           StatefulShellBranch(
-            routes: [GoRoute(path: '/settings', builder: (context, state) => const SettingsScreen())],
+            routes: [
+              GoRoute(
+                path: '/settings',
+                builder: (context, state) => const SettingsScreen(),
+                routes: [GoRoute(path: 'password', builder: (context, state) => const ChangePasswordScreen())],
+              ),
+            ],
           ),
         ],
       ),
