@@ -22,6 +22,9 @@ mono_crash.*
 [Dd]ebugPublic/
 [Rr]elease/
 [Rr]eleases/
+# Android source sets of the Flutter app are not build output.
+!/app/android/app/src/debug/
+!/app/android/app/src/release/
 
 [Dd]ebug/x64/
 [Dd]ebugPublic/x64/
