@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -30,6 +31,10 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
   int _keyTurn = 0;
   late final Map<int, Deck> _decks;
 
+  // Floating "+N" labels, one per answer, removed when their animation ends.
+  final _floaters = <({int id, int points, Rating rating})>[];
+  int _floatTurn = 0;
+
   @override
   void initState() {
     super.initState();
@@ -53,11 +58,17 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
   void _onChange() {
     final result = _controller.result;
     if (_controller.phase == SessionPhase.finished && result != null) {
-      ref
-        ..invalidate(homeProvider)
-        ..invalidate(deckCardsProvider);
+      invalidateProgress(ref);
+      ref.invalidate(deckCardsProvider);
       context.pushReplacement('/done', extra: result);
     } else {
+      final answer = _controller.lastAnswer;
+      if (_controller.turn != _floatTurn) {
+        _floatTurn = _controller.turn;
+        if (answer != null && !MediaQuery.disableAnimationsOf(context)) {
+          _floaters.add((id: _floatTurn, points: answer.points, rating: answer.rating));
+        }
+      }
       setState(() {});
     }
   }
@@ -78,9 +89,8 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
       );
       if (leave != true || !mounted) return;
     }
-    ref
-      ..invalidate(homeProvider)
-      ..invalidate(deckCardsProvider);
+    invalidateProgress(ref);
+    ref.invalidate(deckCardsProvider);
     if (mounted) context.pop();
   }
 
@@ -137,11 +147,18 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
           const SizedBox(height: 14),
           Row(
             children: [
-              Flexible(child: Tag(label: deck?.name ?? S.allDecks, color: deckColor)),
+              // The deck name gets all the room the other chips leave.
+              Expanded(
+                child: Row(
+                  children: [
+                    Flexible(child: Tag(label: deck?.name ?? S.allDecks, color: deckColor)),
+                    const SizedBox(width: 8),
+                    Tag(label: _kind(card.kind), color: Q.textMuted, background: Q.surface),
+                  ],
+                ),
+              ),
               const SizedBox(width: 8),
-              Tag(label: _kind(card.kind), color: Q.textMuted, background: Q.surface),
-              const Spacer(),
-              Tag(label: S.multiplierChip(c.multiplier), color: Q.multiplier),
+              Pulse(trigger: c.multiplier, child: Tag(label: S.multiplierChip(c.multiplier), color: Q.multiplier)),
             ],
           ),
           const SizedBox(height: 14),
@@ -164,6 +181,20 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
                     onAnswer: c.answer,
                   ),
                 ),
+                for (final f in _floaters)
+                  Positioned(
+                    key: ValueKey(f.id),
+                    top: 28,
+                    left: 0,
+                    right: 0,
+                    child: IgnorePointer(
+                      child: _FloatingPoints(
+                        points: f.points,
+                        rating: f.rating,
+                        onDone: () => setState(() => _floaters.removeWhere((x) => x.id == f.id)),
+                      ),
+                    ),
+                  ),
               ],
             ),
           ),
@@ -285,11 +316,46 @@ class _Header extends StatelessWidget {
               children: [
                 const Icon(Icons.star_rounded, color: Q.points, size: 18),
                 const SizedBox(width: 5),
-                Text(formatSigned(points), style: QText.body(15, color: Q.points, weight: FontWeight.w800)),
+                RollingNumber(
+                  value: points,
+                  format: formatSigned,
+                  style: QText.body(15, color: Q.points, weight: FontWeight.w800),
+                ),
               ],
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// "+11" rising from the card after an answer (design screen 4).
+class _FloatingPoints extends StatelessWidget {
+  const _FloatingPoints({required this.points, required this.rating, required this.onDone});
+
+  final int points;
+  final Rating rating;
+  final VoidCallback onDone;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = rating == Rating.know ? Q.primary : Q.dontKnow;
+    return ExcludeSemantics(
+      child: Center(
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          decoration: BoxDecoration(
+            color: Q.bg.withValues(alpha: 0.85),
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(color: color.withValues(alpha: 0.6)),
+          ),
+          child: Text(formatSigned(points), style: QText.heading(30, color: color)),
+        )
+            .animate(onComplete: (_) => onDone())
+            .scaleXY(begin: 0.6, end: 1, duration: 220.ms, curve: Curves.easeOutBack)
+            .moveY(begin: 20, end: -70, duration: 950.ms, curve: Curves.easeOutCubic)
+            .fadeOut(delay: 550.ms, duration: 400.ms),
       ),
     );
   }

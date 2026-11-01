@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../format.dart';
 import '../strings.dart';
 import '../theme/theme.dart';
 import '../theme/tokens.dart';
@@ -184,4 +185,162 @@ class OfflineBanner extends StatelessWidget {
 Color parseHex(String hex) {
   final value = int.tryParse(hex.replaceFirst('#', ''), radix: 16);
   return value == null || hex.length != 7 ? Q.primary : Color(0xFF000000 | value);
+}
+
+/// [duration], or zero when the system asks for less motion (CLAUDE.md §9.3).
+Duration motion(BuildContext context, Duration duration) =>
+    MediaQuery.disableAnimationsOf(context) ? Duration.zero : duration;
+
+/// A number that rolls to its new value. The first build shows [from] rolling to
+/// [value] when [from] is given, else [value] at once.
+class RollingNumber extends StatelessWidget {
+  const RollingNumber({super.key, required this.value, required this.style, this.from, this.format = formatInt});
+
+  final int value;
+  final int? from;
+  final TextStyle style;
+  final String Function(int) format;
+
+  @override
+  Widget build(BuildContext context) {
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: (from ?? value).toDouble(), end: value.toDouble()),
+      duration: motion(context, const Duration(milliseconds: 900)),
+      curve: Curves.easeOutCubic,
+      builder: (context, v, _) => Text(format(v.round()), style: style),
+    );
+  }
+}
+
+/// Bumps its child once each time [trigger] changes (not on the first build).
+class Pulse extends StatefulWidget {
+  const Pulse({super.key, required this.trigger, required this.child, this.scale = 1.3});
+
+  final Object? trigger;
+  final Widget child;
+  final double scale;
+
+  @override
+  State<Pulse> createState() => _PulseState();
+}
+
+class _PulseState extends State<Pulse> with SingleTickerProviderStateMixin {
+  late final _controller = AnimationController(vsync: this, duration: const Duration(milliseconds: 520));
+
+  @override
+  void didUpdateWidget(Pulse old) {
+    super.didUpdateWidget(old);
+    if (old.trigger != widget.trigger && !MediaQuery.disableAnimationsOf(context)) _controller.forward(from: 0);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, child) {
+        final t = Curves.easeOut.transform(_controller.value);
+        final bump = _controller.isAnimating ? (t < 0.35 ? t / 0.35 : 1 - (t - 0.35) / 0.65) : 0.0;
+        return Transform.scale(scale: 1 + (widget.scale - 1) * bump, child: child);
+      },
+      child: widget.child,
+    );
+  }
+}
+
+/// The balance with a star, rolling when it changes; tappable when [onTap] is set.
+class PointsPill extends StatelessWidget {
+  const PointsPill({super.key, required this.balance, this.onTap, this.semanticsLabel});
+
+  final int balance;
+  final VoidCallback? onTap;
+  final String? semanticsLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: onTap != null,
+      label: semanticsLabel ?? points(balance),
+      excludeSemantics: true,
+      child: Material(
+        color: Q.surface2,
+        shape: const StadiumBorder(),
+        child: InkWell(
+          customBorder: const StadiumBorder(),
+          onTap: onTap,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 44),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.star_rounded, color: Q.points, size: 20),
+                  const SizedBox(width: 6),
+                  RollingNumber(value: balance, style: QText.body(16, color: Q.points, weight: FontWeight.w800)),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// A screen title row (Obchod, Statistiky) with an optional widget on the right.
+class ScreenHeader extends StatelessWidget {
+  const ScreenHeader({super.key, required this.title, this.trailing});
+
+  final String title;
+  final Widget? trailing;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 48,
+      child: Row(
+        children: [
+          Expanded(child: Semantics(header: true, child: Text(title, style: QText.heading(28)))),
+          ?trailing,
+        ],
+      ),
+    );
+  }
+}
+
+/// A bar split into Zvládnuto / Učím se / Nové.
+class ProgressBar extends StatelessWidget {
+  const ProgressBar({super.key, required this.mastered, required this.learning, required this.fresh});
+
+  final int mastered;
+  final int learning;
+  final int fresh;
+
+  @override
+  Widget build(BuildContext context) {
+    final parts = [(mastered, Q.primary), (learning, Q.multiplier), (fresh, Q.legendNew)].where((p) => p.$1 > 0).toList();
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(5),
+      child: SizedBox(
+        height: 10,
+        child: parts.isEmpty
+            ? const ColoredBox(color: Q.surface2)
+            : Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  for (var i = 0; i < parts.length; i++) ...[
+                    if (i > 0) const SizedBox(width: 2),
+                    Expanded(flex: parts[i].$1, child: ColoredBox(color: parts[i].$2)),
+                  ],
+                ],
+              ),
+      ),
+    );
+  }
 }

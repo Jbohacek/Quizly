@@ -33,9 +33,6 @@ abstract final class S {
   static const navStats = 'Statistiky';
   static const navShop = 'Obchod';
   static const navSettings = 'Nastavení';
-  static const comingSoon = 'Už brzy';
-  static const statsSoon = 'Statistiky učení přibudou v příští verzi.';
-  static const shopSoon = 'Obchod s odměnami přibude v příští verzi. Body se ti mezitím sčítají.';
 
   // Home
   static String greeting(String name) => 'Ahoj, $name!';
@@ -152,4 +149,94 @@ abstract final class S {
   static String signOutPending(int count) =>
       'Neodeslané odpovědi: ${formatInt(count)}. Odešlou se po dalším přihlášení.';
   static String version(String version, String host) => 'Quizly $version · $host';
+
+  // Week strip (Domů)
+  static const thisWeek = 'Tento týden';
+  static const weekdaysShort = ['Po', 'Út', 'St', 'Čt', 'Pá', 'So', 'Ne'];
+  static const weekdaysLong = ['pondělí', 'úterý', 'středa', 'čtvrtek', 'pátek', 'sobota', 'neděle'];
+  static const dayDone = 'splněno';
+  static const dayToday = 'dnes';
+  static const dayMissed = 'nesplněno';
+  static const dayFuture = 'ještě nebylo';
+
+  // Done (Etapa 6 additions)
+  static String milestoneTitle(int streakDays) => '${days(streakDays)} v řadě!';
+  static String milestoneText(int bonus) =>
+      'Bonus +${points(bonus)} je tvůj. Tohle je paráda! 🎉';
+  static String streakGrows(int streak) => 'Série roste na ${days(streak)}.';
+  static String multiplierTomorrow(num value) => 'Zítra se ti násobič zvedne na ${formatMultiplier(value)}.';
+  static String multiplierIn(int inDays, num value) =>
+      'Za ${days(inDays)} se ti násobič zvedne na ${formatMultiplier(value)}.';
+  static const fromWishlist = 'Z tvého seznamu přání';
+  static String wishlistLeft(int missing, int knows) =>
+      'Chybí už jen ${points(missing)}, to je zhruba ${formatInt(knows)} × Vím.';
+  static const wishlistReady = 'Už na to máš!';
+  static String wishlistReadyText(String name) => 'Body na „$name“ máš pohromadě. Odměna čeká v obchodě.';
+
+  // Shop
+  static const savingFor = 'Šetříš na';
+  static String savingProgress(int balance, int price) => '${formatInt(balance)} / ${formatInt(price)}';
+  static String savingMissing(int missing) => 'Chybí ${points(missing)}.';
+  static const savingReady = 'Už na to máš! Odměnu si můžeš koupit.';
+  static const savingEmpty = 'Označ srdíčkem odměnu, na kterou šetříš, a tady uvidíš, kolik ti chybí.';
+  static const tabRewards = 'Odměny';
+  static const myClaims = 'Moje nákupy';
+  static String tabClaims(int count) => count == 0 ? myClaims : '$myClaims · ${formatInt(count)}';
+  static const soldOut = 'Vyprodáno';
+  static const lastPiece = 'Poslední kus';
+  static String stockLeft(int stock) => 'Zbývá ${formatInt(stock)} ks';
+  static const buy = 'Koupit';
+  static String missingShort(int missing) => 'Chybí ${formatInt(missing)}';
+  static const wishAdd = 'Přidat na seznam přání';
+  static const wishRemove = 'Odebrat ze seznamu přání';
+  static const wishFailed = 'Seznam přání se nepodařilo uložit.';
+  static const noItems = 'Obchod je zatím prázdný. Správce brzy přidá odměny.';
+  static String confirmTitle(String name) => 'Koupit „$name“?';
+  static const price = 'Cena';
+  static const yourBalance = 'Tvůj zůstatek';
+  static const afterPurchase = 'Po nákupu';
+  static const confirmInfoStart = 'Body se strhnou hned a nákup pak ';
+  static const confirmInfoStrong = 'schválí správce';
+  static const confirmInfoEnd = '. Když ho zamítne, body ti vrátíme.';
+  static String buyFor(int price) => 'Koupit za ${formatInt(price)}';
+  static String cannotBuyYet(int missing) => 'Na tuhle odměnu ti zatím chybí ${points(missing)}.';
+  static String bought(String name) => 'Hotovo! „$name“ teď čeká na schválení.';
+  static const claimsEmpty = 'Zatím tu nic není. Co si koupíš v obchodě, uvidíš tady i se stavem.';
+  static const claimPending = 'Čeká na schválení';
+  static const claimConfirmed = 'Schváleno';
+  static const claimRejected = 'Zamítnuto';
+  static String claimRefunded(int price) => '${points(price)} ${plural(price, 'vrácen', 'vráceny', 'vráceno')}';
+
+  // Stats
+  static const allDecksFilter = 'Všechny balíčky';
+  static const chooseDeck = 'Vyber balíček';
+  static const tileStreak = 'Série';
+  static String record(int best) => 'rekord ${days(best)}';
+  static const tileSuccess = 'Úspěšnost · 30 dní';
+  static const noValue = '–';
+  static const noReviewsYet = 'zatím bez odpovědí';
+  static const tileReviewed = 'Zopakováno';
+  static String reviewedTotal(int count) => '${plural(count, 'karta', 'karty', 'karet')} celkem';
+  static const tileEarned = 'Získáno';
+  static String earnedTotal(int count) => '${plural(count, 'bod', 'body', 'bodů')} celkem';
+  static const activity = 'Aktivita';
+  static const last17Weeks = 'posledních 17 týdnů';
+  static const monthsShort = ['Led', 'Úno', 'Bře', 'Dub', 'Kvě', 'Čvn', 'Čvc', 'Srp', 'Zář', 'Říj', 'Lis', 'Pro'];
+  static const less = 'Méně';
+  static const more = 'Více';
+  static const darkerBelowGoal = 'tmavší = pod cílem';
+  static String activityLabel(int met) => 'Kalendář aktivity za 17 týdnů, splněný cíl: ${days(met)}';
+  static const perDay = 'Karet za den';
+  static const last14Days = 'posledních 14 dní';
+  static String goalLine(int goal) => 'cíl ${formatInt(goal)}';
+  static String perDayLabel(int today, int goal) => 'Karet za den, dnes ${formatInt(today)}, cíl ${formatInt(goal)}';
+  static const bestTitle = 'Kdy ti to jde nejlíp';
+  static const weekdaysLocative = ['v pondělí', 'v úterý', 've středu', 've čtvrtek', 'v pátek', 'v sobotu', 'v neděli'];
+  static String bestDay(int weekday) => 'Nejlíp ti to jde ${weekdaysLocative[weekday - 1]}.';
+  static String bestTime(int from, int to, int rate) =>
+      'Nejlepší čas dne je mezi $from a $to h (${formatPercent(rate)} správně).';
+  static const bestNone = 'Až bude odpovědí víc, ukážeme ti, kdy ti to jde nejlíp.';
+  static const progressTitle = 'Postup v balíčcích';
+  static const legendNew = 'Nové';
+  static const noProgress = 'Zatím tu nejsou žádné balíčky.';
 }

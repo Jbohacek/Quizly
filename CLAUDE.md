@@ -432,3 +432,10 @@ Jakub confirmed these defaults at the Etapa 0 gate (2026-10-31). Raise any of th
 | 2026-11-01 | Until Etapa 6 the Statistiky and Obchod tabs show an "Už brzy" placeholder; the home week strip, floating "+N", confetti and wishlist card on Hotovo come with Etapa 6. |
 | 2026-11-01 | Plain HTTP only in debug builds (local API); release builds are HTTPS only. `android:allowBackup="false"` (Keystore-encrypted tokens can't be restored on another device). |
 | 2026-11-01 | `flutter_localizations` is used only for Material's own Czech texts (text selection menu etc.); all app strings stay in `lib/core/strings.dart`. |
+| 2026-11-01 | Etapa 5 approved and merged (PR #5); signing secrets in place, release APK builds on `main`. |
+| 2026-11-01 | Etapa 6 needs no API change. The Domů week strip comes from the current week of the `/api/stats` heatmap (level 2+ = goal met), loaded with Domů; it's left out if the stats fail. |
+| 2026-11-01 | "Šetříš na" (Obchod and Hotovo) shows the hearted reward with the fewest points missing; when every hearted reward is affordable, the cheapest one with "Už na to máš!". A reward reached during the session wins on Hotovo. Its "pošleme ti upozornění" sentence comes with the notification in Etapa 7. |
+| 2026-11-01 | Hotovo says "to je zhruba N × Vím" (points missing ÷ the current Vím value) instead of the canvas's "zítra N karty", which assumed tomorrow's multiplier. |
+| 2026-11-01 | "Kdy ti to jde nejlíp" shows the best weekday and the best 2-hour window as two sentences (they're independent stats); the canvas's "Připomínky se tomu přizpůsobí" is left out, since Chytré časy use the median start time. |
+| 2026-11-01 | Obchod: tapping a reward card also opens the purchase sheet (it shows the description); after a purchase the Moje nákupy tab opens. Price and button sit on separate rows, because "Chybí 1 436" doesn't fit next to the price on a phone. |
+| 2026-11-01 | Motion: the streak flame breathes while a streak is going, confetti plays when the goal or a milestone is reached in a session. All animations (and the floating "+N") are off with the system's reduce-motion setting. |

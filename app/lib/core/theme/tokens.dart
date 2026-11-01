@@ -22,6 +22,11 @@ abstract final class Q {
   static const cardMuted = Color(0xFF5E6170);
   static const stack1 = Color(0xFF2A2D3B);
   static const stack2 = Color(0xFF1F2130);
+  static const legendNew = Color(0xFF4A4E63);
+  static const heart = Color(0xFF6B6F82);
+
+  /// Heatmap levels 0–4 (§9.1).
+  static const heat = [Color(0xFF252836), Color(0xFF33402A), Color(0xFF4F6A3A), Color(0xFF7FA05E), Color(0xFFBAD69B)];
 
   /// A token at 16 % opacity, for chip and icon backgrounds.
   static Color tint(Color color) => color.withValues(alpha: 0.16);

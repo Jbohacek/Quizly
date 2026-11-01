@@ -15,8 +15,8 @@ The full brief is in [`CLAUDE.md`](./CLAUDE.md).
 | 2 | API foundation | `etapa-2-api` | Approved |
 | 3 | Learning and game logic | `etapa-3-logic` | Approved |
 | 4 | Admin dashboard and first deploy | `etapa-4-admin` | Approved |
-| 5 | Android app core | `etapa-5-app` | Waiting for review (keystore + install are Jakub's) |
-| 6 | Motivation layer | `etapa-6-motivation` | Not started |
+| 5 | Android app core | `etapa-5-app` | Approved |
+| 6 | Motivation layer | `etapa-6-motivation` | Waiting for review |
 | 7 | Notifications | `etapa-7-notifications` | Not started |
 | 8 | Release and polish | `etapa-8-release` | Not started |
 
@@ -149,23 +149,23 @@ No production code in this stage.
 - [x] **Nastavení:** daily goal, new cards per day, logout
 - [x] Added at review: **Změnit heslo** in Nastavení (`POST /api/me/password`) and a **Balíček** detail with all cards and their status (`GET /api/decks/{id}/cards`)
 - [x] GitHub Actions `app.yml`: analyze, test, signed release APK as an artifact (the APK job runs on `main` once the 4 secrets exist)
-- [ ] **(Jakub)** Create the signing keystore (agent gives the command) and add the 4 GitHub Secrets
-- [ ] **(Jakub)** Allow installs from unknown sources and install the APK
+- [x] **(Jakub)** Create the signing keystore (agent gives the command) and add the 4 GitHub Secrets
+- [x] **(Jakub)** Allow installs from unknown sources and install the APK
 
 **Gate**
-- [ ] Jakub studies a real deck on the phone
-- [ ] Approved by Jakub
+- [x] Jakub studies a real deck on the phone
+- [x] Approved by Jakub (merged PR #5, signed APK built on `main`, 2026-11-01)
 
 ---
 
 ## Etapa 6: Motivation layer
 
-- [ ] Points animations: floating "+N", rolling counters, multiplier chip
-- [ ] Streak visuals: week strip, flame, milestone celebration with confetti
-- [ ] Full **Hotovo** screen: breakdown, new balance, wishlist progress
-- [ ] **Obchod:** items, wishlist hearts, "Šetříš na" card, purchase bottom sheet, **Moje nákupy** with statuses
-- [ ] **Statistiky:** tiles, heatmap, daily bars with goal line, weekday / best time, deck progress, deck filter
-- [ ] Respect "reduce motion"
+- [x] Points animations: floating "+N", rolling counters, multiplier chip
+- [x] Streak visuals: week strip, flame, milestone celebration with confetti
+- [x] Full **Hotovo** screen: breakdown, new balance, wishlist progress
+- [x] **Obchod:** items, wishlist hearts, "Šetříš na" card, purchase bottom sheet, **Moje nákupy** with statuses
+- [x] **Statistiky:** tiles, heatmap, daily bars with goal line, weekday / best time, deck progress, deck filter
+- [x] Respect "reduce motion"
 
 **Gate**
 - [ ] One full day works end to end: study → points → streak → buy → admin confirms → status shows in the app

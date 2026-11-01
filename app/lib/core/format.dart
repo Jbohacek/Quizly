@@ -65,3 +65,13 @@ String formatLongDate(DateTime date) =>
 
 /// `31. 10.`
 String formatShortDate(DateTime date) => '${date.day}.$_nbsp${date.month}.';
+
+/// `dnes 19:40` for a time today, else `24. 10.` (both in local time).
+String formatWhen(DateTime time, DateTime now) {
+  final t = time.toLocal();
+  final n = now.toLocal();
+  if (t.year == n.year && t.month == n.month && t.day == n.day) {
+    return 'dnes ${t.hour}:${t.minute.toString().padLeft(2, '0')}';
+  }
+  return formatShortDate(t);
+}

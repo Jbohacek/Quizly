@@ -100,7 +100,7 @@ app/lib/
 ├─ core/        api/ (dio client with token refresh, DTOs, ApiException) · storage/ (secure token store)
 │               theme/ (tokens §9.1) · widgets/ · strings.dart · format.dart · providers.dart · config.dart
 └─ features/
-   ├─ auth/ · home/ · session/ (queue + tally, review outbox sync, controller, swipe card, Hotovo)
-   ├─ shell/ (bottom navigation) · stats/ · shop/ · settings/
+   ├─ auth/ · home/ (Domů, Balíček, week strip) · session/ (queue + tally, review outbox sync, controller, swipe card, Hotovo)
+   ├─ shell/ (bottom navigation) · stats/ (screen + pure helpers) · shop/ (screen, wishlist target) · settings/
    └─ notifications/   planner.dart (pure Dart, docs/notifications.md) · scheduler.dart (plugin glue) · background.dart
 ```
