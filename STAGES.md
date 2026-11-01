@@ -17,8 +17,8 @@ The full brief is in [`CLAUDE.md`](./CLAUDE.md).
 | 4 | Admin dashboard and first deploy | `etapa-4-admin` | Approved |
 | 5 | Android app core | `etapa-5-app` | Approved |
 | 6 | Motivation layer | `etapa-6-motivation` | Approved |
-| 7 | Notifications | `etapa-7-notifications` | Waiting for review |
-| 8 | Release and polish | `etapa-8-release` | Not started |
+| 7 | Notifications | `etapa-7-notifications` | Approved |
+| 8 | Release and polish | `etapa-8-release` | Part 1 waiting for review |
 
 Update the **Status** column when a stage starts, waits for review, or is approved.
 
@@ -185,19 +185,29 @@ No production code in this stage.
 - [x] Unit tests for the scheduling logic (pure Dart)
 
 **Gate**
-- [ ] Notifications arrive at the right times over a few days of real use
-- [ ] Approved by Jakub
+- [ ] Notifications arrive at the right times over a few days of real use (continues during the Etapa 8 beta)
+- [x] Approved by Jakub (merged PR #7, 2026-11-01)
 
 ---
 
 ## Etapa 8: Release and polish
 
-- [ ] Nightly PostgreSQL backup (`deploy/backup.sh`) + a tested restore
-- [ ] `README.md` (overview, local development) and runbook (update, rollback, restore, rotate secrets)
-- [ ] Fixes from Jakub's testing
-- [ ] Final pass over all Czech texts: typos, tone, gender-neutral
-- [ ] Accessibility check: contrast, touch targets, TalkBack labels
+Jakub (2026-11-01): polish first, then a first beta user tests the app, then the release.
+
+**Part 1: polish and beta**
+- [x] App launcher icon (the Flutter default was still in place)
+- [x] Nightly PostgreSQL backup (`deploy/backup.sh`) + a tested restore
+- [x] `README.md` (overview, local development) and runbook (update, rollback, restore, rotate secrets)
+- [x] Final pass over all Czech texts: typos, tone, gender-neutral
+- [x] Accessibility check: contrast, touch targets, TalkBack labels
+- [x] Beta guide (`docs/beta.md`): account, APK, first start, phone settings, feedback
+- [ ] **(Jakub)** Install `backup.sh` on the server and run the restore drill once
+- [ ] **(Jakub)** Tag `v1.0.0-beta.1` → APK on a GitHub pre-release; create the beta user's account and send them the APK
+
+**Part 2: release**
+- [ ] Fixes from Jakub's and the beta user's testing
 - [ ] Tag `v1.0.0`, APK attached to the GitHub Release
 
 **Gate**
+- [ ] The beta user uses the app for a while without blocking problems
 - [ ] Jakub calls it done 🎉

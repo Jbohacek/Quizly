@@ -28,6 +28,9 @@ public static class Cz
     /// <summary>After a verb ("Smazat …"): 1 kartu · 2 karty · 5 karet.</summary>
     public static string CardsAccusative(int count) => $"{Number(count)}{Nbsp}{Plural(count, "kartu", "karty", "karet")}";
 
+    /// <summary>1 text · 2 texty · 5 textů.</summary>
+    public static string Texts(int count) => $"{Number(count)}{Nbsp}{Plural(count, "text", "texty", "textů")}";
+
     public static string Plural(int count, string one, string few, string many) => count switch
     {
         1 => one,

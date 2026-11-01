@@ -109,6 +109,12 @@ class _SettingsBodyState extends ConsumerState<_SettingsBody> {
     if (mounted) ref.invalidate(notificationPermissionProvider);
   }
 
+  /// Android asks again after one "Don't allow"; after two it only lets the user switch it on in its settings.
+  Future<void> _allowNotifications() async {
+    if (!await _notifications.requestPermission()) await _notifications.platform.openSystemSettings();
+    if (mounted) ref.invalidate(notificationPermissionProvider);
+  }
+
   Future<String?> _pickTime(String title, String current) async {
     final [h, m] = current.split(':');
     final picked = await showTimePicker(
@@ -165,7 +171,7 @@ class _SettingsBodyState extends ConsumerState<_SettingsBody> {
 
     return [
       if (on && permitted == false) ...[
-        _SystemOff(onOpen: () => unawaited(_notifications.platform.openSystemSettings())),
+        _SystemOff(onOpen: _allowNotifications),
         const SizedBox(height: 10),
       ],
       Panel(
@@ -347,7 +353,7 @@ class _SystemOff extends StatelessWidget {
                 minimumSize: const Size(64, 44),
                 textStyle: QText.body(14, weight: FontWeight.w800),
               ),
-              child: const Text(S.openSystemSettings),
+              child: const Text(S.allowNotifications),
             ),
           ),
         ],

@@ -10,7 +10,7 @@ A private Android flashcard app in Czech. Spaced repetition (FSRS) on the server
 
 ## Status
 
-The project is built in stages. Progress lives in [`STAGES.md`](./STAGES.md).
+The project is built in stages. Progress lives in [`STAGES.md`](./STAGES.md). Now: Etapa 8, polish and a first beta tester ([`docs/beta.md`](./docs/beta.md)), then `v1.0.0`.
 The full brief (features, business rules, data model, API, design tokens) is in [`CLAUDE.md`](./CLAUDE.md).
 Detailed specs live in [`docs/`](./docs): [spec](./docs/spec.md) · [API](./docs/api.md) · [YAML format](./docs/yaml-format.md) · [notifications](./docs/notifications.md) · [notification texts](./docs/notification-texts.md) · [architecture](./docs/architecture.md) · [design](./docs/design/).
 
@@ -20,7 +20,7 @@ Detailed specs live in [`docs/`](./docs): [spec](./docs/spec.md) · [API](./docs
 src/        ASP.NET Core solution (Domain, Application, Infrastructure, Web)
 tests/      xUnit tests
 app/        Flutter app
-deploy/     docker-compose.yml, .env.example, backup script, deploy guide
+deploy/     docker-compose.yml, .env.example, backup.sh / restore.sh, deploy guide + runbook
 docs/       spec, API, YAML format, notifications, architecture, design, FSRS vectors
 .github/    CI workflows
 ```
@@ -41,7 +41,7 @@ dotnet run --project src/Quizly.Web
 
 - Admin dashboard: http://localhost:5278/admin (dev credentials in `src/Quizly.Web/appsettings.Development.json`).
 - Swagger UI: http://localhost:5278/api/docs (admin login via `POST /api/admin/auth/login`).
-- Deploying to the server: [`deploy/README-deploy.md`](./deploy/README-deploy.md).
+- Deploying to the server, backups and the runbook (update, rollback, restore, rotate secrets): [`deploy/README-deploy.md`](./deploy/README-deploy.md).
 - Migrations run on startup; Development also seeds a small demo deck. Every request is in `src/Quizly.Web/Quizly.Web.http`.
 - New migration: `dotnet tool restore`, then `dotnet ef migrations add <Name> --project src/Quizly.Infrastructure --output-dir Persistence/Migrations`.
 

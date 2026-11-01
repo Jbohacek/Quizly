@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Design tokens primary and bg (CLAUDE.md §9.1). -->
+    <color name="ic_launcher_background">#BAD69B</color>
+    <color name="splash_background">#111218</color>
+</resources>

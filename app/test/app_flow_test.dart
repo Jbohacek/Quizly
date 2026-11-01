@@ -598,11 +598,14 @@ void main() {
     expect(platform.requests, 0);
     expect(find.text(S.askTitle), findsNothing);
 
-    // Nastavení still offers the Android settings.
+    // Nastavení still offers to switch them on.
     await tester.tap(find.text('Nastavení'));
     await settle(tester);
-    await tester.scrollUntilVisible(find.text(S.openSystemSettings), 200, scrollable: find.byType(Scrollable).last);
-    await tester.tap(find.text(S.openSystemSettings));
+    await tester.scrollUntilVisible(find.text(S.allowNotifications), 200, scrollable: find.byType(Scrollable).last);
+    await tester.tap(find.text(S.allowNotifications));
+    await settle(tester);
+    // The system dialog first; Android refused, so its settings open.
+    expect(platform.requests, 1);
     expect(platform.settingsOpened, 1);
   });
 
@@ -648,6 +651,73 @@ void main() {
     await settle(tester);
 
     expect(platform.shown.map((n) => n.body), contains('7 dní v řadě! 🎉'));
+  });
+
+  group('accessibility (CLAUDE.md §9.3)', () {
+    // Touch targets ≥ 44 px, every tappable thing has a label, text contrast ≥ 4.5:1.
+    const tapTargets = MinimumTapTargetGuideline(size: Size(44, 44), link: 'CLAUDE.md §9.3');
+
+    Future<void> meetsAll(WidgetTester tester, String screen) async {
+      await expectLater(tester, meetsGuideline(tapTargets), reason: screen);
+      await expectLater(tester, meetsGuideline(labeledTapTargetGuideline), reason: screen);
+      await expectLater(tester, meetsGuideline(textContrastGuideline), reason: screen);
+    }
+
+    testWidgets('login', (tester) async {
+      final semantics = tester.ensureSemantics();
+      tester.view.physicalSize = const Size(1080, 2340);
+      tester.view.devicePixelRatio = 2.75;
+      addTearDown(tester.view.reset);
+      final client = ApiClient(baseUrl: 'https://quizly.test', store: MemoryTokenStore(), dio: Dio()..httpClientAdapter = FakeApi());
+      await tester.pumpWidget(ProviderScope(
+        retry: (retryCount, error) => null,
+        overrides: [
+          apiClientProvider.overrideWithValue(client),
+          outboxStoreProvider.overrideWithValue(MemoryOutboxStore()),
+          connectivityProvider.overrideWith((ref) => Stream.value(true)),
+          notificationsProvider.overrideWithValue(_notifications(FakeNotificationPlatform())),
+        ],
+        child: const QuizlyApp(),
+      ));
+      await settle(tester);
+      await meetsAll(tester, 'Přihlášení');
+      semantics.dispose();
+    });
+
+    testWidgets('the tabs: Domů, Statistiky, Obchod, Nastavení', (tester) async {
+      final semantics = tester.ensureSemantics();
+      await _signedIn(tester, notifications: FakeNotificationPlatform()..allowed = false);
+      await meetsAll(tester, 'Domů with the reminder question');
+      for (final tab in ['Statistiky', 'Obchod', 'Nastavení']) {
+        await tester.tap(find.text(tab).last);
+        await settle(tester);
+        await meetsAll(tester, tab);
+      }
+      semantics.dispose();
+    });
+
+    testWidgets('deck detail, study session and Hotovo', (tester) async {
+      final semantics = tester.ensureSemantics();
+      await _signedIn(tester);
+      await _scrollTo(tester, find.text('C# základy'));
+      await tester.tap(find.text('C# základy'));
+      await settle(tester);
+      await meetsAll(tester, 'Balíček');
+
+      await tester.tap(find.byTooltip(S.back));
+      await settle(tester);
+      await _scrollTo(tester, find.text(S.studyAll(2)), up: true);
+      await tester.tap(find.text(S.studyAll(2)));
+      await settle(tester);
+      await meetsAll(tester, 'Učení');
+
+      await tester.tap(find.bySemanticsLabel('Vím').first);
+      await settle(tester);
+      await tester.tap(find.bySemanticsLabel('Vím').first);
+      await settle(tester);
+      await meetsAll(tester, 'Hotovo');
+      semantics.dispose();
+    });
   });
 }
 
