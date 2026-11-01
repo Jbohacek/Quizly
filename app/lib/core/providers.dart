@@ -60,7 +60,12 @@ final reviewSyncProvider = Provider<ReviewSync?>((ref) {
     store: ref.watch(outboxStoreProvider),
     send: ref.watch(apiClientProvider).postReviews,
   );
-  unawaited(sync.start());
+  unawaited(sync.start().then((_) async {
+    // Answers left over from the last run go out now; refresh home once they're in.
+    if (sync.status.pending == 0) return;
+    await sync.whenIdle();
+    if (ref.mounted) ref.invalidate(homeProvider);
+  }));
   ref.listen(connectivityProvider, (_, next) {
     final connected = next.value;
     if (connected != null) sync.setConnectivity(connected: connected);

@@ -31,6 +31,8 @@ class QuizlyApp extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // Keeps the review outbox alive for the logged-in user, so leftovers are sent at start (api.md §11.5).
+    ref.watch(reviewSyncProvider);
     return MaterialApp.router(
       title: S.appName,
       debugShowCheckedModeBanner: false,

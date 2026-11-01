@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:quizly/core/api/api_client.dart';
+import 'package:quizly/core/api/models.dart';
 import 'package:quizly/core/providers.dart';
 import 'package:quizly/core/storage/token_store.dart';
 import 'package:quizly/features/session/review_sync.dart';
@@ -174,5 +175,36 @@ void main() {
     await tester.tap(find.text('Hotovo').last);
     await settle(tester);
     expect(find.text('Ahoj, Kuba!'), findsOneWidget);
+  });
+  testWidgets('answers left in the outbox from the last run are sent when the app starts', (tester) async {
+    final api = FakeApi();
+    final outbox = MemoryOutboxStore()
+      ..data[2] = [const ReviewItem(id: '6f1c2a7e-3b0c-4f6e-9d51-0a2b7c9e1f42', cardId: 101, rating: Rating.know)];
+    final store = MemoryTokenStore(AuthTokens(
+      accessToken: 'A',
+      accessTokenExpiresAt: DateTime.utc(2099),
+      refreshToken: 'R',
+      refreshTokenExpiresAt: DateTime.utc(2099),
+      user: const AppUser(id: 2, username: 'kuba', displayName: 'Kuba'),
+    ));
+    final client = ApiClient(baseUrl: 'https://quizly.test', store: store, dio: Dio()..httpClientAdapter = api);
+    await client.restore();
+
+    await tester.pumpWidget(ProviderScope(
+      retry: (retryCount, error) => null,
+      overrides: [
+        apiClientProvider.overrideWithValue(client),
+        outboxStoreProvider.overrideWithValue(outbox),
+        connectivityProvider.overrideWith((ref) => Stream.value(true)),
+      ],
+      child: const QuizlyApp(),
+    ));
+    await settle(tester);
+
+    expect(find.text('Ahoj, Kuba!'), findsOneWidget);
+    expect(api.reviewed.single['cardId'], 101);
+    expect(outbox.data[2], isEmpty);
+    // Home was refreshed after the leftover answer went in.
+    expect(find.text('1 251'), findsOneWidget);
   });
 }
