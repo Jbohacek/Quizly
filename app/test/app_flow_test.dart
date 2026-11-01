@@ -279,6 +279,12 @@ void main() {
     await settle(tester);
 
     final fields = find.byType(TextField);
+    // The keyboard's "Next" moves to the next field, not to the show-password button.
+    await tester.showKeyboard(fields.at(0));
+    await tester.testTextInput.receiveAction(TextInputAction.next);
+    await tester.pump();
+    final second = tester.widget<EditableText>(find.descendant(of: fields.at(1), matching: find.byType(EditableText)));
+    expect(second.focusNode.hasFocus, isTrue);
     await tester.enterText(fields.at(0), 'spatne-heslo');
     await tester.enterText(fields.at(1), 'nove-heslo-1');
     await tester.enterText(fields.at(2), 'nove-heslo-2');

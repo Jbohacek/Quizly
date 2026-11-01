@@ -102,11 +102,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       onSubmitted: (_) => _submit(),
                       style: QText.body(16, weight: FontWeight.w600),
                       decoration: InputDecoration(
-                        suffixIcon: IconButton(
-                          tooltip: _obscure ? S.showPassword : S.hidePassword,
-                          color: Q.textMuted,
-                          icon: Icon(_obscure ? Icons.visibility_rounded : Icons.visibility_off_rounded),
-                          onPressed: () => setState(() => _obscure = !_obscure),
+                        suffixIcon: ExcludeFocus(
+                          child: IconButton(
+                            tooltip: _obscure ? S.showPassword : S.hidePassword,
+                            color: Q.textMuted,
+                            icon: Icon(_obscure ? Icons.visibility_rounded : Icons.visibility_off_rounded),
+                            onPressed: () => setState(() => _obscure = !_obscure),
+                          ),
                         ),
                       ),
                     ),

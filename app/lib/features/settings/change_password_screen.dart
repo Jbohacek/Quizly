@@ -136,11 +136,14 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
           decoration: InputDecoration(
             errorText: error,
             errorStyle: QText.body(13, color: Q.dontKnow, weight: FontWeight.w700),
-            suffixIcon: IconButton(
-              tooltip: _obscure ? S.showPassword : S.hidePassword,
-              color: Q.textMuted,
-              icon: Icon(_obscure ? Icons.visibility_rounded : Icons.visibility_off_rounded),
-              onPressed: () => setState(() => _obscure = !_obscure),
+            // Out of the focus order, so the keyboard's "Next" goes to the next field.
+            suffixIcon: ExcludeFocus(
+              child: IconButton(
+                tooltip: _obscure ? S.showPassword : S.hidePassword,
+                color: Q.textMuted,
+                icon: Icon(_obscure ? Icons.visibility_rounded : Icons.visibility_off_rounded),
+                onPressed: () => setState(() => _obscure = !_obscure),
+              ),
             ),
           ),
         ),
