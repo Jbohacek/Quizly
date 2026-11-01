@@ -421,3 +421,9 @@ Jakub confirmed these defaults at the Etapa 0 gate (2026-10-31). Raise any of th
 | 2026-10-31 | YAML export writes multi-line text as `\|-` and quotes values other tools could read as numbers/booleans/null. |
 | 2026-10-31 | Fonts are bundled from the saved design (OFL, `wwwroot/fonts/LICENSES.txt`). Npgsql GSS encryption is disabled (password auth only). |
 | 2026-11-01 | Etapa 4 approved and merged (PR #4). Live at `https://quizly.jbohacek.cz` (NPM → host port 8181 → container 8080). |
+| 2026-11-01 | App: Flutter 3.47 / Dart 3.13, Riverpod 3, go_router 18, application id `cz.jbohacek.quizly`. `versionCode` = CI run number, `versionName` from `pubspec.yaml`. |
+| 2026-11-01 | App fonts are static TTF weights cut from the Google Fonts variable fonts (OFL); the design bundle only has woff2, and Flutter doesn't map `FontWeight` to a variable `wght` axis. |
+| 2026-11-01 | Nastavení shows "Tvůj účet" instead of "Přihlášen jako" (gendered past participle, §2.11). |
+| 2026-11-01 | Until Etapa 6 the Statistiky and Obchod tabs show an "Už brzy" placeholder; the home week strip, floating "+N", confetti and wishlist card on Hotovo come with Etapa 6. |
+| 2026-11-01 | Plain HTTP only in debug builds (local API); release builds are HTTPS only. `android:allowBackup="false"` (Keystore-encrypted tokens can't be restored on another device). |
+| 2026-11-01 | `flutter_localizations` is used only for Material's own Czech texts (text selection menu etc.); all app strings stay in `lib/core/strings.dart`. |

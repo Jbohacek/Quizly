@@ -57,6 +57,17 @@ Whole stack in containers, built from this checkout (copy `deploy/.env.example` 
 docker compose -f deploy/docker-compose.yml -f deploy/docker-compose.build.yml up --build
 ```
 
+## Local development (app)
+
+Needs Flutter (stable) and the Android SDK. Details, the signing key and installing the APK: [`app/README.md`](./app/README.md).
+
+```bash
+cd app
+flutter run --dart-define=API_BASE_URL=http://10.0.2.2:5278
+```
+
+`10.0.2.2` is the PC from inside the Android emulator. Without `--dart-define` the app talks to `https://quizly.jbohacek.cz`.
+
 ## Secrets
 
 Never commit `.env` files, keystores, tokens or passwords. Configuration goes through `deploy/.env.example` and GitHub Secrets.

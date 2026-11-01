@@ -69,6 +69,7 @@ Assertions: plain xUnit `Assert` (no FluentAssertions; its v8 license is commerc
 
 | Package | Why |
 | --- | --- |
+| `flutter_localizations` (SDK) | Material's built-in Czech texts only (no i18n framework) |
 | `flutter_riverpod` | state |
 | `go_router` | routing (login redirect, bottom nav shell) |
 | `dio` | HTTP + auth interceptor that refreshes on 401 |
@@ -87,16 +88,19 @@ Assertions: plain xUnit `Assert` (no FluentAssertions; its v8 license is commerc
 
 - Icons: Flutter's built-in Material `Icons.*_rounded` (no extra package).
 - Czech number/date formatting is a small hand-written helper in `lib/core/format.dart` (`1 457`, `1,1×`, `83 %`, `31. 10.`), unit-tested. No `intl`, no i18n framework; all strings in `lib/core/strings.dart`.
-- Fonts bundled in `app/assets/fonts/`: Bricolage Grotesque and Manrope (JetBrains Mono is only used by the admin YAML editor, bundled in `wwwroot`).
+- Fonts bundled in `app/assets/fonts/`: Bricolage Grotesque (600/700/800) and Manrope (400/600/700/800) as static TTF weights (see `app/assets/fonts/README.md`). JetBrains Mono is only used by the admin YAML editor, bundled in `wwwroot`.
+- Packages are added in the stage that first uses them: Etapa 5 has riverpod, go_router, dio, secure storage, shared_preferences, uuid, connectivity_plus, package_info_plus; `fl_chart`, `flutter_animate`, `confetti` come in Etapa 6, notifications/`timezone`/`workmanager` in Etapa 7.
 - `minSdk 26`, `targetSdk` = latest stable at Etapa 5.
 
 ### 3.1 App structure
 
 ```
 app/lib/
-├─ main.dart
-├─ core/        api/ (dio client, interceptors, DTOs) · theme/ (tokens §9.1) · strings.dart · format.dart · storage/
+├─ main.dart · router.dart (go_router, login redirect, bottom-nav shell)
+├─ core/        api/ (dio client with token refresh, DTOs, ApiException) · storage/ (secure token store)
+│               theme/ (tokens §9.1) · widgets/ · strings.dart · format.dart · providers.dart · config.dart
 └─ features/
-   ├─ auth/ · home/ · session/ (queue, outbox, swipe card) · stats/ · shop/ · settings/
+   ├─ auth/ · home/ · session/ (queue + tally, review outbox sync, controller, swipe card, Hotovo)
+   ├─ shell/ (bottom navigation) · stats/ · shop/ · settings/
    └─ notifications/   planner.dart (pure Dart, docs/notifications.md) · scheduler.dart (plugin glue) · background.dart
 ```
