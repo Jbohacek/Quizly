@@ -340,7 +340,7 @@ Balíček (deck) · Karta · Vím · Nevím · Přeskočit · Série (streak) ·
 - `deploy/.env.example`: `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `ConnectionStrings__Default`, `Jwt__SigningKey` (≥ 32 random bytes), `Jwt__Issuer`, `ADMIN_USERNAME`, `ADMIN_PASSWORD`, `PUBLIC_BASE_URL=https://quizly.jbohacek.cz`.
 - Behind the proxy: enable **ForwardedHeaders** (X-Forwarded-For/Proto). Persist **Data Protection keys** to a volume (Blazor circuits and cookies must survive restarts).
 - Migrations run on startup. Health check at `/api/health`.
-- **Backups:** `deploy/backup.sh` runs a nightly `pg_dump` and keeps 14 days, with restore steps in `deploy/README-deploy.md`.
+- **Backups:** `deploy/backup.sh` runs a nightly `pg_dump` from the server's cron and keeps the newest 14 dumps; `deploy/restore.sh` and the runbook in `deploy/README-deploy.md` restore one.
 - **Updates:** a new image tag → Jakub pulls and redeploys the stack in Portainer.
 - Nginx Proxy Manager forwards `quizly.jbohacek.cz` (HTTPS, Let's Encrypt) to the `quizly` port, with websockets enabled (Blazor Server needs them).
 
@@ -444,3 +444,8 @@ Jakub confirmed these defaults at the Etapa 0 gate (2026-10-31). Raise any of th
 | 2026-11-01 | Notifications have no action buttons (the canvas shows "Jdu na to"); a tap opens Obchod (wishlist) or Domů and reloads that screen. "Otevřít nastavení" uses a small method channel in `MainActivity`, no extra package. |
 | 2026-11-01 | Before refreshing tokens the API client re-reads the stored pair, because the background refresh (another isolate) may have rotated them already. |
 | 2026-11-01 | Nastavení: quiet hours are set with two time pickers (od, do); with Chytré časy on and a smart time known, the evening row says "S Chytrými časy teď v 19:15". |
+| 2026-11-01 | Etapa 7 approved and merged (PR #7). |
+| 2026-11-01 | Jakub: Etapa 8 is polish, then a first beta user tests the app, then the release. Beta builds are tagged `v1.0.0-beta.N` (GitHub pre-release with the APK); The repository is private, so Jakub downloads the APK from the release and sends it to the tester. Guide: `docs/beta.md`. |
+| 2026-11-01 | Backups run from the server's cron (`docker exec … pg_dump`), not as a container in the stack: Portainer's web-editor stacks can't mount a script, and cron keeps the dumps on the host for off-site copies. 14 dumps are kept by count, so old ones survive if backups stop. |
+| 2026-11-01 | The app has an adaptive launcher icon (the "Q" of the login logo, generated as a vector from Bricolage Grotesque) and a dark splash screen. Accessibility is checked by widget tests on every screen: 44 px touch targets, labeled tap targets, text contrast. |
+| 2026-11-01 | Nastavení "Povolit upozornění" (when Android blocks notifications) first asks with the system dialog and opens Android's settings only if that's no longer allowed. |
