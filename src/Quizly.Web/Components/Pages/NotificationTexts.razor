@@ -9,7 +9,7 @@
 
 <header class="page-head">
     <div>
-        <span class="eyebrow">@(_texts is null ? "" : $"{_texts.Count} textů · {_texts.Count(t => t.IsActive)} aktivních")</span>
+        <span class="eyebrow">@(_texts is null ? "" : $"{Cz.Texts(_texts.Count)} · aktivní: {_texts.Count(t => t.IsActive)}")</span>
         <h1>Texty upozornění</h1>
     </div>
     <button class="btn primary" @onclick="New">Nový text</button>
@@ -31,7 +31,7 @@
     <section class="card wide" aria-labelledby="list-title">
         <div class="card-head">
             <h2 id="list-title">@Current.Name</h2>
-            <span class="eyebrow">@InCategory.Count textů</span>
+            <span class="eyebrow">@Cz.Texts(InCategory.Count)</span>
         </div>
         <p class="hint">@Current.When</p>
         @if (FreeActive < 2 && _texts is not null)

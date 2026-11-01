@@ -38,7 +38,7 @@ public static class Errors
         new("concurrencyConflict", 409, "Záznam se mezitím změnil. Načti ho znovu.");
 
     public static readonly AppError HasClaims =
-        new("hasClaims", 409, "Odměnu už někdo koupil, nejde smazat. Můžeš ji deaktivovat.");
+        new("hasClaims", 409, "Odměna už má nákupy, takže ji nejde smazat. Můžeš ji deaktivovat.");
 
     public static AppError Conflict(string code, string title) => new(code, 409, title);
 }

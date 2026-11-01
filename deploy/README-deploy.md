@@ -2,7 +2,7 @@
 
 The stack is two containers: `quizly` (API + admin dashboard, image from GHCR) and `db` (PostgreSQL 18). Nginx Proxy Manager (NPM) terminates HTTPS for `quizly.jbohacek.cz` and forwards to the `quizly` port. Migrations run automatically on startup.
 
-Do the steps in order. Steps 1–4 are one-time.
+Do the steps in order. Steps 1–7 are one-time; the runbook below covers updates, rollback, restore and secrets.
 
 ## 1. DNS
 
@@ -40,7 +40,7 @@ Portainer → **Stacks → Add stack**:
 2. Build method **Web editor**: paste [`docker-compose.yml`](./docker-compose.yml).
 3. **Environment variables**: add every variable from [`.env.example`](./.env.example) with real values:
    - `POSTGRES_PASSWORD`: a long random string (`openssl rand -base64 32`). Use the same value inside `ConnectionStrings__Default`.
-   - `Jwt__SigningKey`: at least 32 random bytes (`openssl rand -base64 48`). Changing it later signs every phone out.
+   - `Jwt__SigningKey`: at least 32 random bytes (`openssl rand -base64 48`). Changing it later doesn't sign phones out (see Runbook → Rotate secrets).
    - `ADMIN_USERNAME` / `ADMIN_PASSWORD`: your dashboard login.
    - `QUIZLY_TAG`: `latest`, or a commit SHA from GHCR to pin a version.
    - `QUIZLY_PORT`: the host port NPM forwards to (default `8080`; pick a free one).
@@ -76,20 +76,83 @@ The app trusts `X-Forwarded-For` / `X-Forwarded-Proto` from the proxy, so it see
 
 The 52 notification texts are seeded on the first start. Production starts without demo data.
 
-## Updating
+## 7. Backups
+
+[`backup.sh`](./backup.sh) runs on the server from cron: one compressed `pg_dump` per night, the newest 14 kept. [`restore.sh`](./restore.sh) puts a dump back. Both run `pg_dump`/`pg_restore` inside the `db` container, so they need no database password, only access to `docker`.
+
+1. Copy both scripts to the server, e.g. to `/opt/quizly/`, and make them executable:
+
+   ```bash
+   sudo mkdir -p /opt/quizly/backups
+   sudo cp backup.sh restore.sh /opt/quizly/ && sudo chmod +x /opt/quizly/*.sh
+   ```
+
+2. Check the database container's name (Portainer → Containers). It is `quizly-db-1` for a stack named `quizly`. If it differs, put `QUIZLY_DB_CONTAINER=<name>` in front of the commands below.
+3. Run a backup by hand once:
+
+   ```bash
+   sudo /opt/quizly/backup.sh
+   ```
+
+   It prints `backup ok: /opt/quizly/backups/quizly-2026-11-02-0330.dump (…)`.
+4. Add it to root's crontab (`sudo crontab -e`), every night at 03:30:
+
+   ```
+   30 3 * * * /opt/quizly/backup.sh >> /opt/quizly/backups/backup.log 2>&1
+   ```
+
+5. Copy `/opt/quizly/backups` somewhere off the server now and then (NAS, cloud drive). A backup on the same disk doesn't survive that disk.
+6. Do the **restore drill** below once, so you know the dumps work.
+
+Settings: `QUIZLY_BACKUP_DIR` (default `/opt/quizly/backups`), `QUIZLY_BACKUP_KEEP` (default `14` dumps).
+
+## Runbook
+
+### Update
 
 Every merge to `main` pushes `ghcr.io/jbohacek/quizly:latest` and `:<commit sha>`.
 
-- With `QUIZLY_TAG=latest`: Portainer → stack `quizly` → **Pull and redeploy** (enable "Re-pull image").
-- Pinned: set `QUIZLY_TAG` to the new SHA → **Update the stack**.
+1. Take a backup first: `sudo /opt/quizly/backup.sh`.
+2. With `QUIZLY_TAG=latest`: Portainer → stack `quizly` → **Pull and redeploy** (enable "Re-pull image"). Pinned: set `QUIZLY_TAG` to the new SHA → **Update the stack**.
+3. Check the `quizly` log and `https://quizly.jbohacek.cz/api/health`.
 
 Migrations run on startup; a failed migration stops the container (check its log) and leaves the database as it was.
 
-**Rollback:** set `QUIZLY_TAG` to the previous SHA and update the stack. If the newer version ran a migration, restore the backup taken before the update (backups and restore steps arrive with `backup.sh` in Etapa 8; until then take a manual dump first):
+The app updates separately: install the new APK from the GitHub Release (or the `app` workflow's artifact) over the old one. The login stays.
 
-```bash
-docker exec quizly-db-1 pg_dump -U quizly -d quizly -Fc > quizly-$(date +%F).dump
-```
+### Rollback
+
+1. Set `QUIZLY_TAG` to the previous SHA (GHCR → package `quizly` → versions) → **Update the stack**.
+2. If the newer version ran a migration, the old one may not start on the newer database. Then also **restore** the backup taken before the update (below).
+
+### Restore
+
+1. Portainer → stack `quizly` → stop the **`quizly`** container (keep `db` running), so nobody writes during the restore.
+2. Pick a dump: `ls -lt /opt/quizly/backups`.
+3. Restore it. It asks for `yes` and replaces the whole database in one transaction; if anything fails, the database stays as it was:
+
+   ```bash
+   sudo /opt/quizly/restore.sh /opt/quizly/backups/quizly-2026-11-02-0330.dump
+   ```
+
+4. Start the `quizly` container again and check `/api/health` and the dashboard.
+
+Phones keep their login. Answers they made after the backup are gone from the server; points and streaks are as they were at the backup.
+
+**Restore drill** (once after setting up backups, then e.g. yearly): take a backup by hand, restore that same file as above, and check that Přehled shows the same users and points. Restoring the dump you just made changes nothing.
+
+### Rotate secrets
+
+Change the value in the stack's environment variables in Portainer, then **Update the stack**.
+
+| Secret | Notes |
+| --- | --- |
+| `ADMIN_PASSWORD` | Takes effect after the update. An admin session that is already open stays valid until its cookie expires. |
+| `POSTGRES_PASSWORD` | The `db` container sets the password only when the volume is created, so change it in the database first: `docker exec -it quizly-db-1 psql -U quizly -d quizly -c "ALTER USER quizly PASSWORD '<new>'"`. Then put `<new>` in **both** `POSTGRES_PASSWORD` and `ConnectionStrings__Default` and update the stack. |
+| `Jwt__SigningKey` | Access tokens signed with the old key stop working; phones get a new one with their refresh token automatically, so nobody is signed out. |
+| Sign every phone out | Delete the refresh tokens: `docker exec quizly-db-1 psql -U quizly -d quizly -c "DELETE FROM refresh_tokens"`. Each user logs in again with their password. For one user, use **Reset hesla** on the dashboard instead. |
+| GHCR token (Portainer registry) | Create a new `read:packages` token, put it in Portainer → Registries → `ghcr`, delete the old one on GitHub. |
+| Android signing key | **Never rotate.** A new key can't install over the old app; every phone would have to uninstall (and log in again). Keep a copy of the keystore and its passwords outside GitHub. |
 
 ## Troubleshooting
 
