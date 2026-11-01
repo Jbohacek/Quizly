@@ -137,6 +137,23 @@ class ApiClient {
   Future<void> setWishlist(int itemId, {required bool on}) =>
       _send<Object?>(on ? 'PUT' : 'DELETE', '/wishlist/$itemId');
 
+  /// Active notification texts, or null when [etag] is still current (`304`).
+  Future<NotificationTexts?> notificationTexts({String? etag}) async {
+    try {
+      final response = await _dio.get<Json>(
+        '/notification-texts',
+        options: Options(
+          extra: {'auth': true},
+          headers: {if (etag != null) 'If-None-Match': '"$etag"'},
+          validateStatus: (status) => status == 200 || status == 304,
+        ),
+      );
+      return response.statusCode == 304 ? null : NotificationTexts.fromJson(response.data!);
+    } on DioException catch (e) {
+      throw e.error is ApiException ? e.error! as ApiException : ApiException.fromDio(e);
+    }
+  }
+
   Future<T> _send<T>(String method, String path, {Object? data, Map<String, Object?>? query, bool auth = true}) async {
     try {
       final response = await _dio.request<T>(
@@ -216,8 +233,15 @@ class ApiClient {
   }
 
   Future<bool> _doRefresh(bool force) async {
-    final tokens = _tokens;
+    var tokens = _tokens;
     if (tokens == null) return false;
+    // The background refresh runs in another isolate and may have rotated the tokens already;
+    // our old refresh token would then be refused once its grace period is over.
+    final stored = await _store.read();
+    if (stored != null && stored.refreshToken != tokens.refreshToken) {
+      _tokens = tokens = stored;
+      if (stored.accessTokenExpiresAt.difference(_now()) >= _refreshAhead) return true;
+    }
     if (!force && tokens.accessTokenExpiresAt.difference(_now()) >= _refreshAhead) return true;
     try {
       final json = await _send<Json>('POST', '/auth/refresh', auth: false, data: {'refreshToken': tokens.refreshToken});

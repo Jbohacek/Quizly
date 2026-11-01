@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
@@ -11,8 +12,15 @@ import 'package:quizly/core/format.dart';
 import 'package:quizly/core/providers.dart';
 import 'package:quizly/core/storage/token_store.dart';
 import 'package:quizly/core/strings.dart';
+import 'package:quizly/features/notifications/notification_store.dart';
+import 'package:quizly/features/notifications/notifications.dart';
+import 'package:quizly/features/notifications/planner.dart';
 import 'package:quizly/features/session/review_sync.dart';
 import 'package:quizly/main.dart';
+import 'package:timezone/data/latest.dart' as tzdata;
+import 'package:timezone/timezone.dart' as tz;
+
+import 'fakes.dart';
 
 /// A small in-memory Quizly API: two cards in one deck.
 class FakeApi implements HttpClientAdapter {
@@ -22,6 +30,12 @@ class FakeApi implements HttpClientAdapter {
   String password = 'tajneheslo';
   bool hasDeckCards = true;
   int passwordChanges = 0;
+  final savedSettings = <Map<String, Object?>>[];
+  Map<String, Object?> settings = {
+    'dailyGoal': 20, 'newCardsPerDay': 5, 'notificationsEnabled': true,
+    'morningTime': '08:00', 'eveningTime': '18:30', 'lastCallTime': '21:00',
+    'quietFrom': '22:00', 'quietTo': '07:00', 'smartTimes': true,
+  };
 
   /// Events returned with every review batch.
   List<Map<String, Object?>> reviewEvents = [];
@@ -156,10 +170,22 @@ class FakeApi implements HttpClientAdapter {
       'GET /api/claims' => _json({'items': claims.reversed.toList()}),
       final r when r.startsWith('PUT /api/wishlist/') || r.startsWith('DELETE /api/wishlist/') => _wishlist(r),
       final r when r.startsWith('POST /api/shop/') => _claim(r, body as Map<String, Object?>),
-      'GET /api/me/settings' => _json({
-          'dailyGoal': 20, 'newCardsPerDay': 5, 'notificationsEnabled': true,
-          'morningTime': '08:00', 'eveningTime': '18:30', 'lastCallTime': '21:00',
-          'quietFrom': '22:00', 'quietTo': '07:00', 'smartTimes': true,
+      'GET /api/me/settings' => _json(settings),
+      'PUT /api/me/settings' => _json({
+          'settings': settings = (savedSettings..add(body as Map<String, Object?>)).last,
+          'summary': summary,
+          'events': [],
+        }),
+      'GET /api/notification-texts' => _json({
+          'version': 'v1',
+          'categories': {
+            'morning': [{'id': 1, 'text': 'Dobré ráno! Karty na dnešek: {due}'}],
+            'evening': [{'id': 2, 'text': 'Už máš {done} z {goal}. Dáme ještě kousek?'}],
+            'last_call': [{'id': 3, 'text': 'Série: {streak}. Pár karet a jede dál 🔥'}],
+            'milestone': [{'id': 4, 'text': '{streak} dní v řadě! 🎉'}],
+            'wishlist': [{'id': 5, 'text': 'Na „{item}“ už máš body 🎁'}],
+            'comeback': [{'id': 6, 'text': 'Vítej zpátky 💚'}],
+          },
         }),
       _ => _json({'code': 'notFound', 'title': 'Nenalezeno.'}, 404),
     };
@@ -240,6 +266,8 @@ Future<void> settle(WidgetTester tester) async {
 }
 
 void main() {
+  setUpAll(tzdata.initializeTimeZones);
+
   testWidgets('log in, study two cards (one Nevím re-queued), see Hotovo, back home', (tester) async {
     tester.view.physicalSize = const Size(1080, 2340);
     tester.view.devicePixelRatio = 2.75;
@@ -258,6 +286,7 @@ void main() {
         apiClientProvider.overrideWithValue(client),
         outboxStoreProvider.overrideWithValue(MemoryOutboxStore()),
         connectivityProvider.overrideWith((ref) => Stream.value(true)),
+        notificationsProvider.overrideWithValue(_notifications(FakeNotificationPlatform())),
       ],
       child: const QuizlyApp(),
     ));
@@ -340,6 +369,7 @@ void main() {
         apiClientProvider.overrideWithValue(client),
         outboxStoreProvider.overrideWithValue(outbox),
         connectivityProvider.overrideWith((ref) => Stream.value(true)),
+        notificationsProvider.overrideWithValue(_notifications(FakeNotificationPlatform())),
       ],
       child: const QuizlyApp(),
     ));
@@ -530,10 +560,111 @@ void main() {
     expect(find.text('Karta 2 z 2'), findsOneWidget);
     await settle(tester);
   });
+
+  testWidgets('signed in: tomorrow\'s reminders are planned with the server texts', (tester) async {
+    final platform = FakeNotificationPlatform();
+    await _signedIn(tester, notifications: platform);
+
+    // 12:00, goal open, streak 12: evening and last call today, comeback (no goal yet) tomorrow.
+    expect(platform.background, isTrue);
+    expect(
+      platform.scheduled.map((n) => '${n.at.day}. ${n.category.id} ${n.at.hour}:${n.at.minute}'),
+      ['2. evening 18:30', '2. last_call 21:0', '3. comeback 8:0', '3. evening 18:30'],
+    );
+    expect(platform.scheduled.first.body, 'Už máš 0 z 20. Dáme ještě kousek?');
+    expect(platform.scheduled[1].body, 'Série: 12. Pár karet a jede dál 🔥');
+  });
+
+  testWidgets('Domů asks once about reminders; Povolit opens the system dialog', (tester) async {
+    final platform = FakeNotificationPlatform()
+      ..allowed = false
+      ..grantOnRequest = true;
+    await _signedIn(tester, notifications: platform);
+    expect(platform.scheduled, isEmpty);
+    expect(find.text(S.askTitle), findsOneWidget);
+
+    await tester.tap(find.text(S.allow));
+    await settle(tester);
+    expect(platform.requests, 1);
+    expect(find.text(S.askTitle), findsNothing);
+    expect(platform.scheduled, isNotEmpty);
+  });
+
+  testWidgets('Teď ne hides the question for good', (tester) async {
+    final platform = FakeNotificationPlatform()..allowed = false;
+    await _signedIn(tester, notifications: platform);
+    await tester.tap(find.text(S.notNow));
+    await settle(tester);
+    expect(platform.requests, 0);
+    expect(find.text(S.askTitle), findsNothing);
+
+    // Nastavení still offers the Android settings.
+    await tester.tap(find.text('Nastavení'));
+    await settle(tester);
+    await tester.scrollUntilVisible(find.text(S.openSystemSettings), 200, scrollable: find.byType(Scrollable).last);
+    await tester.tap(find.text(S.openSystemSettings));
+    expect(platform.settingsOpened, 1);
+  });
+
+  testWidgets('Nastavení: notification options are saved and the plan follows them', (tester) async {
+    final platform = FakeNotificationPlatform();
+    final (api, _) = await _signedIn(tester, notifications: platform);
+    await tester.tap(find.text('Nastavení'));
+    await settle(tester);
+    await tester.scrollUntilVisible(find.text(S.smartTimes), 200, scrollable: find.byType(Scrollable).last);
+    await settle(tester);
+    expect(find.bySemanticsLabel(S.timeLabel(S.morningReminder, '08:00')), findsOneWidget);
+    expect(find.bySemanticsLabel(S.timeLabel(S.quietHours, '22:00–07:00')), findsOneWidget);
+
+    // A time row opens the 24-hour picker.
+    await tester.tap(find.text(S.lastCall));
+    await settle(tester);
+    expect(find.byType(TimePickerDialog), findsOneWidget);
+    await tester.tap(find.text(S.cancel).last);
+    await settle(tester);
+
+    await tester.tap(find.text(S.smartTimes));
+    await settle(tester);
+    expect(api.savedSettings.last['smartTimes'], false);
+
+    await tester.tap(find.text(S.sendNotifications));
+    await settle(tester);
+    expect(api.savedSettings.last['notificationsEnabled'], false);
+    expect(platform.scheduled, isEmpty);
+  });
+
+  testWidgets('a milestone in a review response shows a notification right away', (tester) async {
+    final platform = FakeNotificationPlatform();
+    await _signedIn(
+      tester,
+      notifications: platform,
+      configure: (api) => api.reviewEvents = [
+        {'type': 'milestone', 'days': 7, 'bonus': 50},
+      ],
+    );
+    await tester.tap(find.text(S.studyAll(2)));
+    await settle(tester);
+    await tester.tap(find.bySemanticsLabel('Vím').first);
+    await settle(tester);
+
+    expect(platform.shown.map((n) => n.body), contains('7 dní v řadě! 🎉'));
+  });
 }
 
 /// The app with a stored login, on the home screen.
-Future<(FakeApi, MemoryTokenStore)> _signedIn(WidgetTester tester, {void Function(FakeApi api)? configure}) async {
+/// Notifications at a fixed time: Monday 2. 11. 2026, 12:00 in Prague (the fake API's today).
+Notifications _notifications(FakeNotificationPlatform platform) => Notifications(
+      platform: platform,
+      store: MemoryKeyValueStore(),
+      now: () => tz.TZDateTime(prague, 2026, 11, 2, 12),
+      random: Random(1),
+    );
+
+Future<(FakeApi, MemoryTokenStore)> _signedIn(
+  WidgetTester tester, {
+  void Function(FakeApi api)? configure,
+  FakeNotificationPlatform? notifications,
+}) async {
   tester.view.physicalSize = const Size(1080, 2340);
   tester.view.devicePixelRatio = 2.75;
   addTearDown(tester.view.reset);
@@ -554,6 +685,7 @@ Future<(FakeApi, MemoryTokenStore)> _signedIn(WidgetTester tester, {void Functio
       apiClientProvider.overrideWithValue(client),
       outboxStoreProvider.overrideWithValue(MemoryOutboxStore()),
       connectivityProvider.overrideWith((ref) => Stream.value(true)),
+      notificationsProvider.overrideWithValue(_notifications(notifications ?? FakeNotificationPlatform())),
     ],
     child: const QuizlyApp(),
   ));

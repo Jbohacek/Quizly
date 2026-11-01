@@ -239,4 +239,42 @@ abstract final class S {
   static const progressTitle = 'Postup v balíčcích';
   static const legendNew = 'Nové';
   static const noProgress = 'Zatím tu nejsou žádné balíčky.';
+
+  // Notifications (docs/notifications.md)
+  static const channelReminders = 'Připomínky';
+  static const channelRemindersHint = 'Ranní a večerní připomínka a poslední výzva';
+  static const channelAchievements = 'Úspěchy';
+  static const channelAchievementsHint = 'Milníky série a odměny ze seznamu přání';
+  static const fallbackMorning = 'Dobré ráno! ☀️ Na dnešek tě čeká pár karet. Pojďme na to spolu.';
+  static const fallbackEvening = 'Ještě je čas na pár karet 📚 Dáme to spolu?';
+  static const fallbackLastCall = 'Dnešní cíl je pořád na dosah 🔥 Pár minut a série jede dál.';
+  static const fallbackMilestone = 'Další milník v sérii! 🎉 Máš můj obdiv.';
+  static const fallbackWishlist = 'Na odměnu ze seznamu přání už máš body 🎁 Mrkni do obchodu.';
+  static const fallbackComeback = 'Vítej zpátky 💚 Začneme znovu, spolu to dáme!';
+  static const askTitle = 'Mám ti připomínat učení? 🔔';
+  static const askText = 'Ráno ti napíšu, kolik karet tě čeká. Večer připomenu denní cíl, jen když ještě není splněný.';
+  static const allow = 'Povolit';
+  static const notNow = 'Teď ne';
+  static const notifications = 'Upozornění';
+  static const sendNotifications = 'Posílat upozornění';
+  static const sendNotificationsHint = 'Připomínky učení, milníky a odměny';
+  static const systemOff = 'Upozornění jsou vypnutá v systému';
+  static const systemOffText = 'Povol je v nastavení telefonu, jinak ti žádné nepřijde.';
+  static const openSystemSettings = 'Otevřít nastavení';
+  static const morningReminder = 'Ranní připomínka';
+  static const morningReminderHint = 'Kolik karet tě dnes čeká';
+  static const eveningReminder = 'Večerní připomínka';
+  static const eveningReminderHint = 'Jen když ještě nemáš splněný cíl';
+  static String eveningSmart(String time) => 'S Chytrými časy teď v $time';
+  static const lastCall = 'Poslední výzva';
+  static const lastCallHint = 'Když je série v ohrožení';
+  static const quietHours = 'Tichý režim';
+  static const quietHoursHint = 'V tuto dobu nic nepošleme';
+  static const quietFrom = 'Tichý režim od';
+  static const quietTo = 'Tichý režim do';
+  static String quietRange(String from, String to) => '$from–$to';
+  static const quietSame = 'Tichý režim musí začínat a končit v jiný čas.';
+  static const smartTimes = 'Chytré časy';
+  static const smartTimesHint = 'Posouvat večerní připomínku k času, kdy se obvykle učíš';
+  static String timeLabel(String title, String time) => '$title, $time';
 }

@@ -13,6 +13,7 @@ import '../../core/strings.dart';
 import '../../core/theme/theme.dart';
 import '../../core/theme/tokens.dart';
 import '../../core/widgets/widgets.dart';
+import '../notifications/ask_card.dart';
 import 'week.dart';
 
 /// Domů (design screen 2): greeting, points, streak, daily goal, CTA and decks.
@@ -55,6 +56,7 @@ class _HomeBody extends StatelessWidget {
       children: [
         _Header(name: me.user.displayName, balance: me.summary.balance),
         const SizedBox(height: 16),
+        const NotificationAskCard(),
         _StreakCard(summary: me.summary, week: data.week),
         const SizedBox(height: 16),
         _GoalCard(today: me.summary.today, due: data.dueReviews, fresh: data.newToday),

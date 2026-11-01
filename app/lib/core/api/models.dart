@@ -90,6 +90,19 @@ class NextMultiplier {
   final int inDays;
 }
 
+/// The streak that was lost, set while it's fresh (api.md §1.2).
+class StreakBroken {
+  const StreakBroken({required this.previousStreak, required this.brokenOn});
+
+  factory StreakBroken.fromJson(Json j) =>
+      StreakBroken(previousStreak: _int(j['previousStreak']), brokenOn: DateTime.parse(j['brokenOn'] as String));
+
+  final int previousStreak;
+
+  /// The Prague day the streak broke at (the day after the missed one).
+  final DateTime brokenOn;
+}
+
 /// Balance, streak, multiplier and today's progress (api.md §1.2).
 class Summary {
   const Summary({
@@ -99,6 +112,7 @@ class Summary {
     required this.multiplier,
     required this.nextMultiplier,
     required this.today,
+    this.streakBroken,
   });
 
   factory Summary.fromJson(Json j) => Summary(
@@ -108,6 +122,7 @@ class Summary {
         multiplier: _double(j['multiplier']),
         nextMultiplier: j['nextMultiplier'] == null ? null : NextMultiplier.fromJson(j['nextMultiplier'] as Json),
         today: Today.fromJson(j['today'] as Json),
+        streakBroken: j['streakBroken'] == null ? null : StreakBroken.fromJson(j['streakBroken'] as Json),
       );
 
   final int balance;
@@ -116,15 +131,35 @@ class Summary {
   final double multiplier;
   final NextMultiplier? nextMultiplier;
   final Today today;
+  final StreakBroken? streakBroken;
+}
+
+/// Cards waiting at the next morning reminder (api.md §3).
+class Forecast {
+  const Forecast({required this.nextMorning, required this.dueByNextMorning});
+
+  factory Forecast.fromJson(Json j) =>
+      Forecast(nextMorning: DateTime.parse(j['nextMorning'] as String), dueByNextMorning: _int(j['dueByNextMorning']));
+
+  final DateTime nextMorning;
+  final int dueByNextMorning;
 }
 
 class Me {
-  const Me({required this.user, required this.summary, required this.dueNow});
+  const Me({
+    required this.user,
+    required this.summary,
+    required this.dueNow,
+    this.forecast,
+    this.smartEveningTime,
+  });
 
   factory Me.fromJson(Json j) => Me(
         user: AppUser.fromJson(j['user'] as Json),
         summary: Summary.fromJson(j['summary'] as Json),
         dueNow: _int(j['dueNow']),
+        forecast: j['forecast'] == null ? null : Forecast.fromJson(j['forecast'] as Json),
+        smartEveningTime: j['smartEveningTime'] as String?,
       );
 
   final AppUser user;
@@ -132,6 +167,11 @@ class Me {
 
   /// Length of the "Učit se vše" queue: due cards + new cards left for today.
   final int dueNow;
+
+  final Forecast? forecast;
+
+  /// Typical study time for Chytré časy (`HH:mm`), null with too few sessions.
+  final String? smartEveningTime;
 }
 
 class Deck {
@@ -414,16 +454,27 @@ class UserSettings {
   final String quietTo;
   final bool smartTimes;
 
-  UserSettings copyWith({int? dailyGoal, int? newCardsPerDay}) => UserSettings(
+  UserSettings copyWith({
+    int? dailyGoal,
+    int? newCardsPerDay,
+    bool? notificationsEnabled,
+    String? morningTime,
+    String? eveningTime,
+    String? lastCallTime,
+    String? quietFrom,
+    String? quietTo,
+    bool? smartTimes,
+  }) =>
+      UserSettings(
         dailyGoal: dailyGoal ?? this.dailyGoal,
         newCardsPerDay: newCardsPerDay ?? this.newCardsPerDay,
-        notificationsEnabled: notificationsEnabled,
-        morningTime: morningTime,
-        eveningTime: eveningTime,
-        lastCallTime: lastCallTime,
-        quietFrom: quietFrom,
-        quietTo: quietTo,
-        smartTimes: smartTimes,
+        notificationsEnabled: notificationsEnabled ?? this.notificationsEnabled,
+        morningTime: morningTime ?? this.morningTime,
+        eveningTime: eveningTime ?? this.eveningTime,
+        lastCallTime: lastCallTime ?? this.lastCallTime,
+        quietFrom: quietFrom ?? this.quietFrom,
+        quietTo: quietTo ?? this.quietTo,
+        smartTimes: smartTimes ?? this.smartTimes,
       );
 
   Json toJson() => {
@@ -715,4 +766,40 @@ class Claim {
   final ClaimStatus status;
   final DateTime createdAt;
   final DateTime? decidedAt;
+}
+
+// Notification texts (api.md §9)
+
+class NotificationText {
+  const NotificationText({required this.id, required this.text});
+
+  factory NotificationText.fromJson(Json j) => NotificationText(id: _int(j['id']), text: j['text'] as String);
+
+  final int id;
+  final String text;
+
+  Json toJson() => {'id': id, 'text': text};
+}
+
+/// Active texts per category id (`morning`, `last_call`, …); [version] is the ETag.
+class NotificationTexts {
+  const NotificationTexts({required this.version, required this.categories});
+
+  factory NotificationTexts.fromJson(Json j) => NotificationTexts(
+        version: j['version'] as String,
+        categories: {
+          for (final MapEntry(:key, :value) in (j['categories'] as Json).entries)
+            key: [for (final t in value as List) NotificationText.fromJson(t as Json)],
+        },
+      );
+
+  final String version;
+  final Map<String, List<NotificationText>> categories;
+
+  Json toJson() => {
+        'version': version,
+        'categories': {
+          for (final MapEntry(:key, :value) in categories.entries) key: [for (final t in value) t.toJson()],
+        },
+      };
 }

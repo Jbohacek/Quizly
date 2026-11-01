@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -9,6 +11,10 @@ import 'core/providers.dart';
 import 'core/storage/token_store.dart';
 import 'core/strings.dart';
 import 'core/theme/theme.dart';
+import 'features/notifications/notification_platform.dart';
+import 'features/notifications/notification_store.dart';
+import 'features/notifications/notifications.dart';
+import 'features/notifications/planner.dart';
 import 'router.dart';
 
 Future<void> main() async {
@@ -16,23 +22,73 @@ Future<void> main() async {
   await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
   final client = ApiClient(baseUrl: apiBaseUrl, store: SecureTokenStore());
   await client.restore();
+  final notifications = Notifications(platform: AndroidNotificationPlatform(), store: PrefsKeyValueStore());
+  await notifications.init();
   runApp(
     ProviderScope(
       // Screens show their own error with "Zkusit znovu"; no silent automatic retries.
       retry: (retryCount, error) => null,
-      overrides: [apiClientProvider.overrideWithValue(client)],
+      overrides: [
+        apiClientProvider.overrideWithValue(client),
+        notificationsProvider.overrideWithValue(notifications),
+      ],
       child: const QuizlyApp(),
     ),
   );
 }
 
-class QuizlyApp extends ConsumerWidget {
+class QuizlyApp extends ConsumerStatefulWidget {
   const QuizlyApp({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<QuizlyApp> createState() => _QuizlyAppState();
+}
+
+class _QuizlyAppState extends ConsumerState<QuizlyApp> {
+  late final AppLifecycleListener _lifecycle;
+  StreamSubscription<NotificationTarget>? _taps;
+
+  @override
+  void initState() {
+    super.initState();
+    final notifications = ref.read(notificationsProvider);
+    _taps = notifications.taps.listen(_open);
+    unawaited(notifications.platform.launchTarget().then((target) {
+      if (target != null && mounted) _open(target);
+    }));
+    _lifecycle = AppLifecycleListener(onResume: _resumed);
+  }
+
+  @override
+  void dispose() {
+    _lifecycle.dispose();
+    unawaited(_taps?.cancel());
+    super.dispose();
+  }
+
+  /// A tapped notification: wishlist → Obchod, the rest → Domů (docs/notifications.md §1).
+  void _open(NotificationTarget target) {
+    if (!ref.read(authProvider).signedIn) return;
+    // The screen may still show what it loaded before the notification came.
+    final shop = target == NotificationTarget.shop;
+    ref
+      ..invalidate(shop ? shopProvider : homeProvider)
+      ..read(routerProvider).go(shop ? '/shop' : '/home');
+  }
+
+  /// Back from the background: the permission may have changed in Android settings, and the numbers may be old.
+  void _resumed() {
+    ref.invalidate(notificationPermissionProvider);
+    if (!ref.read(authProvider).signedIn) return;
+    unawaited(ref.read(notificationsProvider).refresh(ref.read(apiClientProvider), force: false));
+  }
+
+  @override
+  Widget build(BuildContext context) {
     // Keeps the review outbox alive for the logged-in user, so leftovers are sent at start (api.md §11.5).
-    ref.watch(reviewSyncProvider);
+    ref
+      ..watch(reviewSyncProvider)
+      ..watch(notificationSyncProvider);
     return MaterialApp.router(
       title: S.appName,
       debugShowCheckedModeBanner: false,

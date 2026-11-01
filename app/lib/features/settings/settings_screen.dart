@@ -14,12 +14,13 @@ import '../../core/strings.dart';
 import '../../core/theme/theme.dart';
 import '../../core/theme/tokens.dart';
 import '../../core/widgets/widgets.dart';
+import '../notifications/notifications.dart';
 
 final settingsProvider = FutureProvider.autoDispose<UserSettings>((ref) => ref.watch(apiClientProvider).settings());
 
 final _versionProvider = FutureProvider<String>((ref) async => (await PackageInfo.fromPlatform()).version);
 
-/// Nastavení (design screen 9). Notification options arrive in Etapa 7.
+/// Nastavení (design screen 9).
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
 
@@ -53,6 +54,7 @@ class _SettingsBodyState extends ConsumerState<_SettingsBody> {
   late UserSettings _settings = widget.initial;
   late UserSettings _saved = widget.initial;
   late final ApiClient _client;
+  late final Notifications _notifications;
   Timer? _debounce;
   int _saveVersion = 0;
 
@@ -60,6 +62,8 @@ class _SettingsBodyState extends ConsumerState<_SettingsBody> {
   void initState() {
     super.initState();
     _client = ref.read(apiClientProvider);
+    _notifications = ref.read(notificationsProvider);
+    unawaited(_notifications.onSettings(widget.initial));
   }
 
   @override
@@ -67,9 +71,15 @@ class _SettingsBodyState extends ConsumerState<_SettingsBody> {
     // A change still waiting for the debounce is saved anyway (best effort).
     if (_debounce?.isActive ?? false) {
       _debounce!.cancel();
-      unawaited(_client.saveSettings(_settings).then<void>((_) {}, onError: (_) {}));
+      unawaited(_client.saveSettings(_settings).then<void>(_applied, onError: (_) {}));
     }
     super.dispose();
+  }
+
+  /// The reminders follow every saved change; a lowered goal can also complete today.
+  Future<void> _applied(SettingsUpdate update) async {
+    await _notifications.onSettings(update.settings);
+    await _notifications.onSummary(update.summary, update.events);
   }
 
   void _change(UserSettings next) {
@@ -81,13 +91,47 @@ class _SettingsBodyState extends ConsumerState<_SettingsBody> {
   Future<void> _save(UserSettings settings) async {
     final version = ++_saveVersion;
     try {
-      _saved = (await _client.saveSettings(settings)).settings;
+      final update = await _client.saveSettings(settings);
+      _saved = update.settings;
+      unawaited(_applied(update));
       if (mounted) ref.invalidate(homeProvider);
     } on ApiException catch (e) {
       if (!mounted || version != _saveVersion) return;
       setState(() => _settings = _saved);
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${S.settingsSaveFailed} ${e.message}')));
     }
+  }
+
+  Future<void> _toggleNotifications(bool on) async {
+    _change(_settings.copyWith(notificationsEnabled: on));
+    if (!on || ref.read(notificationPermissionProvider).value == true) return;
+    await _notifications.requestPermission();
+    if (mounted) ref.invalidate(notificationPermissionProvider);
+  }
+
+  Future<String?> _pickTime(String title, String current) async {
+    final [h, m] = current.split(':');
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay(hour: int.parse(h), minute: int.parse(m)),
+      helpText: title,
+      builder: (context, child) =>
+          MediaQuery(data: MediaQuery.of(context).copyWith(alwaysUse24HourFormat: true), child: child!),
+    );
+    if (picked == null) return null;
+    return '${picked.hour.toString().padLeft(2, '0')}:${picked.minute.toString().padLeft(2, '0')}';
+  }
+
+  Future<void> _pickQuiet() async {
+    final from = await _pickTime(S.quietFrom, _settings.quietFrom);
+    if (from == null || !mounted) return;
+    final to = await _pickTime(S.quietTo, _settings.quietTo);
+    if (to == null || !mounted) return;
+    if (from == to) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text(S.quietSame)));
+      return;
+    }
+    _change(_settings.copyWith(quietFrom: from, quietTo: to));
   }
 
   Future<void> _signOut() async {
@@ -108,6 +152,72 @@ class _SettingsBodyState extends ConsumerState<_SettingsBody> {
       ),
     );
     if (ok == true) await ref.read(authProvider.notifier).logout();
+  }
+
+  List<Widget> _notificationSection() {
+    final on = _settings.notificationsEnabled;
+    final permitted = ref.watch(notificationPermissionProvider).value;
+    final smart = _settings.smartTimes ? ref.watch(homeProvider).value?.me.smartEveningTime : null;
+    Future<void> time(String title, String current, UserSettings Function(String value) apply) async {
+      final picked = await _pickTime(title, current);
+      if (picked != null && mounted) _change(apply(picked));
+    }
+
+    return [
+      if (on && permitted == false) ...[
+        _SystemOff(onOpen: () => unawaited(_notifications.platform.openSystemSettings())),
+        const SizedBox(height: 10),
+      ],
+      Panel(
+        padding: EdgeInsets.zero,
+        radius: 20,
+        child: Column(
+          children: [
+            _Toggle(title: S.sendNotifications, hint: S.sendNotificationsHint, value: on, onChanged: _toggleNotifications),
+            const Divider(height: 1, color: Q.border),
+            _TimeRow(
+              title: S.morningReminder,
+              hint: S.morningReminderHint,
+              value: _settings.morningTime,
+              enabled: on,
+              onTap: () => time(S.morningReminder, _settings.morningTime, (v) => _settings.copyWith(morningTime: v)),
+            ),
+            const Divider(height: 1, color: Q.border),
+            _TimeRow(
+              title: S.eveningReminder,
+              hint: smart == null ? S.eveningReminderHint : S.eveningSmart(smart),
+              value: _settings.eveningTime,
+              enabled: on,
+              onTap: () => time(S.eveningReminder, _settings.eveningTime, (v) => _settings.copyWith(eveningTime: v)),
+            ),
+            const Divider(height: 1, color: Q.border),
+            _TimeRow(
+              title: S.lastCall,
+              hint: S.lastCallHint,
+              value: _settings.lastCallTime,
+              enabled: on,
+              onTap: () => time(S.lastCall, _settings.lastCallTime, (v) => _settings.copyWith(lastCallTime: v)),
+            ),
+            const Divider(height: 1, color: Q.border),
+            _TimeRow(
+              title: S.quietHours,
+              hint: S.quietHoursHint,
+              value: S.quietRange(_settings.quietFrom, _settings.quietTo),
+              enabled: on,
+              onTap: _pickQuiet,
+            ),
+            const Divider(height: 1, color: Q.border),
+            _Toggle(
+              title: S.smartTimes,
+              hint: S.smartTimesHint,
+              value: _settings.smartTimes,
+              enabled: on,
+              onChanged: (v) => _change(_settings.copyWith(smartTimes: v)),
+            ),
+          ],
+        ),
+      ),
+    ];
   }
 
   @override
@@ -180,6 +290,9 @@ class _SettingsBodyState extends ConsumerState<_SettingsBody> {
             ],
           ),
         ),
+        const SizedBox(height: 16),
+        _SectionTitle(S.notifications),
+        ..._notificationSection(),
         const SizedBox(height: 24),
         SecondaryButton(label: S.signOut, color: Q.dontKnow, outlined: true, onPressed: _signOut),
         const SizedBox(height: 16),
@@ -189,6 +302,156 @@ class _SettingsBodyState extends ConsumerState<_SettingsBody> {
           style: QText.body(12, color: Q.textMuted, weight: FontWeight.w400),
         ),
       ],
+    );
+  }
+}
+
+/// Shown when notifications are on in Quizly but blocked by Android.
+class _SystemOff extends StatelessWidget {
+  const _SystemOff({required this.onOpen});
+
+  final VoidCallback onOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    return Panel(
+      radius: 20,
+      color: Q.points.withValues(alpha: 0.10),
+      padding: const EdgeInsets.fromLTRB(16, 14, 12, 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Icon(Icons.notifications_off_outlined, color: Q.points),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(S.systemOff, style: QText.body(15, weight: FontWeight.w800)),
+                    const SizedBox(height: 2),
+                    Text(S.systemOffText, style: QText.body(12, color: Q.textMuted, weight: FontWeight.w400, height: 1.35)),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton(
+              onPressed: onOpen,
+              style: TextButton.styleFrom(
+                foregroundColor: Q.points,
+                minimumSize: const Size(64, 44),
+                textStyle: QText.body(14, weight: FontWeight.w800),
+              ),
+              child: const Text(S.openSystemSettings),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RowText extends StatelessWidget {
+  const _RowText({required this.title, required this.hint});
+
+  final String title;
+  final String hint;
+
+  @override
+  Widget build(BuildContext context) => Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title, style: QText.body(15, weight: FontWeight.w800)),
+          const SizedBox(height: 2),
+          Text(hint, style: QText.body(12, color: Q.textMuted, weight: FontWeight.w400, height: 1.35)),
+        ],
+      );
+}
+
+class _Toggle extends StatelessWidget {
+  const _Toggle({required this.title, required this.hint, required this.value, required this.onChanged, this.enabled = true});
+
+  final String title;
+  final String hint;
+  final bool value;
+  final bool enabled;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return MergeSemantics(
+      child: Opacity(
+        opacity: enabled ? 1 : 0.45,
+        child: InkWell(
+          onTap: enabled ? () => onChanged(!value) : null,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 12, 12),
+            child: Row(
+              children: [
+                Expanded(child: _RowText(title: title, hint: hint)),
+                const SizedBox(width: 12),
+                Switch(
+                  value: value,
+                  onChanged: enabled ? onChanged : null,
+                  activeTrackColor: Q.primary,
+                  activeThumbColor: Q.onPrimary,
+                  inactiveTrackColor: Q.surface2,
+                  inactiveThumbColor: Q.textMuted,
+                  trackOutlineColor: const WidgetStatePropertyAll(Q.border),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _TimeRow extends StatelessWidget {
+  const _TimeRow({required this.title, required this.hint, required this.value, required this.enabled, required this.onTap});
+
+  final String title;
+  final String hint;
+  final String value;
+  final bool enabled;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      enabled: enabled,
+      label: S.timeLabel(title, value),
+      hint: hint,
+      excludeSemantics: true,
+      child: Opacity(
+        opacity: enabled ? 1 : 0.45,
+        child: InkWell(
+          onTap: enabled ? onTap : null,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 14, 12),
+            child: Row(
+              children: [
+                Expanded(child: _RowText(title: title, hint: hint)),
+                const SizedBox(width: 12),
+                Container(
+                  constraints: const BoxConstraints(minHeight: 44, minWidth: 64),
+                  alignment: Alignment.center,
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  decoration: BoxDecoration(color: Q.surface2, borderRadius: BorderRadius.circular(12)),
+                  child: Text(value, style: QText.heading(16).copyWith(letterSpacing: 0)),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
