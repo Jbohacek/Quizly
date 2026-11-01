@@ -14,8 +14,8 @@ The full brief is in [`CLAUDE.md`](./CLAUDE.md).
 | 1 | Spec and design | `etapa-1-spec` | Approved |
 | 2 | API foundation | `etapa-2-api` | Approved |
 | 3 | Learning and game logic | `etapa-3-logic` | Approved |
-| 4 | Admin dashboard and first deploy | `etapa-4-admin` | Waiting for review (deploy steps are Jakub's) |
-| 5 | Android app core | `etapa-5-app` | Not started |
+| 4 | Admin dashboard and first deploy | `etapa-4-admin` | Approved |
+| 5 | Android app core | `etapa-5-app` | In progress |
 | 6 | Motivation layer | `etapa-6-motivation` | Not started |
 | 7 | Notifications | `etapa-7-notifications` | Not started |
 | 8 | Release and polish | `etapa-8-release` | Not started |
@@ -126,14 +126,14 @@ No production code in this stage.
 - [x] **Texty upozornění:** CRUD by category + preview
 - [x] Forwarded headers, Data Protection keys on a volume, websockets behind the proxy (NPM switch in the guide)
 - [x] `deploy/README-deploy.md`: Portainer stack, GHCR registry, NPM proxy host, first login
-- [ ] **(Jakub)** DNS record for `quizly.jbohacek.cz`
-- [ ] **(Jakub)** Nginx Proxy Manager proxy host + SSL certificate (websockets on)
-- [ ] **(Jakub)** GitHub token with `read:packages` added to Portainer as a registry
-- [ ] **(Jakub)** Deploy the stack following the guide
+- [x] **(Jakub)** DNS record for `quizly.jbohacek.cz`
+- [x] **(Jakub)** Nginx Proxy Manager proxy host + SSL certificate (websockets on)
+- [x] **(Jakub)** GitHub token with `read:packages` added to Portainer as a registry
+- [x] **(Jakub)** Deploy the stack following the guide
 
 **Gate**
 - [ ] Jakub creates a real deck and a real user on the live dashboard
-- [ ] Approved by Jakub
+- [x] Approved by Jakub (live at `https://quizly.jbohacek.cz`, 2026-11-01)
 
 ---
 

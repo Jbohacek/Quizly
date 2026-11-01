@@ -420,3 +420,4 @@ Jakub confirmed these defaults at the Etapa 0 gate (2026-10-31). Raise any of th
 | 2026-10-31 | Default auth scheme forwards by path: `/api/*` → JWT, everything else → admin cookie. |
 | 2026-10-31 | YAML export writes multi-line text as `\|-` and quotes values other tools could read as numbers/booleans/null. |
 | 2026-10-31 | Fonts are bundled from the saved design (OFL, `wwwroot/fonts/LICENSES.txt`). Npgsql GSS encryption is disabled (password auth only). |
+| 2026-11-01 | Etapa 4 approved and merged (PR #4). Live at `https://quizly.jbohacek.cz` (NPM → host port 8181 → container 8080). |
