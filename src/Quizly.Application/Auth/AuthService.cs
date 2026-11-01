@@ -18,6 +18,8 @@ public interface IAuthService
 
     Task LogoutAsync(RefreshRequest request, CancellationToken ct);
 
+    Task<Result<TokenResponse>> ChangePasswordAsync(int userId, ChangePasswordRequest request, CancellationToken ct);
+
     Task RevokeAllAsync(int userId, CancellationToken ct);
 }
 
@@ -152,6 +154,56 @@ internal sealed class AuthService(
             token.RevokedAt = time.GetUtcNow().UtcDateTime;
             await db.SaveChangesAsync(ct);
         }
+    }
+
+    /// <summary>
+    /// Checks the current password (failures count toward the login throttle), sets the new one,
+    /// signs out every other device and returns a fresh token pair for this one.
+    /// </summary>
+    public async Task<Result<TokenResponse>> ChangePasswordAsync(int userId, ChangePasswordRequest request, CancellationToken ct)
+    {
+        var user = await db.Users.FirstAsync(u => u.Id == userId, ct);
+        if (throttle.IsBlocked(user.Username))
+        {
+            return Errors.RateLimited;
+        }
+
+        var current = request.CurrentPassword ?? "";
+        var verification = current.Length == 0
+            ? PasswordVerificationResult.Failed
+            : hasher.VerifyHashedPassword(user, user.PasswordHash, current);
+        if (verification == PasswordVerificationResult.Failed)
+        {
+            throttle.RecordFailure(user.Username);
+            return Errors.Validation("currentPassword", "Současné heslo nesedí.");
+        }
+
+        var v = new Validator().Text("newPassword", request.NewPassword, "Nové heslo", Limits.PasswordMax, Limits.PasswordMin);
+        if (v.IsValid && request.NewPassword == current)
+        {
+            v.Add("newPassword", "Nové heslo musí být jiné než současné.");
+        }
+
+        if (!v.IsValid)
+        {
+            return v.ToError();
+        }
+
+        throttle.Reset(user.Username);
+        var now = time.GetUtcNow().UtcDateTime;
+        await using var transaction = await db.Database.BeginTransactionAsync(ct);
+
+        // Deleted, not revoked: another device presenting its old token gets a plain refreshTokenInvalid.
+        // A revoked one would look like token theft and sign out this device too (reuse detection).
+        await db.RefreshTokens.Where(t => t.UserId == user.Id).ExecuteDeleteAsync(ct);
+        user.PasswordHash = hasher.HashPassword(user, request.NewPassword);
+        user.LastActiveAt = now;
+        var (raw, token) = NewRefreshToken(user.Id, now);
+        db.RefreshTokens.Add(token);
+        await db.SaveChangesAsync(ct);
+        await transaction.CommitAsync(ct);
+
+        return Tokens(user, raw, token);
     }
 
     public async Task RevokeAllAsync(int userId, CancellationToken ct)
