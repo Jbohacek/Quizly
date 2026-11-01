@@ -69,7 +69,7 @@ abstract final class S {
   static const statusNew = 'Nová';
   static const statusLearning = 'Učím se';
   static const statusMastered = 'Zvládnuto';
-  static const showAnswer = 'Klepni pro odpověď';
+  static const showAnswer = 'Klepni a uvidíš odpověď';
   static const emptyDeck = 'V tomhle balíčku zatím nejsou žádné karty.';
 
   // Session
@@ -135,7 +135,7 @@ abstract final class S {
   static const fillCurrentPassword = 'Vyplň současné heslo.';
   static const passwordChanged = 'Heslo je změněné.';
   static const learning = 'Učení';
-  static const dailyGoalHint = 'Tolik karet a den se počítá do série';
+  static const dailyGoalHint = 'Kolik karet denně stačí, aby se den počítal do série';
   static const decreaseGoal = 'Snížit denní cíl';
   static const increaseGoal = 'Zvýšit denní cíl';
   static const newPerDay = 'Nové karty denně';
@@ -260,7 +260,7 @@ abstract final class S {
   static const sendNotificationsHint = 'Připomínky učení, milníky a odměny';
   static const systemOff = 'Upozornění jsou vypnutá v systému';
   static const systemOffText = 'Povol je v nastavení telefonu, jinak ti žádné nepřijde.';
-  static const openSystemSettings = 'Otevřít nastavení';
+  static const allowNotifications = 'Povolit upozornění';
   static const morningReminder = 'Ranní připomínka';
   static const morningReminderHint = 'Kolik karet tě dnes čeká';
   static const eveningReminder = 'Večerní připomínka';

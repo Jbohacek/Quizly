@@ -3,7 +3,7 @@ description: "Quizly, flashcards in Czech"
 publish_to: 'none'
 
 # versionName+versionCode of the APK. Bump both for every release.
-version: 1.0.0+1
+version: 1.0.0-beta.1+1
 
 environment:
   sdk: ^3.13.7
