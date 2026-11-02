@@ -34,7 +34,10 @@ builder.Services.Configure<RouteHandlerOptions>(o => o.ThrowOnBadRequest = true)
 builder.Services.AddProblemDetails(o => o.CustomizeProblemDetails = Problems.Customize);
 builder.Services.AddExceptionHandler<ApiExceptionHandler>();
 builder.Services.AddQuizlyOpenApi();
-builder.Services.AddRazorComponents().AddInteractiveServerComponents();
+// The dashboard's YAML editor sends a whole deck (up to 1 MB of text, more as JSON) in one circuit
+// message; SignalR's default 32 KB limit silently dropped pasted decks (#20).
+builder.Services.AddRazorComponents().AddInteractiveServerComponents()
+    .AddHubOptions(o => o.MaximumReceiveMessageSize = 4 * 1024 * 1024);
 builder.Services.AddCascadingAuthenticationState();
 builder.Services.AddHealthChecks().AddDbContextCheck<QuizlyDbContext>();
 

@@ -24,6 +24,20 @@ public sealed partial class DashboardTests(QuizlyFactory factory) : IClassFixtur
     }
 
     [Fact]
+    public void Circuit_messages_fit_a_whole_deck_yaml()
+    {
+        // #20: a pasted YAML deck is one circuit message; the 32 KB SignalR default dropped it.
+        var hub = typeof(Microsoft.AspNetCore.Components.Server.Circuits.Circuit).Assembly
+            .GetType("Microsoft.AspNetCore.Components.Server.ComponentHub", throwOnError: true)!;
+        var optionsType = typeof(Microsoft.Extensions.Options.IOptions<>)
+            .MakeGenericType(typeof(Microsoft.AspNetCore.SignalR.HubOptions<>).MakeGenericType(hub));
+        var options = factory.Services.GetService(optionsType)!;
+        var value = (Microsoft.AspNetCore.SignalR.HubOptions)optionsType.GetProperty("Value")!.GetValue(options)!;
+
+        Assert.True(value.MaximumReceiveMessageSize >= 3 * 1024 * 1024, $"limit {value.MaximumReceiveMessageSize}");
+    }
+
+    [Fact]
     public async Task Root_redirects_to_the_dashboard() =>
         Assert.Equal("/admin", (await NoRedirects().GetAsync("/", Ct)).Headers.Location?.OriginalString);
 
