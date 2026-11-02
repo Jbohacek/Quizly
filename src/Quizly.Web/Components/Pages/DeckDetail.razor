@@ -109,7 +109,7 @@
                 Zkopíruj YAML, nech AI přidat nebo upravit karty (existující <code>id</code> musí zůstat, nové karty bez <code>id</code>),
                 vlož ho zpět a zobraz náhled. Karta, která v souboru chybí, se smaže i s postupem uživatelů.
             </p>
-            <textarea class="yaml" @bind="_yaml" @bind:event="oninput" @bind:after="() => _preview = null" spellcheck="false" aria-label="YAML balíčku"></textarea>
+            <textarea class="yaml" @bind="_yaml" @bind:event="onchange" @bind:after="() => _preview = null" spellcheck="false" aria-label="YAML balíčku"></textarea>
             <div class="row">
                 <button class="btn" @onclick="PreviewAsync" disabled="@_busy">Náhled</button>
                 <button class="btn primary" @onclick="ApplyAsync" disabled="@(_busy || _preview is not { Valid: true } || NothingToApply)">Uložit</button>

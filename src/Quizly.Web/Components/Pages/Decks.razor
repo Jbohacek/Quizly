@@ -58,9 +58,9 @@
             </label>
         </div>
         <p class="hint">Karty nesmí mít <code>id</code>. Formát popisuje <code>docs/yaml-format.md</code>.</p>
-        <textarea class="yaml" @bind="_yaml" @bind:event="oninput" @bind:after="() => _preview = null" spellcheck="false" aria-label="YAML"></textarea>
+        <textarea class="yaml" @bind="_yaml" @bind:event="onchange" @bind:after="() => _preview = null" spellcheck="false" aria-label="YAML"></textarea>
         <div class="row">
-            <button class="btn" @onclick="PreviewImportAsync" disabled="@(_busy || string.IsNullOrWhiteSpace(_yaml))">Náhled</button>
+            <button class="btn" @onclick="PreviewImportAsync" disabled="@_busy">Náhled</button>
             <button class="btn primary" @onclick="ImportAsync" disabled="@(_busy || _preview is not { Valid: true })">Vytvořit balíček</button>
         </div>
         <YamlPreview Preview="@_preview" />
