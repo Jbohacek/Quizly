@@ -105,7 +105,6 @@ abstract final class S {
   static String hintDontKnow(int value) => '← Nevím · ${formatSigned(value)}';
   static String hintKnow(int value) => 'Vím · ${formatSigned(value)} →';
   static const hintDrag = 'nebo táhni kartou';
-  static const flipCard = 'Otočit kartu';
   static const know = 'Vím';
   static const dontKnow = 'Nevím';
   static const skip = 'Přeskočit';

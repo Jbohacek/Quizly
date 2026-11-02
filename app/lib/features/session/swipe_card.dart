@@ -46,7 +46,7 @@ class SwipeCardState extends State<SwipeCard> with TickerProviderStateMixin {
     super.dispose();
   }
 
-  /// Turns the card over (Otočit kartu, or a tap on it).
+  /// Turns the card over (a tap on it).
   void flip() {
     if (_flying) return;
     if (_flip.value < 0.5) widget.onRevealed?.call();

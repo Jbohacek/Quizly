@@ -109,9 +109,6 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
           if (widget.deckId == null || d.id == widget.deckId) d.unseenCards,
       ].fold(0, (a, b) => a + b);
 
-  /// Otočit kartu: the same as tapping the card.
-  void _reveal() => _cardKey.currentState?.flip();
-
   void _answer(Rating rating) {
     final card = _cardKey.currentState;
     if (card != null) {
@@ -241,41 +238,18 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
           ),
           const SizedBox(height: 14),
           SizedBox(
-            // Vím / Nevím with their labels; the reveal row is centered in the same height.
+            // Vím / Nevím with their labels. Kept empty before the flip (a tap on the card turns it),
+            // so the card doesn't jump when the buttons appear.
             height: 96,
             child: AnimatedSwitcher(
               duration: grow,
-              child: _revealed ? _answerRow(c) : _revealRow(c),
+              child: _revealed ? _answerRow(c) : const SizedBox.shrink(),
             ),
           ),
         ],
       ),
     );
   }
-
-  /// Before the card is turned: turn it over, or skip it. Swiping works anyway.
-  Widget _revealRow(SessionController c) => Row(
-        key: const ValueKey('reveal'),
-        children: [
-          _RoundButton(
-            label: S.skip,
-            icon: Icons.redo_rounded,
-            color: Q.textMuted,
-            size: 52,
-            filled: true,
-            onPressed: c.canAnswer && c.queue.remaining > 1 ? c.skip : null,
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: PrimaryButton(
-              label: S.flipCard,
-              icon: Icons.flip_rounded,
-              height: 60,
-              onPressed: c.canAnswer ? _reveal : null,
-            ),
-          ),
-        ],
-      );
 
   /// After the card is turned: Nevím / Přeskočit / Vím.
   Widget _answerRow(SessionController c) => Padding(

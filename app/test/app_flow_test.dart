@@ -17,6 +17,7 @@ import 'package:quizly/features/notifications/notification_store.dart';
 import 'package:quizly/features/notifications/notifications.dart';
 import 'package:quizly/features/notifications/planner.dart';
 import 'package:quizly/features/session/review_sync.dart';
+import 'package:quizly/features/session/swipe_card.dart';
 import 'package:quizly/main.dart';
 import 'package:timezone/data/latest.dart' as tzdata;
 import 'package:timezone/timezone.dart' as tz;
@@ -562,7 +563,7 @@ void main() {
     await tester.tap(find.text(S.studyAll(2)));
     await settle(tester);
 
-    await tester.tap(find.text(S.flipCard));
+    await tester.tap(find.byType(SwipeCard));
     await tester.pump();
     await tester.tap(find.bySemanticsLabel('Vím').first);
     await tester.pump();
@@ -670,17 +671,17 @@ void main() {
     await tester.tap(find.text(S.studyAll(2)));
     await settle(tester);
 
-    expect(find.text(S.flipCard), findsOneWidget);
+    // No buttons before the card is turned.
     expect(find.bySemanticsLabel('Vím'), findsNothing);
+    expect(find.bySemanticsLabel('Přeskočit'), findsNothing);
     await tester.drag(find.text('Co je struct?'), const Offset(500, 0));
     await settle(tester);
     expect(api.reviewed.single['rating'], 'know');
 
     expect(find.text('Karta 2 z 2'), findsOneWidget);
-    await tester.tap(find.text(S.flipCard));
+    await tester.tap(find.byType(SwipeCard));
     await settle(tester);
     expect(find.text('Referenční typ.'), findsOneWidget);
-    expect(find.text(S.flipCard), findsNothing);
     expect(find.bySemanticsLabel('Vím'), findsWidgets);
     expect(find.bySemanticsLabel('Nevím'), findsWidgets);
   });
@@ -800,7 +801,7 @@ void main() {
       await tester.tap(find.text(S.studyAll(2)));
       await settle(tester);
       await meetsAll(tester, 'Učení');
-      await tester.tap(find.text(S.flipCard));
+      await tester.tap(find.byType(SwipeCard));
       await settle(tester);
       await meetsAll(tester, 'Učení, answer side');
 
@@ -862,8 +863,8 @@ Future<void> _scrollTo(WidgetTester tester, Finder finder, {bool up = false}) as
 
 /// Vím / Nevím: turns the card over first when it isn't yet (the buttons show only then).
 Future<void> _answer(WidgetTester tester, String label) async {
-  if (find.text(S.flipCard).evaluate().isNotEmpty) {
-    await tester.tap(find.text(S.flipCard));
+  if (find.bySemanticsLabel(label).evaluate().isEmpty) {
+    await tester.tap(find.byType(SwipeCard));
     await settle(tester);
   }
   await tester.tap(find.bySemanticsLabel(label).first);
