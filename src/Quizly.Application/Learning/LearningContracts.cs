@@ -93,10 +93,20 @@ public sealed record AppDeckResponse(
     int TotalCards,
     int DueNow,
     int NewAvailable,
-    int MasteredPercent);
+    int MasteredPercent,
+    int LearningPercent,
+    int UnseenCards);
 
 /// <summary>One card of a deck with the user's status: <c>new</c>, <c>learning</c> or <c>mastered</c> (spec §3.5).</summary>
-public sealed record DeckCardResponse(int Id, string Question, string Answer, string Status);
+public sealed record DeckCardResponse(
+    int Id,
+    string Question,
+    string Answer,
+    string Status,
+    int MasteryPercent,
+    int KnowCount,
+    int DontKnowCount,
+    DateTimeOffset? NextReview);
 
 /// <summary>A deck (with the user's counts) and all its cards in sort order.</summary>
 public sealed record DeckCardsResponse(AppDeckResponse Deck, IReadOnlyList<DeckCardResponse> Cards);

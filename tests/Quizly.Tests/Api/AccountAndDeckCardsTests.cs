@@ -104,11 +104,16 @@ public sealed class AccountAndDeckCardsTests(QuizlyFactory factory) : IClassFixt
         var body = await response.ReadNodeAsync();
         Assert.Equal(deckId, (int)body["deck"]!["id"]!);
         Assert.Equal(3, (int)body["deck"]!["totalCards"]!);
-        Assert.Equal(33, (int)body["deck"]!["masteredPercent"]!);
+        Assert.Equal((33, 33, 1), ((int)body["deck"]!["masteredPercent"]!, (int)body["deck"]!["learningPercent"]!, (int)body["deck"]!["unseenCards"]!));
         var items = body["cards"]!.AsArray();
         Assert.Equal(cards, items.Select(c => (int)c!["id"]!));
         Assert.Equal(["learning", "mastered", "new"], items.Select(c => (string?)c!["status"]));
         Assert.All(items, c => Assert.False(string.IsNullOrEmpty((string?)c!["answer"])));
+        // Progress per card: stability out of 21 days (Vím once = 2.3065 days → 10 %), answers, next review.
+        Assert.Equal([10, 100, 0], items.Select(c => (int)c!["masteryPercent"]!));
+        Assert.Equal([(1, 0), (0, 0), (0, 0)], items.Select(c => ((int)c!["knowCount"]!, (int)c!["dontKnowCount"]!)));
+        Assert.NotNull((string?)items[0]!["nextReview"]);
+        Assert.Null(items[2]!["nextReview"]);
 
         await (await app.GetAsync("/api/decks/999999/cards", Ct)).AssertProblemAsync(HttpStatusCode.NotFound, "notFound");
     }

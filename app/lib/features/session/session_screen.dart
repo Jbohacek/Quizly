@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -16,9 +18,12 @@ import 'swipe_card.dart';
 
 /// Učení (design screens 3–4): one deck or all decks ([deckId] null).
 class SessionScreen extends ConsumerStatefulWidget {
-  const SessionScreen({super.key, this.deckId});
+  const SessionScreen({super.key, this.deckId, this.extraNew = 0});
 
   final int? deckId;
+
+  /// New cards over today's allowance ("Ještě 5 nových karet").
+  final int extraNew;
 
   @override
   ConsumerState<SessionScreen> createState() => _SessionScreenState();
@@ -35,6 +40,12 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
   final _floaters = <({int id, int points, Rating rating})>[];
   int _floatTurn = 0;
 
+  /// The current card has been turned over: Vím / Nevím are offered (and the card is bigger).
+  bool _revealed = false;
+
+  /// Nevím / Přeskočit / Vím with their labels.
+  static const _buttonsHeight = 96.0;
+
   @override
   void initState() {
     super.initState();
@@ -42,6 +53,7 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
       client: ref.read(apiClientProvider),
       sync: ref.read(reviewSyncProvider)!,
       deckId: widget.deckId,
+      extraNew: widget.extraNew,
     )..addListener(_onChange);
     _decks = {for (final d in ref.read(homeProvider).value?.decks.items ?? const <Deck>[]) d.id: d};
     _controller.load();
@@ -94,6 +106,12 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
     if (mounted) context.pop();
   }
 
+  /// Cards never answered in this session's deck (or all decks), as Domů last saw them.
+  int get _unseen => [
+        for (final d in ref.read(homeProvider).value?.decks.items ?? const <Deck>[])
+          if (widget.deckId == null || d.id == widget.deckId) d.unseenCards,
+      ].fold(0, (a, b) => a + b);
+
   void _answer(Rating rating) {
     final card = _cardKey.currentState;
     if (card != null) {
@@ -116,7 +134,13 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
           child: switch (c.phase) {
             SessionPhase.loading => const Center(child: CircularProgressIndicator()),
             SessionPhase.error => ErrorView(message: c.error ?? S.loadFailed, onRetry: c.recover),
-            SessionPhase.empty => _Empty(onClose: _close),
+            SessionPhase.empty => _Empty(
+                onClose: _close,
+                unseen: _unseen,
+                onMore: () => context.pushReplacement(
+                  sessionPath(deckId: widget.deckId, extraNew: math.min(extraNewStep, _unseen)),
+                ),
+              ),
             SessionPhase.saving => _Saving(offline: c.offline, onClose: _close),
             SessionPhase.studying || SessionPhase.finished => _buildStudy(c),
           },
@@ -131,7 +155,9 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
     if (c.turn != _keyTurn) {
       _keyTurn = c.turn;
       _cardKey = GlobalKey();
+      _revealed = false;
     }
+    final grow = MediaQuery.disableAnimationsOf(context) ? Duration.zero : const Duration(milliseconds: 280);
     final deck = _decks[card.deckId];
     final deckColor = deck == null ? Q.primary : parseHex(deck.color);
     return Padding(
@@ -174,11 +200,18 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
                 if (c.queue.remaining > 1) const _StackLayer(inset: 12, top: 12, bottom: 4, color: Q.stack1),
                 Positioned.fill(
                   bottom: 14,
-                  child: SwipeCard(
-                    key: _cardKey,
-                    card: card,
-                    enabled: c.canAnswer,
-                    onAnswer: c.answer,
+                  // The card grows once it's turned over: the answer gets more room.
+                  child: AnimatedPadding(
+                    duration: grow,
+                    curve: Curves.easeOutCubic,
+                    padding: _revealed ? EdgeInsets.zero : const EdgeInsets.fromLTRB(14, 12, 14, 0),
+                    child: SwipeCard(
+                      key: _cardKey,
+                      card: card,
+                      enabled: c.canAnswer,
+                      onAnswer: c.answer,
+                      onRevealed: () => setState(() => _revealed = true),
+                    ),
                   ),
                 ),
                 for (final f in _floaters)
@@ -198,7 +231,9 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
               ],
             ),
           ),
-          const SizedBox(height: 14),
+          // Before the flip the hint row sits at the bottom. A tap on the card slides it up while the
+          // buttons grow in below it. Both heights change together, so the card above doesn't move.
+          AnimatedContainer(duration: grow, curve: Curves.easeOutCubic, height: _revealed ? 14 : 14 + _buttonsHeight),
           Row(
             children: [
               Text(S.hintDontKnow(c.points.dontKnow), style: QText.body(13, color: Q.dontKnow, weight: FontWeight.w800)),
@@ -207,9 +242,33 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
             ],
           ),
           const SizedBox(height: 14),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            child: Row(
+          AnimatedContainer(
+            duration: grow,
+            curve: Curves.easeOutCubic,
+            height: _revealed ? _buttonsHeight : 0,
+            child: ClipRect(
+              child: OverflowBox(
+                alignment: Alignment.topCenter,
+                minHeight: _buttonsHeight,
+                maxHeight: _buttonsHeight,
+                child: AnimatedOpacity(
+                  duration: grow,
+                  opacity: _revealed ? 1 : 0,
+                  child: _revealed ? _answerRow(c) : const SizedBox.shrink(),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// After the card is turned: Nevím / Přeskočit / Vím.
+  Widget _answerRow(SessionController c) => Padding(
+        key: const ValueKey('answer'),
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
@@ -237,11 +296,7 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
                 ),
               ],
             ),
-          ),
-        ],
-      ),
-    );
-  }
+      );
 
   static String _kind(CardKind kind) => switch (kind) {
         CardKind.newCard => S.kindNew,
@@ -460,9 +515,13 @@ class _Saving extends StatelessWidget {
 }
 
 class _Empty extends StatelessWidget {
-  const _Empty({required this.onClose});
+  const _Empty({required this.onClose, required this.unseen, required this.onMore});
 
   final VoidCallback onClose;
+
+  /// New cards that could still be learned today on request.
+  final int unseen;
+  final VoidCallback onMore;
 
   @override
   Widget build(BuildContext context) {
@@ -481,12 +540,17 @@ class _Empty extends StatelessWidget {
           Text(S.emptySessionTitle, style: QText.heading(28), textAlign: TextAlign.center),
           const SizedBox(height: 10),
           Text(
-            S.emptySessionText,
+            unseen > 0 ? S.emptySessionMore : S.emptySessionText,
             textAlign: TextAlign.center,
             style: QText.body(16, color: Q.textMuted, weight: FontWeight.w400, height: 1.45),
           ),
           const SizedBox(height: 32),
-          PrimaryButton(label: S.backHome, onPressed: onClose),
+          if (unseen > 0) ...[
+            PrimaryButton(label: S.moreNewCards(math.min(extraNewStep, unseen)), icon: Icons.add_rounded, onPressed: onMore),
+            const SizedBox(height: 10),
+            SecondaryButton(label: S.backHome, onPressed: onClose),
+          ] else
+            PrimaryButton(label: S.backHome, onPressed: onClose),
         ],
       ),
     );

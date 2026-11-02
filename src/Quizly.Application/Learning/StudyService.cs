@@ -7,7 +7,7 @@ namespace Quizly.Application.Learning;
 
 public interface IStudyService
 {
-    Task<Result<SessionResponse>> GetSessionAsync(int userId, int? deckId, CancellationToken ct);
+    Task<Result<SessionResponse>> GetSessionAsync(int userId, int? deckId, int extraNew, CancellationToken ct);
 
     Task<AppDeckListResponse> GetDecksAsync(int userId, CancellationToken ct);
 
@@ -20,8 +20,16 @@ internal sealed class StudyService(IAppDbContext db, Progress progress, TimeProv
     /// <summary>Zvládnuto: Review with stability ≥ 21 days (docs/spec.md §3.5).</summary>
     internal const double MasteredStability = 21;
 
-    public async Task<Result<SessionResponse>> GetSessionAsync(int userId, int? deckId, CancellationToken ct)
+    /// <summary>"Ještě 5 nových karet" asks for this many at most, over the daily allowance.</summary>
+    internal const int MaxExtraNew = 50;
+
+    public async Task<Result<SessionResponse>> GetSessionAsync(int userId, int? deckId, int extraNew, CancellationToken ct)
     {
+        if (extraNew is < 0 or > MaxExtraNew)
+        {
+            return new Validator().Range("extraNew", extraNew, "Nové karty navíc", 0, MaxExtraNew).ToError();
+        }
+
         if (deckId is not null && !await db.Decks.AnyAsync(d => d.Id == deckId, ct))
         {
             return Progress.NotFoundDeck;
@@ -38,7 +46,8 @@ internal sealed class StudyService(IAppDbContext db, Progress progress, TimeProv
             .Select(x => new SessionCardResponse(x.Card.Id, x.Card.DeckId, x.Card.Question, x.Card.Answer, KindOf(x.State)))
             .ToListAsync(ct);
 
-        var allowance = await progress.NewAllowanceLeftAsync(userId, settings.NewCardsPerDay, PragueCalendar.DayOf(now), ct);
+        // Extra new cards are on top of what's left today; they still count as today's new cards.
+        var allowance = extraNew + await progress.NewAllowanceLeftAsync(userId, settings.NewCardsPerDay, PragueCalendar.DayOf(now), ct);
         var fresh = allowance == 0
             ? []
             : await Unseen(userId, cards)
@@ -78,7 +87,9 @@ internal sealed class StudyService(IAppDbContext db, Progress progress, TimeProv
             r.Total,
             r.Due,
             Math.Min(r.Unseen, allowance),
-            r.Total == 0 ? 0 : r.Mastered * 100 / r.Total)).ToList();
+            Percent(r.Mastered, r.Total),
+            Percent(r.Total - r.Unseen - r.Mastered, r.Total),
+            r.Unseen)).ToList();
         return new AppDeckListResponse(items, allowance);
     }
 
@@ -100,20 +111,31 @@ internal sealed class StudyService(IAppDbContext db, Progress progress, TimeProv
                 c.Question,
                 c.Answer,
                 State = db.CardStates.Where(s => s.UserId == userId && s.CardId == c.Id)
-                    .Select(s => new { s.State, s.Stability })
+                    .Select(s => new { s.State, s.Stability, s.Due })
                     .FirstOrDefault(),
+                Know = db.ReviewLogs.Count(r => r.UserId == userId && r.CardId == c.Id && r.Rating == Rating.Good),
+                DontKnow = db.ReviewLogs.Count(r => r.UserId == userId && r.CardId == c.Id && r.Rating == Rating.Again),
             })
             .ToListAsync(ct);
 
-        var items = cards.Select(c => new DeckCardResponse(
-            c.Id,
-            c.Question,
-            c.Answer,
-            c.State is null ? "new"
-            : c.State.State == FsrsState.Review && c.State.Stability >= MasteredStability ? "mastered"
-            : "learning")).ToList();
+        var items = cards.Select(c =>
+        {
+            var mastered = c.State is { State: FsrsState.Review } && c.State.Stability >= MasteredStability;
+            return new DeckCardResponse(
+                c.Id,
+                c.Question,
+                c.Answer,
+                c.State is null ? "new" : mastered ? "mastered" : "learning",
+                // How far the memory is on the way to Zvládnuto: stability out of 21 days.
+                c.State is null ? 0 : mastered ? 100 : (int)Math.Min(99, c.State.Stability * 100 / MasteredStability),
+                c.Know,
+                c.DontKnow,
+                c.State is null ? null : new DateTimeOffset(DateTime.SpecifyKind(c.State.Due, DateTimeKind.Utc)));
+        }).ToList();
         return new DeckCardsResponse(deck, items);
     }
+
+    private static int Percent(int part, int total) => total == 0 ? 0 : part * 100 / total;
 
     internal IQueryable<Card> Unseen(int userId, IQueryable<Card> cards) =>
         cards.Where(c => !db.CardStates.Any(s => s.UserId == userId && s.CardId == c.Id));

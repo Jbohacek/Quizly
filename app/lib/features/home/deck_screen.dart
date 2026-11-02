@@ -1,15 +1,21 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/api/api_exception.dart';
 import '../../core/api/models.dart';
+import '../../core/card_markup.dart';
 import '../../core/format.dart';
 import '../../core/providers.dart';
 import '../../core/strings.dart';
 import '../../core/theme/theme.dart';
 import '../../core/theme/tokens.dart';
+import '../../core/widgets/card_text.dart';
 import '../../core/widgets/widgets.dart';
+import '../session/session_controller.dart';
+import '../settings/how_it_works.dart';
 
 final deckCardsProvider = FutureProvider.autoDispose.family<DeckCards, int>(
   (ref, deckId) => ref.watch(apiClientProvider).deckCards(deckId),
@@ -64,7 +70,7 @@ class DeckScreen extends ConsumerWidget {
   }
 }
 
-class _DeckBody extends StatelessWidget {
+class _DeckBody extends StatefulWidget {
   const _DeckBody({required this.data, this.cardsError, this.onRetry});
 
   final DeckCards data;
@@ -74,10 +80,43 @@ class _DeckBody extends StatelessWidget {
   final VoidCallback? onRetry;
 
   @override
+  State<_DeckBody> createState() => _DeckBodyState();
+}
+
+class _DeckBodyState extends State<_DeckBody> {
+  final _search = TextEditingController();
+  CardStatus? _status;
+
+  @override
+  void initState() {
+    super.initState();
+    _search.addListener(() => setState(() {}));
+  }
+
+  @override
+  void dispose() {
+    _search.dispose();
+    super.dispose();
+  }
+
+  List<DeckCard> get _shown {
+    final query = foldForSearch(_search.text.trim());
+    return [
+      for (final card in widget.data.cards)
+        if ((_status == null || card.status == _status) &&
+            (query.isEmpty || foldForSearch(plainCardText('${card.question}\n${card.answer}')).contains(query)))
+          card,
+    ];
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final data = widget.data;
     final deck = data.deck;
     final color = parseHex(deck.color);
     final toStudy = deck.dueNow + deck.newAvailable;
+    final shown = _shown;
+    final filtered = _status != null || _search.text.trim().isNotEmpty;
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
       children: [
@@ -98,32 +137,50 @@ class _DeckBody extends StatelessWidget {
             _Tile(value: formatPercent(deck.masteredPercent), label: S.tileMastered, color: Q.primary),
           ],
         ),
+        const SizedBox(height: 14),
+        DeckProgressBar(deck: deck),
         const SizedBox(height: 16),
-        PrimaryButton(
-          label: toStudy > 0 ? S.studyDeck(toStudy) : S.nothingDue,
-          icon: toStudy > 0 ? Icons.play_arrow_rounded : Icons.check_rounded,
-          height: 60,
-          onPressed: toStudy > 0 ? () => context.push('/session?deck=${deck.id}') : null,
-        ),
+        if (toStudy > 0)
+          PrimaryButton(
+            label: S.studyDeck(toStudy),
+            icon: Icons.play_arrow_rounded,
+            height: 60,
+            onPressed: () => context.push(sessionPath(deckId: deck.id)),
+          )
+        else if (deck.unseenCards > 0)
+          PrimaryButton(
+            label: S.moreNewCards(math.min(extraNewStep, deck.unseenCards)),
+            icon: Icons.add_rounded,
+            height: 60,
+            onPressed: () => context.push(
+              sessionPath(deckId: deck.id, extraNew: math.min(extraNewStep, deck.unseenCards)),
+            ),
+          )
+        else
+          const PrimaryButton(label: S.nothingDue, icon: Icons.check_rounded, height: 60),
         const SizedBox(height: 22),
         Row(
           crossAxisAlignment: CrossAxisAlignment.baseline,
           textBaseline: TextBaseline.alphabetic,
           children: [
             Expanded(child: Text(S.cardsInDeck, style: QText.heading(19))),
-            if (cardsError == null) Text(cards(data.cards.length), style: QText.body(13, color: Q.textMuted)),
+            if (widget.cardsError == null)
+              Text(
+                filtered ? S.cardsShown(shown.length, data.cards.length) : cards(data.cards.length),
+                style: QText.body(13, color: Q.textMuted),
+              ),
           ],
         ),
         const SizedBox(height: 10),
-        if (cardsError != null)
+        if (widget.cardsError != null)
           Panel(
             radius: 18,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Text(cardsError!, style: QText.body(14, color: Q.textMuted, weight: FontWeight.w400, height: 1.5)),
+                Text(widget.cardsError!, style: QText.body(14, color: Q.textMuted, weight: FontWeight.w400, height: 1.5)),
                 const SizedBox(height: 12),
-                SecondaryButton(label: S.retry, onPressed: onRetry),
+                SecondaryButton(label: S.retry, onPressed: widget.onRetry),
               ],
             ),
           )
@@ -131,12 +188,117 @@ class _DeckBody extends StatelessWidget {
           Panel(
             radius: 18,
             child: Text(S.emptyDeck, style: QText.body(14, color: Q.textMuted, weight: FontWeight.w400, height: 1.5)),
+          )
+        else ...[
+          TextField(
+            controller: _search,
+            textInputAction: TextInputAction.search,
+            decoration: InputDecoration(
+              hintText: S.searchCards,
+              prefixIcon: const Icon(Icons.search_rounded, color: Q.textMuted),
+              suffixIcon: _search.text.isEmpty
+                  ? null
+                  : IconButton(
+                      tooltip: S.clearSearch,
+                      onPressed: _search.clear,
+                      icon: const Icon(Icons.close_rounded, color: Q.textMuted),
+                    ),
+            ),
           ),
-        for (final card in data.cards) ...[
-          _CardTile(card: card),
-          const SizedBox(height: 8),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final status in [null, ...CardStatus.values])
+                _FilterChip(
+                  label: switch (status) {
+                    null => S.filterAll,
+                    CardStatus.newCard => S.legendNew,
+                    CardStatus.learning => S.statusLearning,
+                    CardStatus.mastered => S.statusMastered,
+                  },
+                  count: status == null ? data.cards.length : data.cards.where((c) => c.status == status).length,
+                  selected: _status == status,
+                  onTap: () => setState(() => _status = status),
+                ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          if (shown.isEmpty)
+            Panel(
+              radius: 18,
+              child: Text(S.noMatch, style: QText.body(14, color: Q.textMuted, weight: FontWeight.w400, height: 1.5)),
+            ),
+          for (final card in shown) ...[
+            _CardTile(key: ValueKey(card.id), card: card),
+            const SizedBox(height: 8),
+          ],
         ],
       ],
+    );
+  }
+}
+
+/// Zvládnuto / Učím se / Nové in one bar, like Statistiky (green, lavender, grey).
+class DeckProgressBar extends StatelessWidget {
+  const DeckProgressBar({super.key, required this.deck});
+
+  final Deck deck;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      label: S.deckProgressLabel(deck.masteredPercent, deck.learningPercent),
+      excludeSemantics: true,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          ProgressBar(mastered: deck.masteredPercent, learning: deck.learningPercent, fresh: deck.freshPercent),
+          const SizedBox(height: 6),
+          Text(
+            S.deckMetaLearning(deck.totalCards, deck.masteredPercent, deck.learningPercent),
+            style: QText.body(12, color: Q.textMuted),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _FilterChip extends StatelessWidget {
+  const _FilterChip({required this.label, required this.count, required this.selected, required this.onTap});
+
+  final String label;
+  final int count;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      selected: selected,
+      child: Material(
+        color: selected ? Q.primary : Q.surface2,
+        borderRadius: BorderRadius.circular(999),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(999),
+          onTap: onTap,
+          child: Container(
+            constraints: const BoxConstraints(minHeight: 44),
+            padding: const EdgeInsets.symmetric(horizontal: 14),
+            // widthFactor 1: as wide as the text, not the whole row.
+            child: Align(
+              widthFactor: 1,
+              child: Text(
+              '$label · ${formatInt(count)}',
+                style: QText.body(13, color: selected ? Q.onPrimary : Q.text, weight: FontWeight.w800),
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
@@ -166,6 +328,20 @@ class _BackRow extends StatelessWidget {
         ),
         const SizedBox(width: 14),
         Expanded(child: Text(title, style: QText.heading(26), maxLines: 2, overflow: TextOverflow.ellipsis)),
+        const SizedBox(width: 8),
+        SizedBox.square(
+          dimension: 44,
+          child: IconButton(
+            tooltip: S.howItWorks,
+            onPressed: () => showHowItWorks(context),
+            style: IconButton.styleFrom(
+              backgroundColor: Q.surface,
+              foregroundColor: Q.textMuted,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+            ),
+            icon: const Icon(Icons.help_outline_rounded),
+          ),
+        ),
       ],
     );
   }
@@ -197,7 +373,7 @@ class _Tile extends StatelessWidget {
 }
 
 class _CardTile extends StatefulWidget {
-  const _CardTile({required this.card});
+  const _CardTile({super.key, required this.card});
 
   final DeckCard card;
 
@@ -216,40 +392,103 @@ class _CardTileState extends State<_CardTile> {
       CardStatus.learning => (S.statusLearning, Q.multiplier),
       CardStatus.mastered => (S.statusMastered, Q.primary),
     };
+    final motion = MediaQuery.disableAnimationsOf(context) ? Duration.zero : const Duration(milliseconds: 200);
     return Material(
       color: Q.surface,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18), side: const BorderSide(color: Q.border)),
       clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: () => setState(() => _open = !_open),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 14, 14, 14),
-          child: AnimatedSize(
-            duration: MediaQuery.disableAnimationsOf(context) ? Duration.zero : const Duration(milliseconds: 200),
-            alignment: Alignment.topCenter,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: Text(card.question, style: QText.body(15, weight: FontWeight.w800, height: 1.35)),
+      child: Semantics(
+        hint: _open ? S.hideCard : S.showCard,
+        child: InkWell(
+          onTap: () => setState(() => _open = !_open),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 14, 10, 14),
+            child: AnimatedSize(
+              duration: motion,
+              alignment: Alignment.topCenter,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: CardText(
+                          card.question,
+                          style: QText.body(15, weight: FontWeight.w800, height: 1.35),
+                          smallColor: Q.textMuted,
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Tag(label: label, color: color),
+                      AnimatedRotation(
+                        turns: _open ? 0.5 : 0,
+                        duration: motion,
+                        child: const Icon(Icons.expand_more_rounded, color: Q.textMuted),
+                      ),
+                    ],
+                  ),
+                  if (_open) ...[
+                    const SizedBox(height: 10),
+                    CardText(
+                      card.answer,
+                      style: QText.body(15, color: Q.text, weight: FontWeight.w400, height: 1.45),
+                      smallColor: Q.textMuted,
                     ),
-                    const SizedBox(width: 10),
-                    Tag(label: label, color: color),
+                    const SizedBox(height: 14),
+                    const Divider(height: 1, color: Q.border),
+                    const SizedBox(height: 12),
+                    _CardProgress(card: card, color: color),
                   ],
-                ),
-                const SizedBox(height: 8),
-                if (_open)
-                  Text(card.answer, style: QText.body(15, color: Q.text, weight: FontWeight.w400, height: 1.45))
-                else
-                  Text(S.showAnswer, style: QText.body(13, color: Q.textMuted, weight: FontWeight.w600)),
-              ],
+                ],
+              ),
             ),
           ),
         ),
       ),
+    );
+  }
+}
+
+/// How well I know the card: the way to Zvládnuto, my answers, the next review.
+class _CardProgress extends StatelessWidget {
+  const _CardProgress({required this.card, required this.color});
+
+  final DeckCard card;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final muted = QText.body(12, color: Q.textMuted, weight: FontWeight.w600);
+    if (card.status == CardStatus.newCard) return Text(S.notStudiedYet, style: muted);
+    final next = card.nextReview;
+    final now = DateTime.now();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            Expanded(child: Text(S.cardProgress, style: QText.body(12, color: Q.textMuted, weight: FontWeight.w800))),
+            Text(formatPercent(card.masteryPercent), style: QText.body(12, color: color, weight: FontWeight.w800)),
+          ],
+        ),
+        const SizedBox(height: 6),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(3),
+          child: LinearProgressIndicator(
+            value: card.masteryPercent / 100,
+            minHeight: 6,
+            backgroundColor: Q.surface2,
+            color: color,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(S.cardAnswers(card.knowCount, card.dontKnowCount), style: muted),
+        if (next != null) ...[
+          const SizedBox(height: 2),
+          Text(next.isAfter(now) ? S.nextReview(formatWhen(next, now)) : S.nextReviewNow, style: muted),
+        ],
+      ],
     );
   }
 }

@@ -170,6 +170,10 @@ public sealed class DeckYamlTests
     [InlineData("zpětné \\ lomítko")]
     [InlineData("řádek 1\n  odsazený řádek 2\n\nřádek 4 po prázdném")]
     [InlineData("řádek: s dvojtečkou\n- a pomlčkou")]
+    [InlineData("*kurzíva* na začátku")]
+    [InlineData("**tučně** a <small>malé</small>")]
+    [InlineData("Typy:\n- **struct**\n- *class*\n1. první\n2. druhý")]
+    [InlineData("&kotva *hvězdička")]
     public void Export_round_trips_tricky_text(string text)
     {
         var deck = new Deck { Name = text.Split('\n')[0], Description = "", Color = "#8FC7F0" };

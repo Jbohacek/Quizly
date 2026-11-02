@@ -12,10 +12,12 @@ import 'package:quizly/core/format.dart';
 import 'package:quizly/core/providers.dart';
 import 'package:quizly/core/storage/token_store.dart';
 import 'package:quizly/core/strings.dart';
+import 'package:quizly/features/home/deck_screen.dart';
 import 'package:quizly/features/notifications/notification_store.dart';
 import 'package:quizly/features/notifications/notifications.dart';
 import 'package:quizly/features/notifications/planner.dart';
 import 'package:quizly/features/session/review_sync.dart';
+import 'package:quizly/features/session/swipe_card.dart';
 import 'package:quizly/main.dart';
 import 'package:timezone/data/latest.dart' as tzdata;
 import 'package:timezone/timezone.dart' as tz;
@@ -30,6 +32,8 @@ class FakeApi implements HttpClientAdapter {
   String password = 'tajneheslo';
   bool hasDeckCards = true;
   int passwordChanges = 0;
+  int dueNow = 2;
+  final sessionQueries = <Map<String, String>>[];
   final savedSettings = <Map<String, Object?>>[];
   Map<String, Object?> settings = {
     'dailyGoal': 20, 'newCardsPerDay': 5, 'notificationsEnabled': true,
@@ -126,7 +130,7 @@ class FakeApi implements HttpClientAdapter {
       'GET /api/me' => _json({
           'user': {'id': 2, 'username': 'kuba', 'displayName': 'Kuba'},
           'summary': summary,
-          'dueNow': 2,
+          'dueNow': dueNow,
           'forecast': {'nextMorning': '2026-11-03T07:00:00Z', 'dueByNextMorning': 5},
           'smartEveningTime': null,
           'serverTime': '2026-11-02T16:40:12Z',
@@ -135,12 +139,13 @@ class FakeApi implements HttpClientAdapter {
           'items': [
             {
               'id': 1, 'name': 'C# základy', 'description': '', 'color': '#BAD69B',
-              'totalCards': 84, 'dueNow': 2, 'newAvailable': 0, 'masteredPercent': 62,
+              'totalCards': 84, 'dueNow': dueNow, 'newAvailable': 0, 'masteredPercent': 62,
+              'learningPercent': 20, 'unseenCards': 9,
             },
           ],
           'newAllowanceLeft': 0,
         }),
-      'GET /api/session' => _json({
+      'GET /api/session' when (sessionQueries..add(options.uri.queryParameters)).isNotEmpty => _json({
           'deckId': null,
           'multiplier': 1.1,
           'points': {'know': 11, 'dontKnow': 2},
@@ -157,10 +162,17 @@ class FakeApi implements HttpClientAdapter {
           'deck': {
             'id': 1, 'name': 'C# základy', 'description': 'Základní pojmy jazyka C#', 'color': '#BAD69B',
             'totalCards': 3, 'dueNow': 1, 'newAvailable': 1, 'masteredPercent': 33,
+            'learningPercent': 33, 'unseenCards': 1,
           },
           'cards': [
-            {'id': 101, 'question': 'Co je struct?', 'answer': 'Hodnotový typ.', 'status': 'mastered'},
-            {'id': 102, 'question': 'Co je class?', 'answer': 'Referenční typ.', 'status': 'learning'},
+            {
+              'id': 101, 'question': 'Co je struct?', 'answer': 'Hodnotový typ.', 'status': 'mastered',
+              'masteryPercent': 100, 'knowCount': 6, 'dontKnowCount': 0, 'nextReview': '2099-01-01T08:00:00Z',
+            },
+            {
+              'id': 102, 'question': 'Co je class?', 'answer': '**Referenční** typ.', 'status': 'learning',
+              'masteryPercent': 45, 'knowCount': 3, 'dontKnowCount': 1, 'nextReview': '2026-11-01T08:00:00Z',
+            },
             {'id': 103, 'question': 'Co je record?', 'answer': 'Typ s hodnotovou rovností.', 'status': 'new'},
           ],
         }),
@@ -316,20 +328,17 @@ void main() {
     await tester.tap(find.text('Co je struct?'));
     await settle(tester);
     expect(find.text('Hodnotový typ.'), findsOneWidget);
-    await tester.tap(find.bySemanticsLabel('Nevím').first);
-    await settle(tester);
+    await _answer(tester, 'Nevím');
 
     // Re-queued: the total grows to 3, card 2 is next.
     expect(find.text('Karta 2 z 3'), findsOneWidget);
     expect(find.text('Co je class?'), findsOneWidget);
     expect(find.text('+2'), findsOneWidget);
-    await tester.tap(find.bySemanticsLabel('Vím').first);
-    await settle(tester);
+    await _answer(tester, 'Vím');
 
     expect(find.text('Karta 3 z 3'), findsOneWidget);
     expect(find.text('Co je struct?'), findsOneWidget);
-    await tester.tap(find.bySemanticsLabel('Vím').first);
-    await settle(tester);
+    await _answer(tester, 'Vím');
 
     // Hotovo
     expect(find.text('Hotovo!'), findsOneWidget);
@@ -391,6 +400,8 @@ void main() {
     expect(find.text('Základní pojmy jazyka C#'), findsOneWidget);
     expect(find.text('Učit se · 2 karty'), findsOneWidget);
     expect(find.text('33 %'), findsOneWidget);
+    await tester.scrollUntilVisible(find.text('Nová'), 200, scrollable: _deckList);
+    await settle(tester);
     expect(find.text('Zvládnuto'), findsOneWidget);
     expect(find.text('Učím se'), findsOneWidget);
     expect(find.text('Nová'), findsOneWidget);
@@ -399,6 +410,7 @@ void main() {
     await settle(tester);
     expect(find.text('Hodnotový typ.'), findsOneWidget);
 
+    await tester.scrollUntilVisible(find.byTooltip('Zpět'), -200, scrollable: _deckList);
     await tester.tap(find.byTooltip('Zpět'));
     await settle(tester);
     await _scrollTo(tester, find.text('Ahoj, Kuba!'), up: true);
@@ -535,10 +547,8 @@ void main() {
         ]);
     await tester.tap(find.text(S.studyAll(2)));
     await settle(tester);
-    await tester.tap(find.bySemanticsLabel('Vím').first);
-    await settle(tester);
-    await tester.tap(find.bySemanticsLabel('Vím').first);
-    await settle(tester);
+    await _answer(tester, 'Vím');
+    await _answer(tester, 'Vím');
 
     expect(find.text('Denní cíl splněn!'), findsOneWidget);
     expect(find.text('${S.streakGrows(12)} ${S.multiplierIn(2, 1.2)}'), findsOneWidget);
@@ -553,6 +563,8 @@ void main() {
     await tester.tap(find.text(S.studyAll(2)));
     await settle(tester);
 
+    await tester.tap(find.byType(SwipeCard));
+    await tester.pump();
     await tester.tap(find.bySemanticsLabel('Vím').first);
     await tester.pump();
     await tester.pump();
@@ -602,6 +614,8 @@ void main() {
     await tester.tap(find.text('Nastavení'));
     await settle(tester);
     await tester.scrollUntilVisible(find.text(S.allowNotifications), 200, scrollable: find.byType(Scrollable).last);
+    await tester.ensureVisible(find.text(S.allowNotifications));
+    await settle(tester);
     await tester.tap(find.text(S.allowNotifications));
     await settle(tester);
     // The system dialog first; Android refused, so its settings open.
@@ -647,10 +661,90 @@ void main() {
     );
     await tester.tap(find.text(S.studyAll(2)));
     await settle(tester);
-    await tester.tap(find.bySemanticsLabel('Vím').first);
-    await settle(tester);
+    await _answer(tester, 'Vím');
 
     expect(platform.shown.map((n) => n.body), contains('7 dní v řadě! 🎉'));
+  });
+
+  testWidgets('#11: Vím / Nevím show after the card is turned; a swipe works before that', (tester) async {
+    final (api, _) = await _signedIn(tester);
+    await tester.tap(find.text(S.studyAll(2)));
+    await settle(tester);
+
+    // No buttons before the card is turned.
+    expect(find.bySemanticsLabel('Vím'), findsNothing);
+    expect(find.bySemanticsLabel('Přeskočit'), findsNothing);
+    await tester.drag(find.text('Co je struct?'), const Offset(500, 0));
+    await settle(tester);
+    expect(api.reviewed.single['rating'], 'know');
+
+    expect(find.text('Karta 2 z 2'), findsOneWidget);
+    final hintBefore = tester.getTopLeft(find.text(S.hintDrag)).dy;
+    await tester.tap(find.byType(SwipeCard));
+    await settle(tester);
+    expect(find.text('Referenční typ.'), findsOneWidget);
+    // The hint row slid up from the bottom to make room for the buttons.
+    expect(tester.getTopLeft(find.text(S.hintDrag)).dy, lessThan(hintBefore - 80));
+    expect(find.bySemanticsLabel('Vím'), findsWidgets);
+    expect(find.bySemanticsLabel('Nevím'), findsWidgets);
+  });
+
+  testWidgets('#12–#15: deck filter, search, progress per card, no hint on every card', (tester) async {
+    await _signedIn(tester);
+    await _scrollTo(tester, find.text('C# základy'));
+    await tester.tap(find.text('C# základy'));
+    await settle(tester);
+
+    expect(find.text(S.deckMetaLearning(3, 33, 33)), findsOneWidget);
+    expect(find.bySemanticsLabel(S.deckProgressLabel(33, 33)), findsOneWidget);
+    expect(find.textContaining('Klepni'), findsNothing);
+
+    await tester.scrollUntilVisible(find.text('${S.statusLearning} · 1'), 200, scrollable: _deckList);
+    await tester.tap(find.text('${S.statusLearning} · 1'));
+    await settle(tester);
+    expect(find.text('Co je class?'), findsOneWidget);
+    expect(find.text('Co je struct?'), findsNothing);
+    expect(find.text(S.cardsShown(1, 3)), findsOneWidget);
+
+    // Progress of the card: way to Zvládnuto, answers, next review (already due); the answer is formatted.
+    await tester.tap(find.text('Co je class?'));
+    await settle(tester);
+    expect(find.text(S.cardProgress), findsOneWidget);
+    expect(find.text(formatPercent(45)), findsOneWidget);
+    expect(find.text(S.cardAnswers(3, 1)), findsOneWidget);
+    expect(find.text(S.nextReviewNow), findsOneWidget);
+    expect(find.text('Referenční typ.', findRichText: true), findsOneWidget);
+    expect(find.text('**Referenční** typ.', findRichText: true), findsNothing);
+
+    // Search without diacritics, across questions and answers.
+    await tester.tap(find.text('${S.filterAll} · 3'));
+    await settle(tester);
+    await tester.enterText(find.byType(TextField), 'rovnosti');
+    await settle(tester);
+    expect(find.text('Co je record?'), findsOneWidget);
+    expect(find.text('Co je class?'), findsNothing);
+    await tester.tap(find.text('Co je record?'));
+    await settle(tester);
+    expect(find.text(S.notStudiedYet), findsOneWidget);
+  });
+
+  testWidgets('#9: with nothing left for today, Domů offers 5 more new cards', (tester) async {
+    final (api, _) = await _signedIn(tester, configure: (api) => api.dueNow = 0);
+    expect(find.text(S.moreNewCards(5)), findsOneWidget);
+    await tester.tap(find.text(S.moreNewCards(5)));
+    await settle(tester);
+    expect(api.sessionQueries.last, {'extraNew': '5'});
+  });
+
+  testWidgets('#16: "Jak Quizly dávkuje karty" from the deck and from Nastavení', (tester) async {
+    await _signedIn(tester);
+    await _scrollTo(tester, find.text('C# základy'));
+    await tester.tap(find.text('C# základy'));
+    await settle(tester);
+    await tester.tap(find.byTooltip(S.howItWorks));
+    await settle(tester);
+    expect(find.text(S.howItWorks), findsOneWidget);
+    expect(find.textContaining('FSRS', findRichText: true), findsOneWidget);
   });
 
   group('accessibility (CLAUDE.md §9.3)', () {
@@ -710,11 +804,12 @@ void main() {
       await tester.tap(find.text(S.studyAll(2)));
       await settle(tester);
       await meetsAll(tester, 'Učení');
+      await tester.tap(find.byType(SwipeCard));
+      await settle(tester);
+      await meetsAll(tester, 'Učení, answer side');
 
-      await tester.tap(find.bySemanticsLabel('Vím').first);
-      await settle(tester);
-      await tester.tap(find.bySemanticsLabel('Vím').first);
-      await settle(tester);
+      await _answer(tester, 'Vím');
+      await _answer(tester, 'Vím');
       await meetsAll(tester, 'Hotovo');
       semantics.dispose();
     });
@@ -768,3 +863,16 @@ Future<void> _scrollTo(WidgetTester tester, Finder finder, {bool up = false}) as
   await tester.scrollUntilVisible(finder, up ? -200 : 200, scrollable: find.byType(Scrollable).first);
   await tester.pump();
 }
+
+/// Vím / Nevím: turns the card over first when it isn't yet (the buttons show only then).
+Future<void> _answer(WidgetTester tester, String label) async {
+  if (find.bySemanticsLabel(label).evaluate().isEmpty) {
+    await tester.tap(find.byType(SwipeCard));
+    await settle(tester);
+  }
+  await tester.tap(find.bySemanticsLabel(label).first);
+  await settle(tester);
+}
+
+/// The deck detail's list (not the search field's own scrollable).
+final _deckList = find.descendant(of: find.byType(DeckScreen), matching: find.byType(Scrollable)).first;

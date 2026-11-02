@@ -11,6 +11,15 @@ import 'session_queue.dart';
 
 enum SessionPhase { loading, error, empty, studying, saving, finished }
 
+/// "Ještě 5 nových karet": new cards one tap adds over today's allowance.
+const extraNewStep = 5;
+
+/// Route of a session: one deck or all ([deckId] null), optionally with new cards over the allowance.
+String sessionPath({int? deckId, int extraNew = 0}) => Uri(
+      path: '/session',
+      queryParameters: {if (deckId != null) 'deck': '$deckId', if (extraNew > 0) 'extra': '$extraNew'},
+    ).toString();
+
 /// What the Hotovo screen shows (spec §4.3).
 class SessionResult {
   const SessionResult({required this.deckId, required this.tally, required this.summary, required this.knowPoints});
@@ -30,6 +39,7 @@ class SessionController extends ChangeNotifier {
     required this._client,
     required this._sync,
     required this.deckId,
+    this.extraNew = 0,
     String Function()? newId,
   })  : _newId = newId ?? const Uuid().v4 {
     _results = _sync.results.listen(_onResults);
@@ -41,6 +51,9 @@ class SessionController extends ChangeNotifier {
   final ReviewSync _sync;
   final String Function() _newId;
   final int? deckId;
+
+  /// New cards asked for over today's allowance.
+  final int extraNew;
   late final StreamSubscription<ReviewBatchResult> _results;
   late final StreamSubscription<SyncStatus> _statuses;
 
@@ -69,7 +82,7 @@ class SessionController extends ChangeNotifier {
     error = null;
     _notify();
     try {
-      final data = await _client.session(deckId: deckId);
+      final data = await _client.session(deckId: deckId, extraNew: extraNew);
       queue = SessionQueue(data.cards);
       points = data.points;
       multiplier = data.multiplier;

@@ -74,7 +74,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/session',
-        builder: (context, state) => SessionScreen(deckId: int.tryParse(state.uri.queryParameters['deck'] ?? '')),
+        builder: (context, state) => SessionScreen(
+          deckId: int.tryParse(state.uri.queryParameters['deck'] ?? ''),
+          extraNew: int.tryParse(state.uri.queryParameters['extra'] ?? '') ?? 0,
+        ),
       ),
       GoRoute(path: '/done', builder: (context, state) => DoneScreen(result: state.extra! as SessionResult)),
     ],

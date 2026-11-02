@@ -43,8 +43,26 @@ public sealed class StudyTests(QuizlyFactory factory) : IClassFixture<QuizlyFact
         Assert.Equal(1, (int)decks["newAllowanceLeft"]!);
         var a = decks["items"]!.AsArray().First(d => (int)d!["id"]! == deckA)!;
         Assert.Equal((4, 2, 1, 0), ((int)a["totalCards"]!, (int)a["dueNow"]!, (int)a["newAvailable"]!, (int)a["masteredPercent"]!));
+        Assert.Equal((50, 2), ((int)a["learningPercent"]!, (int)a["unseenCards"]!));
 
         await (await later.GetAsync("/api/session?deckId=999999", Ct)).AssertProblemAsync(HttpStatusCode.NotFound, "notFound");
+    }
+
+    [Fact]
+    public async Task Extra_new_cards_go_past_the_daily_allowance()
+    {
+        var user = await factory.CreateUserAsync(newCardsPerDay: 1);
+        var (deck, cards) = await factory.CreateDeckAsync("X" + Guid.NewGuid().ToString("N")[..6], 4);
+        using var app = await factory.AppClientAsync(user);
+
+        await ReviewAsync(app, (cards[0], "know"));
+        Assert.Empty(CardIds(await GetSessionAsync(app, deck)));
+
+        var more = await (await app.GetAsync($"/api/session?deckId={deck}&extraNew=2", Ct)).ReadNodeAsync();
+        Assert.Equal([cards[1], cards[2]], CardIds(more));
+        Assert.Equal(2, (int)more["newCount"]!);
+
+        await (await app.GetAsync("/api/session?extraNew=51", Ct)).AssertProblemAsync(HttpStatusCode.BadRequest, "validation");
     }
 
     [Fact]

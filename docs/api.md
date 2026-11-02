@@ -179,13 +179,14 @@ Errors: `validation` (`errors.currentPassword` "Současné heslo nesedí.", `err
 {
   "items": [
     { "id": 1, "name": "C# základy", "description": "Základní pojmy jazyka C#", "color": "#BAD69B",
-      "totalCards": 120, "dueNow": 14, "newAvailable": 5, "masteredPercent": 38 }
+      "totalCards": 120, "dueNow": 14, "newAvailable": 5, "masteredPercent": 38,
+      "learningPercent": 25, "unseenCards": 44 }
   ],
   "newAllowanceLeft": 5
 }
 ```
 
-Ordered by deck `sortOrder`. `newAvailable` = `min(unseen cards in the deck, newAllowanceLeft)`. Decks with 0 cards are included.
+Ordered by deck `sortOrder`. `newAvailable` = `min(unseen cards in the deck, newAllowanceLeft)`. `masteredPercent` / `learningPercent` are the Zvládnuto / Učím se shares (spec §3.5, rounded down); the rest is Nové. `unseenCards` = cards never answered, regardless of the allowance (for "Ještě 5 nových karet"). Decks with 0 cards are included.
 
 ---
 
@@ -195,13 +196,15 @@ Ordered by deck `sortOrder`. `newAvailable` = `min(unseen cards in the deck, new
 {
   "deck": { "id": 1, "name": "C# základy", "…": "same object as in GET /decks" },
   "cards": [
-    { "id": 101, "question": "Jaký je rozdíl mezi struct a class v C#?", "answer": "struct je hodnotový typ…", "status": "mastered" },
-    { "id": 140, "question": "Co je record v C#?", "answer": "Typ s hodnotovou rovností…", "status": "new" }
+    { "id": 101, "question": "Jaký je rozdíl mezi struct a class v C#?", "answer": "struct je hodnotový typ…", "status": "mastered",
+      "masteryPercent": 100, "knowCount": 6, "dontKnowCount": 1, "nextReview": "2026-12-01T08:12:00Z" },
+    { "id": 140, "question": "Co je record v C#?", "answer": "Typ s hodnotovou rovností…", "status": "new",
+      "masteryPercent": 0, "knowCount": 0, "dontKnowCount": 0, "nextReview": null }
   ]
 }
 ```
 
-Cards in deck order (`sortOrder`, then id). `status` is the mastery bucket (spec §3.5): `new` · `learning` · `mastered`. `404 notFound` for an unknown deck.
+Cards in deck order (`sortOrder`, then id). `status` is the mastery bucket (spec §3.5): `new` · `learning` · `mastered`. `masteryPercent` = stability ÷ 21 days (100 once mastered, at most 99 before). `knowCount` / `dontKnowCount` count my Vím / Nevím answers, `nextReview` is the card's due time (`null` for a new card). `404 notFound` for an unknown deck.
 
 ---
 
@@ -209,7 +212,7 @@ Cards in deck order (`sortOrder`, then id). `status` is the mastery bucket (spec
 
 ### GET `/session?deckId=1`
 
-Omit `deckId` for "Učit se vše". `404 notFound` for an unknown deck.
+Omit `deckId` for "Učit se vše". `extraNew` (0–50, default 0) adds that many new cards over today's allowance ("Ještě 5 nových karet", spec §4.1); out of range → `validation`. `404 notFound` for an unknown deck.
 
 ```json
 {

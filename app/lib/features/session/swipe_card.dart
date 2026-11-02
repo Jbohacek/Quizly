@@ -3,18 +3,22 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../../core/api/models.dart';
+import '../../core/card_markup.dart';
 import '../../core/strings.dart';
 import '../../core/theme/theme.dart';
 import '../../core/theme/tokens.dart';
+import '../../core/widgets/card_text.dart';
 
 /// The flashcard: tap flips it (3D), a drag tilts it and shows the VÍM / NEVÍM stamp,
 /// a long enough drag (or [SwipeCardState.fly]) throws it off screen and calls [onAnswer].
+/// Swiping works on either side; [onRevealed] fires the first time the answer shows.
 class SwipeCard extends StatefulWidget {
-  const SwipeCard({super.key, required this.card, required this.enabled, required this.onAnswer});
+  const SwipeCard({super.key, required this.card, required this.enabled, required this.onAnswer, this.onRevealed});
 
   final SessionCard card;
   final bool enabled;
   final ValueChanged<Rating> onAnswer;
+  final VoidCallback? onRevealed;
 
   @override
   State<SwipeCard> createState() => SwipeCardState();
@@ -42,8 +46,10 @@ class SwipeCardState extends State<SwipeCard> with TickerProviderStateMixin {
     super.dispose();
   }
 
-  void _toggleFlip() {
+  /// Turns the card over (a tap on it).
+  void flip() {
     if (_flying) return;
+    if (_flip.value < 0.5) widget.onRevealed?.call();
     if (_reduceMotion) {
       _flip.value = _flip.value < 0.5 ? 1 : 0;
     } else if (_flip.value < 0.5 || _flip.status == AnimationStatus.forward) {
@@ -111,7 +117,7 @@ class SwipeCardState extends State<SwipeCard> with TickerProviderStateMixin {
               ? Q.dontKnow.withValues(alpha: -progress)
               : Colors.transparent;
       return GestureDetector(
-        onTap: _toggleFlip,
+        onTap: flip,
         onPanUpdate: _onPanUpdate,
         onPanEnd: (d) => _onPanEnd(d, width),
         child: Transform.translate(
@@ -162,7 +168,7 @@ class _Face extends StatelessWidget {
   Widget build(BuildContext context) {
     final main = back ? card.answer : card.question;
     return Semantics(
-      label: '${back ? S.answer : S.question}: $main',
+      label: '${back ? S.answer : S.question}: ${plainCardText(main)}',
       hint: back ? S.tapToFlipBack : S.tapToFlip,
       excludeSemantics: true,
       child: Container(
@@ -198,13 +204,18 @@ class _Face extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         if (back) ...[
-                          Text(card.question, style: QText.body(15, color: Q.cardMuted, weight: FontWeight.w700, height: 1.4)),
+                          CardText(
+                            card.question,
+                            style: QText.body(15, color: Q.cardMuted, weight: FontWeight.w700, height: 1.4),
+                          ),
                           const SizedBox(height: 18),
                         ],
-                        Text(
+                        CardText(
                           main,
-                          style: QText.heading(_size(main, back), color: Q.cardText, weight: FontWeight.w700)
+                          // 600, so **tučně** (800) stands out.
+                          style: QText.heading(_size(main, back), color: Q.cardText, weight: FontWeight.w600)
                               .copyWith(height: 1.25, letterSpacing: -0.1),
+                          smallColor: Q.cardMuted,
                         ),
                       ],
                     ),
@@ -218,7 +229,13 @@ class _Face extends StatelessWidget {
               children: [
                 const Icon(Icons.flip_rounded, size: 18, color: Q.cardMuted),
                 const SizedBox(width: 8),
-                Text(back ? S.tapToFlipBack : S.tapToFlip, style: QText.body(14, color: Q.cardMuted, weight: FontWeight.w700)),
+                Flexible(
+                  child: Text(
+                    back ? S.tapToFlipBack : S.tapToFlip,
+                    overflow: TextOverflow.ellipsis,
+                    style: QText.body(14, color: Q.cardMuted, weight: FontWeight.w700),
+                  ),
+                ),
               ],
             ),
           ],
@@ -229,7 +246,7 @@ class _Face extends StatelessWidget {
 
   /// Long texts get a smaller font so they fit without scrolling where possible.
   static double _size(String text, bool back) {
-    final n = text.length;
+    final n = plainCardText(text).length;
     if (back) return n <= 80 ? 24 : n <= 200 ? 20 : n <= 500 ? 17 : 15;
     return n <= 60 ? 30 : n <= 140 ? 25 : n <= 300 ? 21 : 18;
   }

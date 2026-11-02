@@ -109,8 +109,10 @@ class ApiClient {
     await _setTokens(AuthTokens.fromJson(json));
   }
 
-  Future<SessionData> session({int? deckId}) async =>
-      SessionData.fromJson(await _send<Json>('GET', '/session', query: {'deckId': ?deckId}));
+  /// The session queue; [extraNew] new cards on top of today's allowance ("Ještě 5 nových karet").
+  Future<SessionData> session({int? deckId, int extraNew = 0}) async => SessionData.fromJson(
+        await _send<Json>('GET', '/session', query: {'deckId': ?deckId, if (extraNew > 0) 'extraNew': extraNew}),
+      );
 
   Future<ReviewBatchResult> postReviews(List<ReviewItem> reviews) async => ReviewBatchResult.fromJson(
         await _send<Json>('POST', '/reviews', data: {'reviews': [for (final r in reviews) r.toJson()]}),

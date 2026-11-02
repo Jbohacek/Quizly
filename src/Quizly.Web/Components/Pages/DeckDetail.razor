@@ -48,6 +48,10 @@
                     <FieldMessage Message="@FieldError("answer")" />
                 </div>
             </div>
+            <p class="hint">
+                Formátování: <code>**tučně**</code>, <code>*kurzíva*</code>, <code>&lt;small&gt;malé písmo&lt;/small&gt;</code>;
+                řádek začínající <code>- </code> je odrážka, <code>1. </code> číslovaný seznam.
+            </p>
             <div class="row">
                 <button class="btn primary" @onclick="SaveCardAsync" disabled="@_busy">@(_editing is null ? "Přidat kartu" : "Uložit kartu")</button>
                 @if (_editing is not null)

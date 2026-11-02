@@ -14,6 +14,8 @@ import '../../core/theme/theme.dart';
 import '../../core/theme/tokens.dart';
 import '../../core/widgets/widgets.dart';
 import '../notifications/ask_card.dart';
+import '../session/session_controller.dart';
+import 'deck_screen.dart';
 import 'week.dart';
 
 /// Domů (design screen 2): greeting, points, streak, daily goal, CTA and decks.
@@ -51,6 +53,8 @@ class _HomeBody extends StatelessWidget {
   Widget build(BuildContext context) {
     final me = data.me;
     final decks = data.decks.items;
+    final unseen = decks.fold(0, (sum, d) => sum + d.unseenCards);
+    final extra = math.min(extraNewStep, unseen);
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
       children: [
@@ -61,12 +65,23 @@ class _HomeBody extends StatelessWidget {
         const SizedBox(height: 16),
         _GoalCard(today: me.summary.today, due: data.dueReviews, fresh: data.newToday),
         const SizedBox(height: 16),
-        PrimaryButton(
-          label: me.dueNow > 0 ? S.studyAll(me.dueNow) : S.nothingDue,
-          icon: me.dueNow > 0 ? Icons.play_arrow_rounded : Icons.check_rounded,
-          height: 60,
-          onPressed: me.dueNow > 0 ? () => context.push('/session') : null,
-        ),
+        if (me.dueNow > 0)
+          PrimaryButton(
+            label: S.studyAll(me.dueNow),
+            icon: Icons.play_arrow_rounded,
+            height: 60,
+            onPressed: () => context.push(sessionPath()),
+          )
+        else if (extra > 0)
+          // Today's new cards are done; more only when asked for (#9).
+          PrimaryButton(
+            label: S.moreNewCards(extra),
+            icon: Icons.add_rounded,
+            height: 60,
+            onPressed: () => context.push(sessionPath(extraNew: extra)),
+          )
+        else
+          const PrimaryButton(label: S.nothingDue, icon: Icons.check_rounded, height: 60),
         const SizedBox(height: 22),
         Row(
           crossAxisAlignment: CrossAxisAlignment.baseline,
@@ -406,18 +421,8 @@ class _DeckTile extends StatelessWidget {
                         Text(status, style: QText.body(12, color: canStudy ? color : Q.textMuted, weight: FontWeight.w800)),
                       ],
                     ),
-                    const SizedBox(height: 6),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(3),
-                      child: LinearProgressIndicator(
-                        value: deck.masteredPercent / 100,
-                        minHeight: 6,
-                        backgroundColor: Q.border,
-                        color: color,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(S.deckMeta(deck.totalCards, deck.masteredPercent), style: QText.body(12, color: Q.textMuted)),
+                    const SizedBox(height: 8),
+                    DeckProgressBar(deck: deck),
                   ],
                 ),
               ),
