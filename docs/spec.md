@@ -22,7 +22,7 @@ Related documents:
 - **Server time is the truth.** A review's timestamp and day come from the moment the server receives the request, never from the phone.
 - **Database naming:** snake_case tables and columns (`EFCore.NamingConventions`).
 - **Enums** are stored as short lowercase strings (`varchar`), except the FSRS `state` and `rating`, which are `smallint` with the FSRS numbers.
-- **Text** is trimmed on input (leading and trailing whitespace). Line endings are normalized to `\n`. Plain text only.
+- **Text** is trimmed on input (leading and trailing whitespace). Line endings are normalized to `\n`. Stored as typed; light formatting is rendered by the app ([yaml-format.md](./yaml-format.md) §10).
 
 ---
 
@@ -305,6 +305,8 @@ Computed on the server at request time `now`. The server does not store sessions
 3. Queue = due cards, then new cards. No upper limit on due cards in v1.
 
 A new card counts toward the allowance only once it's **graded**. Skipping a new card doesn't use the allowance.
+
+**Extra new cards** ("Ještě 5 nových karet"): `extraNew` (0–50) is added to the remaining allowance for that one request. The cards it brings in count as introduced today like any other.
 
 ### 4.2 Answering
 

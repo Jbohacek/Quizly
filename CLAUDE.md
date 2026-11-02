@@ -78,7 +78,7 @@ Final layout and package lists: [`docs/architecture.md`](./docs/architecture.md)
 ## 5. Features and business rules
 
 ### 5.1 Cards and decks
-- A **card** is a question plus an answer, **plain text only** for now (no Markdown, no images). Suggested limits: question ≤ 500 chars, answer ≤ 2 000 chars.
+- A **card** is a question plus an answer: text with **light formatting** (`**tučně**`, `*kurzíva*`, `<small>malé</small>`, `- ` / `1. ` lists; [`docs/yaml-format.md`](./docs/yaml-format.md) §10), no images. Suggested limits: question ≤ 500 chars, answer ≤ 2 000 chars.
 - Cards are grouped into **decks**: name, description, color, sort order.
 - **Every app user sees every deck** and picks what to study. The admin does not assign decks.
 - The admin can CRUD decks and cards, and edit a whole deck as **YAML** (§8). AI-assisted deck creation inside the dashboard comes later and is **out of scope**.
@@ -86,11 +86,12 @@ Final layout and package lists: [`docs/architecture.md`](./docs/architecture.md)
 ### 5.2 Study session (app)
 - The user picks one deck, or **"Učit se vše"** (all decks).
 - **Session queue** = due cards (`due ≤ now`, most overdue first) + new cards up to today's remaining allowance. "Nové karty denně" is a user setting, default 5, counted per day across all decks.
-- The card shows the question. **Tapping flips it** to the answer (3D flip). The user may grade from either side.
+- The card shows the question. **Tapping it** (or **"Otočit kartu"**) flips it to the answer (3D flip) and makes it bigger. **Vím / Nevím are offered only after the flip**; a swipe grades from either side.
 - **Swipe right / "Vím"** = Know → FSRS rating **Good (3)**.
 - **Swipe left / "Nevím"** = Don't know → FSRS rating **Again (1)**.
 - **"Přeskočit"** = Skip → no points, no FSRS rating, nothing sent to the server. The card moves to the end of the current session queue.
-- **Vím / Nevím / Přeskočit buttons** are shown in addition to swipes.
+- **Vím / Nevím / Přeskočit buttons** are shown in addition to swipes (before the flip: Otočit kartu and Přeskočit).
+- When nothing is left for today, **"Ještě 5 nových karet"** (Domů, deck detail, empty session) starts a session with new cards over the daily allowance (`extraNew`); they count as today's new cards.
 - A card answered **"Nevím"** is added once more to the end of the same session. The second answer is a normal review.
 - The session screen shows "Karta X z Y", points earned this session, the current multiplier, and what each answer is worth ("← Nevím · +2 | Vím · +11 →").
 - **End screen ("Hotovo")** shows: cards done, % correct, points earned with a breakdown, new balance, streak update, and progress toward the nearest wishlist item.
@@ -274,7 +275,7 @@ cards:
 - Validation covers: invalid YAML, missing `question` or `answer`, duplicate `id`, an `id` that belongs to another deck, unknown keys, text over the length limit.
 - A card **with an `id`** is updated and users' progress is kept. A card **without an `id`** becomes a new card.
 - An existing card whose `id` is **missing from the YAML is deleted together with all users' progress**. This needs an **explicit confirmation** that lists those cards ("Smazat 3 karty i s postupem uživatelů?").
-- `deck:` fields update the deck. Multiline text uses YAML block scalars (`|`). Plain text only.
+- `deck:` fields update the deck. Multiline text uses YAML block scalars (`|`). Light formatting only (`docs/yaml-format.md` §10).
 - Use YamlDotNet; keep UTF-8 Czech characters intact.
 - "Importovat YAML" on the deck list creates a **new deck** from a file whose cards have no ids.
 - Workflow: copy the YAML out → let an AI agent add or edit cards (it must keep the `id`s) → paste it back → preview → save.
@@ -319,8 +320,8 @@ Status chips: pending `#FFF1D6` / `#8A5300` · confirmed `#E3F4E6` / `#1F7A3A` �
 ### 9.4 Phone screens
 1. **Přihlášení:** logo, username, password with show toggle, "Přihlásit se", note "Účet ti založí správce aplikace. Zapomenuté heslo ti také resetuje správce."
 2. **Domů:** date + greeting, points pill (→ shop), streak card (days, multiplier, Mon–Sun week strip, "Za 2 dny násobič stoupne na 1,2×"), daily goal ring `13/20`, CTA **"Učit se vše · 23 karet"**, deck list (due count, mastered bar; tap → deck detail). Bottom nav: **Domů / Statistiky / Obchod / Nastavení**.
-   - **Balíček** (deck detail, added after the canvas): name, description, tiles (cards, due, new today, % mastered), **"Učit se · N karet"**, and every card with a status chip (*Nová / Učím se / Zvládnuto*); tapping a card shows its answer.
-3. **Učení, otázka:** close button, progress bar "Karta 8 z 23", session points, deck/mode/multiplier chips, card stack, hint row, buttons **Nevím / Přeskočit / Vím**.
+   - **Balíček** (deck detail, added after the canvas): name, description, tiles (cards, due, new today, % mastered), a Zvládnuto / Učím se / Nové bar, **"Učit se · N karet"** (or "Ještě 5 nových karet"), search and a status filter, and every card with a status chip (*Nová / Učím se / Zvládnuto*); tapping a card shows its answer and its progress (way to Zvládnuto, Vím / Nevím counts, next review). A help button opens **"Jak Quizly dávkuje karty"** (also in Nastavení).
+3. **Učení, otázka:** close button, progress bar "Karta 8 z 23", session points, deck/mode/multiplier chips, card stack, hint row, buttons **Přeskočit / Otočit kartu**; after the flip **Nevím / Přeskočit / Vím**.
 4. **Učení, odpověď:** flipped card mid-swipe with the "VÍM" stamp and floating "+11".
 5. **Hotovo:** streak circle, **"Denní cíl splněn!"**, tiles (cards, % correct, points), points breakdown, new balance, wishlist progress card, "Učit se dál" / "Hotovo".
 6. **Statistiky:** see §5.9.
@@ -449,3 +450,4 @@ Jakub confirmed these defaults at the Etapa 0 gate (2026-10-31). Raise any of th
 | 2026-11-01 | Backups run from the server's cron (`docker exec … pg_dump`), not as a container in the stack: Portainer's web-editor stacks can't mount a script, and cron keeps the dumps on the host for off-site copies. 14 dumps are kept by count, so old ones survive if backups stop. |
 | 2026-11-01 | The app has an adaptive launcher icon (the "Q" of the login logo, generated as a vector from Bricolage Grotesque) and a dark splash screen. Accessibility is checked by widget tests on every screen: 44 px touch targets, labeled tap targets, text contrast. |
 | 2026-11-01 | Nastavení "Povolit upozornění" (when Android blocks notifications) first asks with the system dialog and opens Android's settings only if that's no longer allowed. |
+| 2026-11-02 | Jakub's issues #9–#16 (Etapa 8 fixes): "Ještě 5 nových karet" over the daily allowance (`GET /api/session?extraNew=`, 0–50); light card formatting (`**`, `*`, `<small>`, `- ` / `1. ` lists) parsed in the app, stored as typed; Vím / Nevím only after the flip, swipe any time, the card grows when flipped; deck detail with search (ignores diacritics), status filter and per-card progress (stability out of 21 days, Vím / Nevím counts, next review); the deck bar shows Zvládnuto / Učím se / Nové like Statistiky; "Jak Quizly dávkuje karty" explains FSRS. |

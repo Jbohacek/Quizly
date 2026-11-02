@@ -205,7 +205,8 @@ Jakub (2026-11-01): polish first, then a first beta user tests the app, then the
 - [ ] **(Jakub)** Tag `v1.0.0-beta.1` → APK on a GitHub pre-release; create the beta user's account and send them the APK
 
 **Part 2: release**
-- [ ] Fixes from Jakub's and the beta user's testing
+- [x] Jakub's issues #9–#16: extra new cards, card formatting, flip before Vím / Nevím, deck search / filter / per-card progress, deck progress bar, FSRS explainer
+- [ ] Fixes from the beta user's testing
 - [ ] Tag `v1.0.0`, APK attached to the GitHub Release
 
 **Gate**

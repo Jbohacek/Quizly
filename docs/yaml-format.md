@@ -39,6 +39,7 @@ cards:
 - No other keys anywhere (unknown keys are errors, which catches typos like `anwser`).
 - Exactly one YAML document; no anchors/aliases (`&`, `*`), no tags (`!!`). Max 1 MB.
 - `id` may be written as `101` or `"101"`; anything else is an error.
+- `question` / `answer` may use the light formatting of §10; it's stored as typed. Text starting with `*` or `&` must be quoted in YAML (`"*kurzíva* na začátku"`); the export does that.
 - Numbers, booleans and dates in `question`/`answer` are taken as text exactly as written (`answer: 42` → `"42"`, `answer: yes` → `"yes"`). The YAML is parsed into the representation model so scalars keep their source text.
 
 ## 3. Export
@@ -125,5 +126,30 @@ Every error has a 1-based `line` (and `column` where known) and a Czech message.
 ## 9. Workflow with an AI agent
 
 1. Balíčky → deck → **YAML** tab → **Kopírovat** (or **Stáhnout**).
-2. Give it to an AI agent with an instruction such as: *"Přidej 20 karet o LINQ. Existující karty a jejich `id` nech beze změny. Nové karty piš bez `id`. Jen prostý text."*
+2. Give it to an AI agent with an instruction such as: *"Přidej 20 karet o LINQ. Existující karty a jejich `id` nech beze změny. Nové karty piš bez `id`. Formátování jen `**tučně**`, `*kurzíva*`, `<small>malé</small>` a seznamy `- ` / `1. `."*
 3. Paste the result → **Náhled** → check new / changed / deleted → **Uložit** (confirm deletes if any).
+
+## 10. Formatting
+
+Questions and answers are text with a little formatting, drawn by the app (issue #10). Anything else is shown as typed.
+
+| Write | Shows as |
+| --- | --- |
+| `**tučně**` | **bold** |
+| `*kurzíva*` | *italic* (no space just inside the stars, so `2 * 3 * 4` stays as is) |
+| `<small>malé písmo</small>` | smaller, muted text (a note, a source) |
+| a line starting with `- ` (or `• `) | bullet list item |
+| a line starting with `1. ` (or `1) `) | numbered list item, the number as written |
+| an empty line | a gap |
+
+Styles nest (`**tučně a *kurzíva***`). Markup counts toward the length limits. Screen readers and the app's card search use the text without the markup.
+
+```yaml
+  - question: Jaké typy má C#?
+    answer: |-
+      **Hodnotové** a **referenční**:
+      - struct, enum
+      - class, record
+      <small>(record struct je hodnotový)</small>
+```
+
