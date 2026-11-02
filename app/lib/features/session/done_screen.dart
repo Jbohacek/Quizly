@@ -216,6 +216,7 @@ class _WishlistProgress extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    if (!ref.watch(shopEnabledProvider)) return const SizedBox.shrink();
     final reached = result.tally.wishlistReached.lastOrNull;
     final balance = result.summary.balance;
     final WishlistCard card;

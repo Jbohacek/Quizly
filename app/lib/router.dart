@@ -17,19 +17,24 @@ import 'features/stats/stats_screen.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   final auth = ValueNotifier(ref.read(authProvider));
+  final shop = ValueNotifier(ref.read(shopEnabledProvider));
   ref
     ..listen(authProvider, (_, next) => auth.value = next)
-    ..onDispose(auth.dispose);
+    ..listen(shopEnabledProvider, (_, next) => shop.value = next)
+    ..onDispose(auth.dispose)
+    ..onDispose(shop.dispose);
 
   return GoRouter(
     initialLocation: '/home',
-    refreshListenable: auth,
+    refreshListenable: Listenable.merge([auth, shop]),
     redirect: (context, state) {
       final signedIn = auth.value.signedIn;
       final atLogin = state.matchedLocation == '/login';
       if (!signedIn) return atLogin ? null : '/login';
       if (atLogin) return '/home';
       if (state.matchedLocation == '/done' && state.extra is! SessionResult) return '/home';
+      // No way into the shop for a user the admin keeps out of it (a notification tap, an old link).
+      if (!shop.value && state.matchedLocation.startsWith('/shop')) return '/home';
       return null;
     },
     routes: [

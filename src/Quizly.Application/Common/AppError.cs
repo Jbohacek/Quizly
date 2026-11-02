@@ -40,5 +40,8 @@ public static class Errors
     public static readonly AppError HasClaims =
         new("hasClaims", 409, "Odměna už má nákupy, takže ji nejde smazat. Můžeš ji deaktivovat.");
 
+    public static readonly AppError ShopDisabled =
+        new("shopDisabled", 403, "Obchod není dostupný.");
+
     public static AppError Conflict(string code, string title) => new(code, 409, title);
 }

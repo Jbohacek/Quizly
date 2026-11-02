@@ -12,6 +12,7 @@ import 'package:quizly/core/format.dart';
 import 'package:quizly/core/providers.dart';
 import 'package:quizly/core/storage/token_store.dart';
 import 'package:quizly/core/strings.dart';
+import 'package:quizly/core/widgets/widgets.dart';
 import 'package:quizly/features/home/deck_screen.dart';
 import 'package:quizly/features/notifications/notification_store.dart';
 import 'package:quizly/features/notifications/notifications.dart';
@@ -19,6 +20,7 @@ import 'package:quizly/features/notifications/planner.dart';
 import 'package:quizly/features/session/review_sync.dart';
 import 'package:quizly/features/session/swipe_card.dart';
 import 'package:quizly/main.dart';
+import 'package:quizly/router.dart';
 import 'package:timezone/data/latest.dart' as tzdata;
 import 'package:timezone/timezone.dart' as tz;
 
@@ -33,6 +35,9 @@ class FakeApi implements HttpClientAdapter {
   bool hasDeckCards = true;
   int passwordChanges = 0;
   int dueNow = 2;
+
+  /// The admin keeps this user out of the shop when false.
+  bool shopEnabled = true;
   final sessionQueries = <Map<String, String>>[];
 
   /// Card edits from the app (#23): "METHOD path" with the body.
@@ -134,7 +139,7 @@ class FakeApi implements HttpClientAdapter {
           'user': {'id': 2, 'username': 'kuba', 'displayName': 'Kuba'},
         }),
       'GET /api/me' => _json({
-          'user': {'id': 2, 'username': 'kuba', 'displayName': 'Kuba'},
+          'user': {'id': 2, 'username': 'kuba', 'displayName': 'Kuba', 'shopEnabled': shopEnabled},
           'summary': summary,
           'dueNow': dueNow,
           'forecast': {'nextMorning': '2026-11-03T07:00:00Z', 'dueByNextMorning': 5},
@@ -733,6 +738,23 @@ void main() {
     expect(find.text(S.hardRow(1)), findsOneWidget);
     expect(find.text(S.easyRow(1)), findsOneWidget);
     semantics.dispose();
+  });
+
+  testWidgets('a user the admin keeps out of the shop sees no Obchod anywhere', (tester) async {
+    await _signedIn(tester, configure: (api) => api.shopEnabled = false);
+
+    expect(find.bySemanticsLabel(S.navShop), findsNothing);
+    expect(find.bySemanticsLabel(S.navStats), findsOneWidget);
+    // The points stay, but they don't lead to a shop.
+    final pill = tester.widget<PointsPill>(find.byType(PointsPill));
+    expect(pill.semanticsLabel, S.pointsBalance(1240));
+    expect(pill.onTap, isNull);
+
+    // A stray link (e.g. an old wishlist notification) lands on Domů.
+    final container = ProviderScope.containerOf(tester.element(find.byType(QuizlyApp)));
+    container.read(routerProvider).go('/shop');
+    await settle(tester);
+    expect(find.text('Ahoj, Kuba!'), findsOneWidget);
   });
 
   testWidgets('a milestone in a review response shows a notification right away', (tester) async {

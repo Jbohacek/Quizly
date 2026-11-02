@@ -47,6 +47,11 @@ internal sealed class Progress(IAppDbContext db, TimeProvider time)
     public async Task CheckWishlistAsync(int userId, DateTime now, List<EventResponse> events, CancellationToken ct)
     {
         await db.SaveChangesAsync(ct);
+        if (!await db.Users.AnyAsync(u => u.Id == userId && u.ShopEnabled, ct))
+        {
+            return; // No shop, no wishlist news.
+        }
+
         var balance = await BalanceAsync(userId, ct);
         var reached = await db.WishlistEntries
             .Where(w => w.UserId == userId && w.NotifiedAt == null)

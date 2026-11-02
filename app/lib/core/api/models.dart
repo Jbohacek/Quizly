@@ -6,16 +6,23 @@ int _int(Object? v) => (v as num).toInt();
 double _double(Object? v) => (v as num).toDouble();
 
 class AppUser {
-  const AppUser({required this.id, required this.username, required this.displayName});
+  const AppUser({required this.id, required this.username, required this.displayName, this.shopEnabled = true});
 
-  factory AppUser.fromJson(Json j) =>
-      AppUser(id: _int(j['id']), username: j['username'] as String, displayName: j['displayName'] as String);
+  factory AppUser.fromJson(Json j) => AppUser(
+        id: _int(j['id']),
+        username: j['username'] as String,
+        displayName: j['displayName'] as String,
+        shopEnabled: j['shopEnabled'] as bool? ?? true,
+      );
 
   final int id;
   final String username;
   final String displayName;
 
-  Json toJson() => {'id': id, 'username': username, 'displayName': displayName};
+  /// The admin can keep a user out of the shop: then Obchod, rewards and purchases are hidden.
+  final bool shopEnabled;
+
+  Json toJson() => {'id': id, 'username': username, 'displayName': displayName, 'shopEnabled': shopEnabled};
 }
 
 /// Tokens from `/auth/login` and `/auth/refresh`.

@@ -74,6 +74,7 @@ internal sealed partial class UserAdminService(
             Username = username,
             DisplayName = displayName,
             CreatedAt = time.GetUtcNow().UtcDateTime,
+            ShopEnabled = request.ShopEnabled,
             Settings = new UserSettings { DailyGoal = dailyGoal, NewCardsPerDay = newCards },
         };
         user.PasswordHash = hasher.HashPassword(user, password);
@@ -103,6 +104,7 @@ internal sealed partial class UserAdminService(
         user.DisplayName = displayName;
         user.Settings.DailyGoal = request.DailyGoal;
         user.Settings.NewCardsPerDay = request.NewCardsPerDay;
+        user.ShopEnabled = request.ShopEnabled;
         await db.SaveChangesAsync(ct);
         return await GetAsync(id, ct);
     }
@@ -174,7 +176,8 @@ internal sealed partial class UserAdminService(
             row.Graded,
             row.Graded == 0 ? null : row.Correct * 100 / row.Graded,
             u.CreatedAt.ToUtcOffset(),
-            u.LastActiveAt.ToUtcOffset());
+            u.LastActiveAt.ToUtcOffset(),
+            u.ShopEnabled);
     }
 
     [GeneratedRegex("^[a-z0-9]{3,32}$")]

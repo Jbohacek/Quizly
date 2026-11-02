@@ -106,14 +106,14 @@ class _HomeBody extends StatelessWidget {
   }
 }
 
-class _Header extends StatelessWidget {
+class _Header extends ConsumerWidget {
   const _Header({required this.name, required this.balance});
 
   final String name;
   final int balance;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final now = DateTime.now();
     return Row(
       children: [
@@ -128,7 +128,11 @@ class _Header extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 12),
-        PointsPill(balance: balance, semanticsLabel: S.pointsPill(balance), onTap: () => context.go('/shop')),
+        // Without the shop the pill only shows the balance.
+        if (ref.watch(shopEnabledProvider))
+          PointsPill(balance: balance, semanticsLabel: S.pointsPill(balance), onTap: () => context.go('/shop'))
+        else
+          PointsPill(balance: balance, semanticsLabel: S.pointsBalance(balance)),
       ],
     );
   }

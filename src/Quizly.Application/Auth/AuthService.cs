@@ -244,6 +244,6 @@ internal sealed class AuthService(
             access.ExpiresAt.ToUtcOffset(),
             rawRefresh,
             refresh.ExpiresAt.ToUtcOffset(),
-            new AuthUserResponse(user.Id, user.Username, user.DisplayName));
+            new AuthUserResponse(user.Id, user.Username, user.DisplayName, user.ShopEnabled));
     }
 }

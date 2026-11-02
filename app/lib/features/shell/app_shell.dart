@@ -1,25 +1,33 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/providers.dart';
 import '../../core/strings.dart';
 import '../../core/theme/theme.dart';
 import '../../core/theme/tokens.dart';
 
-/// Bottom navigation: Domů / Statistiky / Obchod / Nastavení.
-class AppShell extends StatelessWidget {
+/// Bottom navigation: Domů / Statistiky / Obchod / Nastavení. Obchod is left out for a user
+/// the admin keeps out of the shop.
+class AppShell extends ConsumerWidget {
   const AppShell({super.key, required this.shell});
 
   final StatefulNavigationShell shell;
 
+  /// Label, icon and the shell branch it opens.
   static const _items = [
-    (S.navHome, Icons.home_rounded),
-    (S.navStats, Icons.bar_chart_rounded),
-    (S.navShop, Icons.card_giftcard_rounded),
-    (S.navSettings, Icons.tune_rounded),
+    (S.navHome, Icons.home_rounded, 0),
+    (S.navStats, Icons.bar_chart_rounded, 1),
+    (S.navShop, Icons.card_giftcard_rounded, shopBranch),
+    (S.navSettings, Icons.tune_rounded, 3),
   ];
 
+  static const shopBranch = 2;
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final shop = ref.watch(shopEnabledProvider);
+    final items = [for (final item in _items) if (shop || item.$3 != shopBranch) item];
     return Scaffold(
       body: shell,
       bottomNavigationBar: DecoratedBox(
@@ -32,13 +40,13 @@ class AppShell extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 8),
               child: Row(
                 children: [
-                  for (final (i, item) in _items.indexed)
+                  for (final (label, icon, branch) in items)
                     Expanded(
                       child: _NavItem(
-                        label: item.$1,
-                        icon: item.$2,
-                        selected: shell.currentIndex == i,
-                        onTap: () => shell.goBranch(i, initialLocation: i == shell.currentIndex),
+                        label: label,
+                        icon: icon,
+                        selected: shell.currentIndex == branch,
+                        onTap: () => shell.goBranch(branch, initialLocation: branch == shell.currentIndex),
                       ),
                     ),
                 ],

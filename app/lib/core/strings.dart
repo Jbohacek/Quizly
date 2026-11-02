@@ -37,6 +37,7 @@ abstract final class S {
   // Home
   static String greeting(String name) => 'Ahoj, $name!';
   static String pointsPill(int balance) => 'Máš ${points(balance)}, otevřít obchod';
+  static String pointsBalance(int balance) => 'Máš ${points(balance)}';
   static String streakLabel(int streak) => plural(streak, 'den v řadě', 'dny v řadě', 'dní v řadě');
   static String nextMultiplier(int inDays, num value) =>
       'Za ${days(inDays)} násobič stoupne na ${formatMultiplier(value)}';

@@ -122,6 +122,14 @@ class HomeData {
   int get dueReviews => decks.items.fold(0, (sum, d) => sum + d.dueNow);
 }
 
+/// Obchod is shown: from the last `/api/me`, or the login until Domů has loaded.
+/// Signed out it doesn't touch Domů (that would load it before the login).
+final shopEnabledProvider = Provider<bool>((ref) {
+  final user = ref.watch(authProvider).user;
+  if (user == null) return true;
+  return ref.watch(homeProvider).value?.me.user.shopEnabled ?? user.shopEnabled;
+});
+
 final homeProvider = FutureProvider.autoDispose<HomeData>((ref) async {
   final client = ref.watch(apiClientProvider);
   // The week strip is extra: Domů still shows when the stats fail.
