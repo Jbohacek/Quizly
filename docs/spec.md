@@ -322,7 +322,7 @@ A new card counts toward the allowance only once it's **graded**. Skipping a new
 | **Nevím** (swipe left) | sends `dontKnow`; puts the card **once** more at the end of the queue | FSRS Again, points 2 × m |
 | **Těžké** (button, with "Těžké a Snadné") | sends `hard` | FSRS Hard, points 10 × m, correct |
 | **Snadné** (button, with "Těžké a Snadné") | sends `easy` | FSRS Easy, points 10 × m, correct |
-| **Přeskočit** | moves the card to the end of the queue; sends nothing | nothing |
+| **Přeskočit** (with "Těžké a Snadné": a swipe up, no button) | moves the card to the end of the queue; sends nothing | nothing |
 
 - A card re-shown after Nevím is a normal review (FSRS + points + daily count). It is re-queued only once per session, even if answered Nevím again.
 - A review's `reviewed_at` = server receive time of the batch, plus the item's index in microseconds (keeps the batch order strictly increasing).

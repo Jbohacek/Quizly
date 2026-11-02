@@ -705,10 +705,23 @@ void main() {
     await settle(tester);
     await tester.tap(find.byType(SwipeCard));
     await settle(tester);
-    for (final label in [S.dontKnow, S.hard, S.skip, S.know, S.easy]) {
+    for (final label in [S.dontKnow, S.hard, S.know, S.easy]) {
       expect(find.bySemanticsLabel(label), findsWidgets, reason: label);
     }
-    // Five buttons still fit a phone with 44 px targets and readable labels (CLAUDE.md §9.3).
+    // No Přeskočit button: a swipe up skips, and nothing on screen says so.
+    expect(find.bySemanticsLabel(S.skip), findsNothing);
+    expect(find.textContaining('nahoru'), findsNothing);
+    await tester.drag(find.byType(SwipeCard), const Offset(0, -400));
+    await settle(tester);
+    expect(find.text('Co je class?'), findsOneWidget);
+    expect(api.reviewed, isEmpty);
+    // Back to the first card, turned over for the buttons.
+    await tester.drag(find.byType(SwipeCard), const Offset(0, -400));
+    await settle(tester);
+    expect(find.text('Co je struct?'), findsOneWidget);
+    await tester.tap(find.byType(SwipeCard));
+    await settle(tester);
+    // The buttons still fit a phone with 44 px targets and readable labels (CLAUDE.md §9.3).
     await expectLater(tester, meetsGuideline(const MinimumTapTargetGuideline(size: Size(44, 44), link: 'CLAUDE.md §9.3')));
     await expectLater(tester, meetsGuideline(textContrastGuideline));
 

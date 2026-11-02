@@ -210,6 +210,8 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
                       enabled: c.canAnswer,
                       onAnswer: c.answer,
                       onRevealed: () => setState(() => _revealed = true),
+                      // With four answer buttons there's no Přeskočit button: a swipe up skips.
+                      onSkip: c.fourRatings && c.queue.remaining > 1 ? c.skip : null,
                     ),
                   ),
                 ),
@@ -282,29 +284,21 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
   }
 
   /// After the card is turned: Nevím / Přeskočit / Vím, or with "Těžké a Snadné" on
-  /// Nevím / Těžké / Přeskočit / Vím / Snadné (#19). Přeskočit stays in the middle.
+  /// Nevím / Těžké / Vím / Snadné (#19); there a swipe up skips the card (no hint on purpose).
   Widget _answerRow(SessionController c) => c.fourRatings ? _fourRow(c) : _twoRow(c);
 
   Widget _fourRow(SessionController c) {
     VoidCallback? rate(Rating r) => c.canAnswer ? () => _answer(r) : null;
-    // Five equal slots: on a phone the labels are wider than the buttons, so they shrink to fit.
+    // Four equal slots: the labels shrink to fit if a phone is narrow.
     return Row(
       key: const ValueKey('answer'),
       crossAxisAlignment: CrossAxisAlignment.end,
       children: [
         for (final button in [
           _RoundButton(label: S.dontKnow, icon: Icons.close_rounded, color: Q.dontKnow, size: 58, onPressed: rate(Rating.dontKnow)),
-          _RoundButton(label: S.hard, icon: Icons.trending_down_rounded, color: Q.points, size: 52, onPressed: rate(Rating.hard)),
-          _RoundButton(
-            label: S.skip,
-            icon: Icons.redo_rounded,
-            color: Q.textMuted,
-            size: 44,
-            filled: true,
-            onPressed: c.canAnswer && c.queue.remaining > 1 ? c.skip : null,
-          ),
+          _RoundButton(label: S.hard, icon: Icons.trending_down_rounded, color: Q.points, size: 58, onPressed: rate(Rating.hard)),
           _RoundButton(label: S.know, icon: Icons.check_rounded, color: Q.primary, size: 58, onPressed: rate(Rating.know)),
-          _RoundButton(label: S.easy, icon: Icons.bolt_rounded, color: Q.info, size: 52, onPressed: rate(Rating.easy)),
+          _RoundButton(label: S.easy, icon: Icons.bolt_rounded, color: Q.info, size: 58, onPressed: rate(Rating.easy)),
         ])
           Expanded(child: button),
       ],

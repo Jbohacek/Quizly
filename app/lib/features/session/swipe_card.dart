@@ -13,12 +13,23 @@ import '../../core/widgets/card_text.dart';
 /// a long enough drag (or [SwipeCardState.fly]) throws it off screen and calls [onAnswer].
 /// Swiping works on either side; [onRevealed] fires the first time the answer shows.
 class SwipeCard extends StatefulWidget {
-  const SwipeCard({super.key, required this.card, required this.enabled, required this.onAnswer, this.onRevealed});
+  const SwipeCard({
+    super.key,
+    required this.card,
+    required this.enabled,
+    required this.onAnswer,
+    this.onRevealed,
+    this.onSkip,
+  });
 
   final SessionCard card;
   final bool enabled;
   final ValueChanged<Rating> onAnswer;
   final VoidCallback? onRevealed;
+
+  /// A swipe up skips the card (with "Těžké a Snadné", where there's no Přeskočit button, #19).
+  /// Null: an upward swipe springs back.
+  final VoidCallback? onSkip;
 
   @override
   State<SwipeCard> createState() => SwipeCardState();
@@ -85,6 +96,23 @@ class SwipeCardState extends State<SwipeCard> with TickerProviderStateMixin {
     }
   }
 
+  /// Throws the card up, then skips it.
+  Future<void> _skipUp(double height) async {
+    if (_flying || !widget.enabled) return;
+    _flying = true;
+    if (!_reduceMotion) {
+      await _animateTo(Offset(_drag.dx, -height * 1.4), const Duration(milliseconds: 240), Curves.easeIn);
+    }
+    if (!mounted) return;
+    widget.onSkip?.call();
+    if (mounted) {
+      setState(() {
+        _flying = false;
+        _drag = Offset.zero;
+      });
+    }
+  }
+
   Future<void> _animateTo(Offset target, Duration duration, Curve curve) {
     _moveAnimation = Tween(begin: _drag, end: target).animate(CurvedAnimation(parent: _move, curve: curve));
     _move.duration = duration;
@@ -97,11 +125,17 @@ class SwipeCardState extends State<SwipeCard> with TickerProviderStateMixin {
     setState(() => _drag += d.delta);
   }
 
-  void _onPanEnd(DragEndDetails d, double width) {
+  void _onPanEnd(DragEndDetails d, double width, double height) {
     if (_flying || !widget.enabled) return;
     final threshold = width * 0.28;
     final vx = d.velocity.pixelsPerSecond.dx;
-    if (_drag.dx > threshold || vx > 900) {
+    final vy = d.velocity.pixelsPerSecond.dy;
+    final upward = _drag.dy.abs() > _drag.dx.abs() && (_drag.dy < -height * 0.2 || vy < -900);
+    if (upward && widget.onSkip != null) {
+      _skipUp(height);
+    } else if (upward) {
+      _animateTo(Offset.zero, const Duration(milliseconds: 300), Curves.easeOutBack);
+    } else if (_drag.dx > threshold || vx > 900) {
       fly(Rating.know);
     } else if (_drag.dx < -threshold || vx < -900) {
       fly(Rating.dontKnow);
@@ -124,7 +158,7 @@ class SwipeCardState extends State<SwipeCard> with TickerProviderStateMixin {
       return GestureDetector(
         onTap: flip,
         onPanUpdate: _onPanUpdate,
-        onPanEnd: (d) => _onPanEnd(d, width),
+        onPanEnd: (d) => _onPanEnd(d, width, constraints.maxHeight),
         child: Transform.translate(
           offset: _drag,
           child: Transform.rotate(
