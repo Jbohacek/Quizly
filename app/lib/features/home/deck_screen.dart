@@ -48,16 +48,6 @@ class DeckScreen extends ConsumerWidget {
     // The deck as Domů knows it: enough to show the counts and "Učit se" if the card list fails.
     final known = ref.watch(homeProvider).value?.decks.items.where((d) => d.id == deckId).firstOrNull;
     return Scaffold(
-      floatingActionButton: data.hasValue
-          ? FloatingActionButton(
-              tooltip: S.addCard,
-              backgroundColor: Q.primary,
-              foregroundColor: Q.onPrimary,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-              onPressed: () => _edit(context, ref),
-              child: const Icon(Icons.add_rounded, size: 30),
-            )
-          : null,
       body: SafeArea(
         bottom: false,
         child: switch (data) {
@@ -65,7 +55,11 @@ class DeckScreen extends ConsumerWidget {
               color: Q.primary,
               backgroundColor: Q.surface,
               onRefresh: () => ref.refresh(deckCardsProvider(deckId).future),
-              child: _DeckBody(data: value, onEdit: (card) => _edit(context, ref, card)),
+              child: _DeckBody(
+                data: value,
+                onEdit: (card) => _edit(context, ref, card),
+                onAdd: () => _edit(context, ref),
+              ),
             ),
           AsyncValue(:final error?) when known != null => RefreshIndicator(
               color: Q.primary,
@@ -96,12 +90,15 @@ class DeckScreen extends ConsumerWidget {
 }
 
 class _DeckBody extends StatefulWidget {
-  const _DeckBody({required this.data, this.cardsError, this.onRetry, this.onEdit});
+  const _DeckBody({required this.data, this.cardsError, this.onRetry, this.onEdit, this.onAdd});
 
   final DeckCards data;
 
   /// "Upravit" on an opened card.
   final ValueChanged<DeckCard>? onEdit;
+
+  /// "+ Přidat kartu", the first tile of the list (hidden while searching).
+  final VoidCallback? onAdd;
 
   /// The card list failed to load; the rest comes from Domů and studying still works.
   final String? cardsError;
@@ -146,8 +143,7 @@ class _DeckBodyState extends State<_DeckBody> {
     final shown = _shown;
     final filtered = _status != null || _search.text.trim().isNotEmpty;
     return ListView(
-      // Room at the end for the "+" button.
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 96),
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
       children: [
         _BackRow(title: deck.name, color: color),
         if (deck.description.isNotEmpty) ...[
@@ -213,12 +209,16 @@ class _DeckBodyState extends State<_DeckBody> {
               ],
             ),
           )
-        else if (data.cards.isEmpty)
+        else if (data.cards.isEmpty) ...[
+          if (widget.onAdd != null) ...[
+            _AddCardTile(onTap: widget.onAdd!),
+            const SizedBox(height: 8),
+          ],
           Panel(
             radius: 18,
             child: Text(S.emptyDeck, style: QText.body(14, color: Q.textMuted, weight: FontWeight.w400, height: 1.5)),
-          )
-        else ...[
+          ),
+        ] else ...[
           TextField(
             controller: _search,
             textInputAction: TextInputAction.search,
@@ -254,6 +254,10 @@ class _DeckBodyState extends State<_DeckBody> {
             ],
           ),
           const SizedBox(height: 12),
+          if (widget.onAdd != null && _search.text.trim().isEmpty) ...[
+            _AddCardTile(onTap: widget.onAdd!),
+            const SizedBox(height: 8),
+          ],
           if (shown.isEmpty)
             Panel(
               radius: 18,
@@ -271,6 +275,71 @@ class _DeckBodyState extends State<_DeckBody> {
       ],
     );
   }
+}
+
+/// "+ Přidat kartu": a card-sized tile with a dashed outline and muted text, first in the list.
+class _AddCardTile extends StatelessWidget {
+  const _AddCardTile({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final radius = BorderRadius.circular(18);
+    return Semantics(
+      button: true,
+      label: S.addCard,
+      excludeSemantics: true,
+      child: CustomPaint(
+        painter: _DashedOutline(radius: 18, color: Q.textMuted.withValues(alpha: 0.6)),
+        child: Material(
+          type: MaterialType.transparency,
+          child: InkWell(
+            borderRadius: radius,
+            onTap: onTap,
+            child: Container(
+              constraints: const BoxConstraints(minHeight: 56),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.add_rounded, size: 20, color: Q.textMuted),
+                  const SizedBox(width: 6),
+                  Text(S.addCard, style: QText.body(15, color: Q.textMuted, weight: FontWeight.w700)),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _DashedOutline extends CustomPainter {
+  const _DashedOutline({required this.radius, required this.color});
+
+  final double radius;
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.5;
+    final outline = Path()
+      ..addRRect(RRect.fromRectAndRadius(Offset.zero & size, Radius.circular(radius)).deflate(0.75));
+    const dash = 7.0, gap = 5.0;
+    for (final metric in outline.computeMetrics()) {
+      for (var d = 0.0; d < metric.length; d += dash + gap) {
+        canvas.drawPath(metric.extractPath(d, d + dash), paint);
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(_DashedOutline old) => old.color != color || old.radius != radius;
 }
 
 /// Zvládnuto / Učím se / Nové in one bar, like Statistiky (green, lavender, grey).

@@ -39,7 +39,7 @@ Future<CardEdit?> editCard(
     );
 
 /// Add, edit or delete a card from the phone (#23). Anyone may; the change is shared with everyone.
-/// No snackbar afterwards: the changed list or card shows it, and a snackbar would cover the "+" button.
+/// No snackbar afterwards: the changed list or card shows it.
 class CardEditorScreen extends ConsumerStatefulWidget {
   const CardEditorScreen({super.key, required this.deckId, this.cardId, this.question = '', this.answer = ''});
 

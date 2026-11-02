@@ -794,6 +794,9 @@ void main() {
     await tester.tap(find.text('Co je class?'));
     await settle(tester);
     await tester.scrollUntilVisible(find.text(S.editCard), 200, scrollable: _deckList);
+    // Clear of the bottom navigation bar.
+    await tester.drag(_deckList, const Offset(0, -200));
+    await settle(tester);
     await tester.tap(find.text(S.editCard));
     await settle(tester);
 
@@ -810,8 +813,15 @@ void main() {
     expect(api.cardRequests.single.$2, {'question': 'Co je class v C#?', 'answer': '**Referenční** typ.'});
     expect(find.text('Co je class v C#?'), findsOneWidget);
 
-    // + adds a card; empty fields are caught before anything is sent.
-    await tester.tap(find.byTooltip(S.addCard));
+    // "+ Přidat kartu" is the first tile; it hides while searching.
+    await tester.enterText(find.byType(TextField), 'class');
+    await settle(tester);
+    expect(find.bySemanticsLabel(S.addCard), findsNothing);
+    await tester.enterText(find.byType(TextField), '');
+    await settle(tester);
+    await tester.scrollUntilVisible(find.bySemanticsLabel(S.addCard), -200, scrollable: _deckList);
+    // Empty fields are caught before anything is sent.
+    await tester.tap(find.bySemanticsLabel(S.addCard));
     await settle(tester);
     expect(find.text(S.newCard), findsOneWidget);
     await tester.scrollUntilVisible(find.text(S.addCard), 200, scrollable: find.byType(Scrollable).last);
