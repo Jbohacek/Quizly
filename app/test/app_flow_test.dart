@@ -679,9 +679,12 @@ void main() {
     expect(api.reviewed.single['rating'], 'know');
 
     expect(find.text('Karta 2 z 2'), findsOneWidget);
+    final hintBefore = tester.getTopLeft(find.text(S.hintDrag)).dy;
     await tester.tap(find.byType(SwipeCard));
     await settle(tester);
     expect(find.text('Referenční typ.'), findsOneWidget);
+    // The hint row slid up from the bottom to make room for the buttons.
+    expect(tester.getTopLeft(find.text(S.hintDrag)).dy, lessThan(hintBefore - 80));
     expect(find.bySemanticsLabel('Vím'), findsWidgets);
     expect(find.bySemanticsLabel('Nevím'), findsWidgets);
   });

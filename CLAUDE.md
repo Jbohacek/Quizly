@@ -86,7 +86,7 @@ Final layout and package lists: [`docs/architecture.md`](./docs/architecture.md)
 ### 5.2 Study session (app)
 - The user picks one deck, or **"Učit se vše"** (all decks).
 - **Session queue** = due cards (`due ≤ now`, most overdue first) + new cards up to today's remaining allowance. "Nové karty denně" is a user setting, default 5, counted per day across all decks.
-- The card shows the question. **Tapping it** flips it to the answer (3D flip) and makes it bigger. **No buttons before the flip; Vím / Nevím / Přeskočit appear after it**. A swipe grades from either side.
+- The card shows the question. **Tapping it** flips it to the answer (3D flip) and makes it bigger. **No buttons before the flip** (the hint row "← Nevím · +2 | Vím · +11 →" sits at the bottom); **after it the hint row slides up and Nevím / Přeskočit / Vím slide in below**. A swipe grades from either side.
 - **Swipe right / "Vím"** = Know → FSRS rating **Good (3)**.
 - **Swipe left / "Nevím"** = Don't know → FSRS rating **Again (1)**.
 - **"Přeskočit"** = Skip → no points, no FSRS rating, nothing sent to the server. The card moves to the end of the current session queue.

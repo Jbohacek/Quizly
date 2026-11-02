@@ -43,6 +43,9 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
   /// The current card has been turned over: Vím / Nevím are offered (and the card is bigger).
   bool _revealed = false;
 
+  /// Nevím / Přeskočit / Vím with their labels.
+  static const _buttonsHeight = 96.0;
+
   @override
   void initState() {
     super.initState();
@@ -228,7 +231,9 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
               ],
             ),
           ),
-          const SizedBox(height: 14),
+          // Before the flip the hint row sits at the bottom. A tap on the card slides it up while the
+          // buttons grow in below it. Both heights change together, so the card above doesn't move.
+          AnimatedContainer(duration: grow, curve: Curves.easeOutCubic, height: _revealed ? 14 : 14 + _buttonsHeight),
           Row(
             children: [
               Text(S.hintDontKnow(c.points.dontKnow), style: QText.body(13, color: Q.dontKnow, weight: FontWeight.w800)),
@@ -237,13 +242,21 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
             ],
           ),
           const SizedBox(height: 14),
-          SizedBox(
-            // Vím / Nevím with their labels. Kept empty before the flip (a tap on the card turns it),
-            // so the card doesn't jump when the buttons appear.
-            height: 96,
-            child: AnimatedSwitcher(
-              duration: grow,
-              child: _revealed ? _answerRow(c) : const SizedBox.shrink(),
+          AnimatedContainer(
+            duration: grow,
+            curve: Curves.easeOutCubic,
+            height: _revealed ? _buttonsHeight : 0,
+            child: ClipRect(
+              child: OverflowBox(
+                alignment: Alignment.topCenter,
+                minHeight: _buttonsHeight,
+                maxHeight: _buttonsHeight,
+                child: AnimatedOpacity(
+                  duration: grow,
+                  opacity: _revealed ? 1 : 0,
+                  child: _revealed ? _answerRow(c) : const SizedBox.shrink(),
+                ),
+              ),
             ),
           ),
         ],
