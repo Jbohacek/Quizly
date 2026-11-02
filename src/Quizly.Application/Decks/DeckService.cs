@@ -18,6 +18,11 @@ public interface IDeckService
     /// <summary>Deletes the deck, its cards and all users' progress on them (docs/spec.md §2.14).</summary>
     Task<Result> DeleteAsync(int id, CancellationToken ct);
 
+    Task<Result<DeckAccessDto>> GetAccessAsync(int id, CancellationToken ct);
+
+    /// <summary>Sets who sees the deck. Users who lose it keep their progress (docs/spec.md §2.4).</summary>
+    Task<Result<DeckAccessDto>> SetAccessAsync(int id, DeckAccessDto request, CancellationToken ct);
+
     /// <summary>Counts shown in the delete confirmation.</summary>
     Task<Result<DeckDeleteImpact>> GetDeleteImpactAsync(int id, CancellationToken ct);
 }
@@ -88,6 +93,37 @@ internal sealed class DeckService(IAppDbContext db, TimeProvider time) : IDeckSe
         return deleted == 0 ? DeckNotFound : Result.Ok();
     }
 
+    public async Task<Result<DeckAccessDto>> GetAccessAsync(int id, CancellationToken ct)
+    {
+        var deck = await db.Decks.Where(d => d.Id == id)
+            .Select(d => new { d.ForEveryone, UserIds = d.Access.Select(a => a.UserId).OrderBy(u => u).ToList() })
+            .FirstOrDefaultAsync(ct);
+        return deck is null ? DeckNotFound : new DeckAccessDto(deck.ForEveryone, deck.UserIds);
+    }
+
+    public async Task<Result<DeckAccessDto>> SetAccessAsync(int id, DeckAccessDto request, CancellationToken ct)
+    {
+        var deck = await db.Decks.Include(d => d.Access).FirstOrDefaultAsync(d => d.Id == id, ct);
+        if (deck is null)
+        {
+            return DeckNotFound;
+        }
+
+        var userIds = (request.UserIds ?? []).Distinct().ToList();
+        var known = await db.Users.Where(u => userIds.Contains(u.Id)).Select(u => u.Id).ToListAsync(ct);
+        if (known.Count != userIds.Count)
+        {
+            return Errors.Validation("userIds", "Některý uživatel neexistuje.");
+        }
+
+        deck.ForEveryone = request.ForEveryone;
+        deck.Access.RemoveAll(a => !userIds.Contains(a.UserId));
+        deck.Access.AddRange(userIds.Where(u => deck.Access.All(a => a.UserId != u)).Select(u => new DeckAccess { DeckId = id, UserId = u }));
+        deck.UpdatedAt = time.GetUtcNow().UtcDateTime;
+        await db.SaveChangesAsync(ct);
+        return await GetAccessAsync(id, ct);
+    }
+
     public async Task<Result<DeckDeleteImpact>> GetDeleteImpactAsync(int id, CancellationToken ct)
     {
         if (!await db.Decks.AnyAsync(d => d.Id == id, ct))
@@ -124,5 +160,7 @@ internal sealed class DeckService(IAppDbContext db, TimeProvider time) : IDeckSe
             d.SortOrder,
             d.Cards.Count,
             DateTime.SpecifyKind(d.CreatedAt, DateTimeKind.Utc),
-            DateTime.SpecifyKind(d.UpdatedAt, DateTimeKind.Utc)));
+            DateTime.SpecifyKind(d.UpdatedAt, DateTimeKind.Utc),
+            d.ForEveryone,
+            d.Access.Count));
 }

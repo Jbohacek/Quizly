@@ -81,7 +81,7 @@
         <div class="table-wrap">
             <table>
                 <thead>
-                    <tr><th>Balíček</th><th class="right">Karet</th><th class="right">Pořadí</th><th>Upraveno</th><th></th></tr>
+                    <tr><th>Balíček</th><th class="right">Karet</th><th>Kdo vidí</th><th class="right">Pořadí</th><th>Upraveno</th><th></th></tr>
                 </thead>
                 <tbody>
                     @foreach (var d in _decks)
@@ -97,6 +97,7 @@
                                 </span>
                             </td>
                             <td class="right num">@Cz.Number(d.CardCount)</td>
+                            <td class="@(d.ForEveryone ? "muted" : "")">@Cz.DeckAudience(d.ForEveryone, d.UserCount)</td>
                             <td class="right num">@d.SortOrder</td>
                             <td class="muted">@Cz.DateTime(d.UpdatedAt)</td>
                             <td class="actions"><a class="btn small" href="/admin/balicky/@d.Id">Otevřít</a></td>

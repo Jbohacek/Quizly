@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Quizly.Application.Abstractions;
 using Quizly.Application.Common;
+using Quizly.Application.Decks;
 using Quizly.Domain;
 
 namespace Quizly.Application.Learning;
@@ -30,14 +31,14 @@ internal sealed class StudyService(IAppDbContext db, Progress progress, TimeProv
             return new Validator().Range("extraNew", extraNew, "Nové karty navíc", 0, MaxExtraNew).ToError();
         }
 
-        if (deckId is not null && !await db.Decks.AnyAsync(d => d.Id == deckId, ct))
+        if (deckId is not null && !await db.Decks.VisibleTo(userId).AnyAsync(d => d.Id == deckId, ct))
         {
             return Progress.NotFoundDeck;
         }
 
         var now = time.GetUtcNow().UtcDateTime;
         var settings = await db.UserSettings.AsNoTracking().FirstAsync(s => s.UserId == userId, ct);
-        var cards = db.Cards.Where(c => deckId == null || c.DeckId == deckId);
+        var cards = db.Cards.VisibleTo(userId).Where(c => deckId == null || c.DeckId == deckId);
 
         var due = await db.CardStates
             .Where(s => s.UserId == userId && s.Due <= now)
@@ -66,7 +67,7 @@ internal sealed class StudyService(IAppDbContext db, Progress progress, TimeProv
         var settings = await db.UserSettings.AsNoTracking().FirstAsync(s => s.UserId == userId, ct);
         var allowance = await progress.NewAllowanceLeftAsync(userId, settings.NewCardsPerDay, PragueCalendar.DayOf(now), ct);
 
-        var rows = await db.Decks
+        var rows = await db.Decks.VisibleTo(userId)
             .OrderBy(d => d.SortOrder).ThenBy(d => d.Id)
             .Select(d => new
             {

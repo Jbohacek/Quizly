@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Quizly.Application.Abstractions;
 using Quizly.Application.Auth;
 using Quizly.Application.Common;
+using Quizly.Application.Decks;
 using Quizly.Application.Learning;
 using Quizly.Domain;
 using Quizly.Domain.Gamification;
@@ -28,9 +29,12 @@ internal sealed class MeService(IAppDbContext db, Progress progress, StudyServic
         var today = PragueCalendar.DayOf(now);
         var user = await db.Users.Include(u => u.Settings).AsNoTracking().FirstAsync(u => u.Id == userId, ct);
         var settings = user.Settings;
-        var unseen = await study.Unseen(userId, db.Cards).CountAsync(ct);
+        var visible = db.Cards.VisibleTo(userId);
+        var unseen = await study.Unseen(userId, visible).CountAsync(ct);
 
-        var dueReviews = await db.CardStates.CountAsync(s => s.UserId == userId && s.Due <= now, ct);
+        // Progress on decks the user no longer sees is kept, but not counted.
+        var states = db.CardStates.Where(s => s.UserId == userId && visible.Any(c => c.Id == s.CardId));
+        var dueReviews = await states.CountAsync(s => s.Due <= now, ct);
         var allowanceToday = await progress.NewAllowanceLeftAsync(userId, settings.NewCardsPerDay, today, ct);
 
         // The next morning notification: today at the morning time if still ahead, else tomorrow.
@@ -42,7 +46,7 @@ internal sealed class MeService(IAppDbContext db, Progress progress, StudyServic
             nextMorning = AtPrague(morningDay, settings.MorningTime);
         }
 
-        var dueByMorning = await db.CardStates.CountAsync(s => s.UserId == userId && s.Due <= nextMorning, ct);
+        var dueByMorning = await states.CountAsync(s => s.Due <= nextMorning, ct);
         var allowanceThen = morningDay == today ? allowanceToday : settings.NewCardsPerDay;
 
         var since = now.AddDays(-14);

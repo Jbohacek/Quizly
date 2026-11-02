@@ -58,7 +58,18 @@ public class Deck
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
 
+    /// <summary>"Pro všechny": every user sees the deck. Otherwise only the users in <see cref="Access"/>.</summary>
+    public bool ForEveryone { get; set; } = true;
+
     public List<Card> Cards { get; set; } = [];
+    public List<DeckAccess> Access { get; set; } = [];
+}
+
+/// <summary>A user who sees a deck that isn't <see cref="Deck.ForEveryone"/>.</summary>
+public class DeckAccess
+{
+    public int DeckId { get; set; }
+    public int UserId { get; set; }
 }
 
 public class Card
