@@ -25,7 +25,8 @@ public sealed record SettingsDto(
     string LastCallTime,
     string QuietFrom,
     string QuietTo,
-    bool SmartTimes);
+    bool SmartTimes,
+    bool FourRatings = false);
 
 /// <summary>Saved settings with the summary and events (lowering the goal can complete today).</summary>
 public sealed record SettingsUpdateResponse(SettingsDto Settings, SummaryResponse Summary, IReadOnlyList<EventResponse> Events);

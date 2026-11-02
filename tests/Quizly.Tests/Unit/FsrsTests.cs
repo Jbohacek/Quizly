@@ -38,7 +38,7 @@ public sealed class FsrsTests
         Assert.Equal(config.GetProperty("relearning_steps").EnumerateArray().Select(s => TimeSpan.FromSeconds(s.GetInt32())), scheduler.RelearningSteps);
         Assert.Equal(config.GetProperty("maximum_interval").GetInt32(), scheduler.MaximumInterval);
         Assert.False(config.GetProperty("enable_fuzzing").GetBoolean());
-        Assert.Equal(61, Vectors.RootElement.GetProperty("cases").EnumerateArray().Sum(c => c.GetProperty("steps").GetArrayLength()));
+        Assert.Equal(88, Vectors.RootElement.GetProperty("cases").EnumerateArray().Sum(c => c.GetProperty("steps").GetArrayLength()));
     }
 
     [Theory]

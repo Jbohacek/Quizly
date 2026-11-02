@@ -2,7 +2,7 @@ using System.Text.Json.Serialization;
 
 namespace Quizly.Application.Learning;
 
-/// <summary>Vím (know) or Nevím (dontKnow).</summary>
+/// <summary>Vím (know), Nevím (dontKnow), and with "Těžké a Snadné" on: Těžké (hard), Snadné (easy).</summary>
 public enum ReviewRating
 {
     [JsonStringEnumMemberName("know")]
@@ -10,10 +10,16 @@ public enum ReviewRating
 
     [JsonStringEnumMemberName("dontKnow")]
     DontKnow,
+
+    [JsonStringEnumMemberName("hard")]
+    Hard,
+
+    [JsonStringEnumMemberName("easy")]
+    Easy,
 }
 
-/// <summary>What the next answer is worth at the current multiplier.</summary>
-public sealed record PointsValueResponse(int Know, int DontKnow);
+/// <summary>What the next answer is worth at the current multiplier. Těžké and Snadné are worth a Vím.</summary>
+public sealed record PointsValueResponse(int Know, int DontKnow, int Hard, int Easy);
 
 /// <summary>Today's progress toward the daily goal.</summary>
 public sealed record TodayResponse(DateOnly Date, int Graded, int Correct, int Goal, bool GoalMet, int Points);
@@ -82,7 +88,8 @@ public sealed record SessionResponse(
     PointsValueResponse Points,
     int DueCount,
     int NewCount,
-    IReadOnlyList<SessionCardResponse> Cards);
+    IReadOnlyList<SessionCardResponse> Cards,
+    bool FourRatings);
 
 /// <summary>A deck with the user's counts.</summary>
 public sealed record AppDeckResponse(

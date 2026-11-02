@@ -299,14 +299,30 @@ class DeckList {
 
 /// What the next answer is worth at the current multiplier.
 class PointsValue {
-  const PointsValue({required this.know, required this.dontKnow});
+  const PointsValue({required this.know, required this.dontKnow, int? hard, int? easy})
+      : hard = hard ?? know,
+        easy = easy ?? know;
 
-  factory PointsValue.fromJson(Json j) => PointsValue(know: _int(j['know']), dontKnow: _int(j['dontKnow']));
+  factory PointsValue.fromJson(Json j) => PointsValue(
+        know: _int(j['know']),
+        dontKnow: _int(j['dontKnow']),
+        hard: j['hard'] == null ? null : _int(j['hard']),
+        easy: j['easy'] == null ? null : _int(j['easy']),
+      );
 
   final int know;
   final int dontKnow;
 
-  int of(Rating rating) => rating == Rating.know ? know : dontKnow;
+  /// Těžké and Snadné are worth a Vím (#19); an older server doesn't send them.
+  final int hard;
+  final int easy;
+
+  int of(Rating rating) => switch (rating) {
+        Rating.know => know,
+        Rating.dontKnow => dontKnow,
+        Rating.hard => hard,
+        Rating.easy => easy,
+      };
 }
 
 enum CardKind {
@@ -350,28 +366,43 @@ class SessionCard {
 }
 
 class SessionData {
-  const SessionData({required this.deckId, required this.multiplier, required this.points, required this.cards});
+  const SessionData({
+    required this.deckId,
+    required this.multiplier,
+    required this.points,
+    required this.cards,
+    this.fourRatings = false,
+  });
 
   factory SessionData.fromJson(Json j) => SessionData(
         deckId: j['deckId'] == null ? null : _int(j['deckId']),
         multiplier: _double(j['multiplier']),
         points: PointsValue.fromJson(j['points'] as Json),
         cards: [for (final c in j['cards'] as List) SessionCard.fromJson(c as Json)],
+        fourRatings: j['fourRatings'] as bool? ?? false,
       );
 
   final int? deckId;
   final double multiplier;
   final PointsValue points;
   final List<SessionCard> cards;
+
+  /// "Těžké a Snadné" is on: four answer buttons after the flip (#19).
+  final bool fourRatings;
 }
 
 enum Rating {
   know('know'),
-  dontKnow('dontKnow');
+  dontKnow('dontKnow'),
+  hard('hard'),
+  easy('easy');
 
   const Rating(this.json);
 
   final String json;
+
+  /// Everything but Nevím counts as remembered (correct).
+  bool get correct => this != Rating.dontKnow;
 
   static Rating parse(String value) => values.firstWhere((r) => r.json == value);
 }
@@ -460,6 +491,7 @@ class UserSettings {
     required this.quietFrom,
     required this.quietTo,
     required this.smartTimes,
+    this.fourRatings = false,
   });
 
   factory UserSettings.fromJson(Json j) => UserSettings(
@@ -472,6 +504,7 @@ class UserSettings {
         quietFrom: j['quietFrom'] as String,
         quietTo: j['quietTo'] as String,
         smartTimes: j['smartTimes'] as bool,
+        fourRatings: j['fourRatings'] as bool? ?? false,
       );
 
   static const minGoal = 1;
@@ -489,6 +522,9 @@ class UserSettings {
   final String quietTo;
   final bool smartTimes;
 
+  /// "Těžké a Snadné": four answer buttons instead of Vím / Nevím (#19).
+  final bool fourRatings;
+
   UserSettings copyWith({
     int? dailyGoal,
     int? newCardsPerDay,
@@ -499,6 +535,7 @@ class UserSettings {
     String? quietFrom,
     String? quietTo,
     bool? smartTimes,
+    bool? fourRatings,
   }) =>
       UserSettings(
         dailyGoal: dailyGoal ?? this.dailyGoal,
@@ -510,6 +547,7 @@ class UserSettings {
         quietFrom: quietFrom ?? this.quietFrom,
         quietTo: quietTo ?? this.quietTo,
         smartTimes: smartTimes ?? this.smartTimes,
+        fourRatings: fourRatings ?? this.fourRatings,
       );
 
   Json toJson() => {
@@ -522,6 +560,7 @@ class UserSettings {
         'quietFrom': quietFrom,
         'quietTo': quietTo,
         'smartTimes': smartTimes,
+        'fourRatings': fourRatings,
       };
 }
 

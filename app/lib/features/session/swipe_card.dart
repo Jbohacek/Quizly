@@ -59,12 +59,16 @@ class SwipeCardState extends State<SwipeCard> with TickerProviderStateMixin {
     }
   }
 
-  /// Throws the card to the right (Vím) or left (Nevím), then reports the answer.
+  /// The answer being thrown with a button: its stamp shows instead of VÍM (Těžké, Snadné).
+  Rating? _thrown;
+
+  /// Throws the card to the right (Vím, Těžké, Snadné) or left (Nevím), then reports the answer.
   Future<void> fly(Rating rating) async {
     if (_flying || !widget.enabled) return;
     _flying = true;
+    setState(() => _thrown = rating);
     final width = MediaQuery.sizeOf(context).width;
-    final target = Offset((rating == Rating.know ? 1 : -1) * width * 1.4, _drag.dy + 40);
+    final target = Offset((rating.correct ? 1 : -1) * width * 1.4, _drag.dy + 40);
     if (!_reduceMotion) {
       await _animateTo(target, const Duration(milliseconds: 260), Curves.easeIn);
     }
@@ -75,6 +79,7 @@ class SwipeCardState extends State<SwipeCard> with TickerProviderStateMixin {
     if (mounted) {
       setState(() {
         _flying = false;
+        _thrown = null;
         _drag = Offset.zero;
       });
     }
@@ -145,7 +150,15 @@ class SwipeCardState extends State<SwipeCard> with TickerProviderStateMixin {
                   ),
                 ),
                 if (progress > 0.15)
-                  Positioned(left: 28, top: 36, child: _Stamp(S.stampKnow, Q.primary, -0.2, progress)),
+                  Positioned(
+                    left: 28,
+                    top: 36,
+                    child: switch (_thrown) {
+                      Rating.hard => _Stamp(S.stampHard, Q.points, -0.2, progress),
+                      Rating.easy => _Stamp(S.stampEasy, Q.info, -0.2, progress),
+                      _ => _Stamp(S.stampKnow, Q.primary, -0.2, progress),
+                    },
+                  ),
                 if (progress < -0.15)
                   Positioned(right: 28, top: 36, child: _Stamp(S.stampDontKnow, Q.dontKnow, 0.2, -progress)),
               ],

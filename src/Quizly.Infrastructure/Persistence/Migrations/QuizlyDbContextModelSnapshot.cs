@@ -504,7 +504,7 @@ namespace Quizly.Infrastructure.Persistence.Migrations
 
                     b.ToTable("review_logs", null, t =>
                         {
-                            t.HasCheckConstraint("ck_review_logs_rating", "rating IN (1, 3)");
+                            t.HasCheckConstraint("ck_review_logs_rating", "rating IN (1, 2, 3, 4)");
                         });
                 });
 
@@ -655,6 +655,10 @@ namespace Quizly.Infrastructure.Persistence.Migrations
                     b.Property<TimeOnly>("EveningTime")
                         .HasColumnType("time without time zone")
                         .HasColumnName("evening_time");
+
+                    b.Property<bool>("FourRatings")
+                        .HasColumnType("boolean")
+                        .HasColumnName("four_ratings");
 
                     b.Property<TimeOnly>("LastCallTime")
                         .HasColumnType("time without time zone")

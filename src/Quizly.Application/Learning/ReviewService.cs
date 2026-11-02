@@ -63,7 +63,13 @@ internal sealed class ReviewService(IAppDbContext db, Progress progress, TimePro
 
             var at = receivedAt.AddTicks(i * 10L);
             var day = PragueCalendar.DayOf(at);
-            var rating = item.Rating == ReviewRating.Know ? Rating.Good : Rating.Again;
+            var rating = item.Rating switch
+            {
+                ReviewRating.Know => Rating.Good,
+                ReviewRating.Hard => Rating.Hard,
+                ReviewRating.Easy => Rating.Easy,
+                _ => Rating.Again,
+            };
 
             // Points use the streak just before this answer counts (docs/spec.md §6.1).
             var multiplier = Points.Multiplier(Streaks.Displayed(user.CurrentStreak, user.LastGoalMetDate, day));
@@ -95,7 +101,8 @@ internal sealed class ReviewService(IAppDbContext db, Progress progress, TimePro
 
             var activity = await DayAsync(days, user, day, ct);
             activity.GradedCount++;
-            activity.CorrectCount += rating == Rating.Good ? 1 : 0;
+            // Těžké, Vím and Snadné are all remembered: correct.
+            activity.CorrectCount += rating == Rating.Again ? 0 : 1;
             activity.Points += points;
             if (!activity.GoalMet && activity.GradedCount >= activity.Goal)
             {
@@ -145,7 +152,7 @@ internal sealed class ReviewService(IAppDbContext db, Progress progress, TimePro
         Dictionary<int, CardState> states, int userId, int cardId, Rating rating, DateTime at,
         out int elapsedDays, out int scheduledDays)
     {
-        var fsrsRating = rating == Rating.Good ? FsrsRating.Good : FsrsRating.Again;
+        var fsrsRating = (FsrsRating)(int)rating;
         if (!states.TryGetValue(cardId, out var state))
         {
             var created = FsrsScheduler.Default.Review(FsrsCard.New(at), fsrsRating, at);

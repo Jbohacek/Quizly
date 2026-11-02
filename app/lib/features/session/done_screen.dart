@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/api/models.dart';
 import '../../core/format.dart';
 import '../../core/providers.dart';
 import '../../core/strings.dart';
@@ -117,7 +118,7 @@ class _DoneScreenState extends State<DoneScreen> {
                     _Tile(
                       label: S.tileCorrect,
                       child: Text(
-                        formatPercent(percentOf(tally.knowCount, tally.graded)),
+                        formatPercent(percentOf(tally.correctCount, tally.graded)),
                         style: QText.heading(26, color: Q.primary),
                       ),
                     ),
@@ -140,6 +141,11 @@ class _DoneScreenState extends State<DoneScreen> {
                   child: Column(
                     children: [
                       _Row(S.knowRow(tally.knowCount), formatSigned(tally.knowPoints)),
+                      // Těžké / Snadné only when they were used (#19).
+                      if (tally.countOf(Rating.hard) > 0)
+                        _Row(S.hardRow(tally.countOf(Rating.hard)), formatSigned(tally.pointsOf(Rating.hard))),
+                      if (tally.countOf(Rating.easy) > 0)
+                        _Row(S.easyRow(tally.countOf(Rating.easy)), formatSigned(tally.pointsOf(Rating.easy))),
                       _Row(S.dontKnowRow(tally.dontKnowCount), formatSigned(tally.dontKnowPoints)),
                       for (final m in tally.milestones)
                         _Row(S.milestoneRow(m.days ?? 0), formatSigned(m.bonus ?? 0), color: Q.points),

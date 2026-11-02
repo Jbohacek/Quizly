@@ -61,6 +61,7 @@ Users are never deleted in v1; the admin deactivates them.
 | `quiet_from` | `time` | `22:00` | may be later than `quiet_to` (window over midnight) |
 | `quiet_to` | `time` | `07:00` | `quiet_from ≠ quiet_to` |
 | `smart_times` | `boolean` | `true` | |
+| `four_ratings` | `boolean` | `false` | "Těžké a Snadné" (#19) |
 
 The admin sets `daily_goal` and `new_cards_per_day` when creating a user. The row is created together with the user.
 
@@ -154,7 +155,7 @@ Indexes: `(user_id, day)`, `(user_id, reviewed_at)`.
 | `user_id` | `integer` FK → users (cascade) | no | PK part 1 |
 | `date` | `date` | no | PK part 2, Prague day |
 | `graded_count` | `integer` | no | Vím + Nevím |
-| `correct_count` | `integer` | no | Vím |
+| `correct_count` | `integer` | no | Vím, Těžké or Snadné (correct) |
 | `points` | `integer` | no | review points + milestone bonuses earned that day |
 | `goal` | `integer` | no | the daily goal that applies to this day (§5.3) |
 | `goal_met` | `boolean` | no | once true, stays true |
@@ -258,7 +259,7 @@ Index: `(category)`. Seeded from `notification-texts.md` (converted to `Seed/not
 | Maximum interval | 36 500 days |
 | Fuzz | **off** (deterministic intervals) |
 
-- Ratings used: **Again (1)** for Nevím, **Good (3)** for Vím. Hard and Easy are never produced, but the port keeps them so the formulas match the reference 1:1.
+- Ratings: **Again (1)** for Nevím, **Good (3)** for Vím, and with "Těžké a Snadné" on **Hard (2)** for Těžké and **Easy (4)** for Snadné (#19). The reference vectors cover all four.
 
 ### 3.2 Behaviour in plain words (from the vectors)
 
@@ -319,6 +320,8 @@ A new card counts toward the allowance only once it's **graded**. Skipping a new
 | --- | --- | --- |
 | **Vím** (swipe right) | sends `know` | FSRS Good, points 10 × m |
 | **Nevím** (swipe left) | sends `dontKnow`; puts the card **once** more at the end of the queue | FSRS Again, points 2 × m |
+| **Těžké** (button, with "Těžké a Snadné") | sends `hard` | FSRS Hard, points 10 × m, correct |
+| **Snadné** (button, with "Těžké a Snadné") | sends `easy` | FSRS Easy, points 10 × m, correct |
 | **Přeskočit** | moves the card to the end of the queue; sends nothing | nothing |
 
 - A card re-shown after Nevím is a normal review (FSRS + points + daily count). It is re-queued only once per session, even if answered Nevím again.
@@ -328,7 +331,7 @@ A new card counts toward the allowance only once it's **graded**. Skipping a new
 ### 4.3 End screen ("Hotovo")
 
 The app computes it from the review responses it got during the session:
-- cards done = graded answers in the session; % correct = Vím ÷ graded (rounded to a whole percent);
+- cards done = graded answers in the session; % correct = correct (Vím, Těžké, Snadné) ÷ graded (rounded to a whole percent);
 - points with breakdown: Vím × points, Nevím × points, milestone bonus;
 - new balance, streak and goal from the last review response;
 - wishlist progress from `GET /api/shop` (nearest wishlist item not yet affordable).
@@ -355,7 +358,7 @@ The Prague day of a review is `PragueDate(reviewed_at)`. Days are 23, 24 or 25 h
 ### 5.2 Daily activity update (per graded review, in the review transaction)
 
 1. Get or create today's `daily_activities` row. On create: `goal = user_settings.daily_goal`.
-2. `graded_count += 1`; `correct_count += 1` if Vím; `points += card points`.
+2. `graded_count += 1`; `correct_count += 1` if Vím, Těžké or Snadné; `points += card points`.
 3. If `goal_met` is false and `graded_count ≥ goal`: set `goal_met = true`, `goal_met_at = now`, then run the **streak update** (§5.4).
 
 ### 5.3 Changing the daily goal
@@ -496,7 +499,7 @@ Streak 13 through yesterday (m = 1,1×), goal 20. Today the first 19 answers are
 | Shop item name / description / price / stock | 1–100 / ≤ 500 / 1–1 000 000 / 0–10 000 |
 | Notification text | 1–300 chars; only known placeholders (`{due} {left} {done} {goal} {streak} {multiplier} {item} {points}`); braces must match |
 | Settings | goal 1–500; new cards 0–100; times `HH:mm` (minutes 0–59); `quiet_from ≠ quiet_to` |
-| Review batch | 1–50 items; `id` a UUID; `rating` `know` or `dontKnow` |
+| Review batch | 1–50 items; `id` a UUID; `rating` `know`, `dontKnow`, `hard` or `easy` |
 | YAML upload | ≤ 1 MB, ≤ 2 000 cards (see `yaml-format.md`) |
 
 ---
@@ -538,13 +541,13 @@ All days are Prague days; "today" included. `deckId` filters everything except t
 | Item | Definition |
 | --- | --- |
 | Streak tile | displayed streak + best streak (never filtered) |
-| Success rate | Vím ÷ graded over the last 30 days, whole percent; `null` if no reviews |
+| Success rate | correct (Vím, Těžké, Snadné) ÷ graded over the last 30 days, whole percent; `null` if no reviews |
 | Sparkline | 30 values, one per day: daily success % or `null` on days without reviews |
 | Total reviews | all-time graded count |
 | Total points earned | all-time sum of `review` + `milestone` entries (claims and refunds excluded). With a deck filter: sum of `review_logs.points_awarded` for that deck |
 | Heatmap | 17 columns × 7 rows, Monday first; the last column is the current week (days after today are `null`). Level from `r = graded ÷ that day's goal`: 0 if graded = 0 · 1 if `r < 1` · 2 if `1 ≤ r < 1.25` · 3 if `1.25 ≤ r < 1.5` · 4 if `r ≥ 1.5`. Days without a row use the current goal (they're level 0 anyway). |
 | Cards per day | last 14 days of graded counts + the current goal for the dashed line |
-| Weekday success | last 90 days, Monday…Sunday: Vím ÷ graded; `null` if fewer than 10 graded |
+| Weekday success | last 90 days, Monday…Sunday: correct ÷ graded; `null` if fewer than 10 graded |
 | Best time window | last 90 days, fixed 2-hour windows (00–02, 02–04, … 22–24, Prague local hour of `reviewed_at`) with ≥ 20 graded reviews; highest success wins, tie → more reviews. `null` if no window qualifies |
 | Deck progress | counts of Zvládnuto / Učím se / Nové (§3.5), per deck and total |
 
@@ -558,7 +561,7 @@ Unfiltered numbers come from `daily_activities`; filtered numbers are computed f
 | --- | --- |
 | Pending claims | count of `claims.status = pending` |
 | Users active today | users with ≥ 1 graded review today |
-| Reviews today + success | graded today across users; Vím ÷ graded |
+| Reviews today + success | graded today across users; correct ÷ graded |
 | Points in the last 7 days | sum of `review` + `milestone` entries, last 7 Prague days incl. today |
 
 "Uživatelé dnes" table: every active user with displayed streak + multiplier, today's `graded_count / goal`, today's points, balance, `last_active_at`.

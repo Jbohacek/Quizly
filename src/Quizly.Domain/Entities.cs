@@ -32,6 +32,9 @@ public class UserSettings
     public TimeOnly QuietTo { get; set; } = new(7, 0);
     public bool SmartTimes { get; set; } = true;
 
+    /// <summary>"Těžké a Snadné": four answer buttons instead of Vím / Nevím (#19).</summary>
+    public bool FourRatings { get; set; }
+
     public User User { get; set; } = null!;
 }
 

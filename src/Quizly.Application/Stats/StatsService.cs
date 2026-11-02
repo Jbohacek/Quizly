@@ -88,7 +88,7 @@ internal sealed class StatsService(IAppDbContext db, TimeProvider time) : IStats
             var logs = DeckLogs(userId, deckId.Value);
             perDay = (await logs
                     .GroupBy(r => r.Day)
-                    .Select(g => new { Day = g.Key, Graded = g.Count(), Correct = g.Count(r => r.Rating == Rating.Good) })
+                    .Select(g => new { Day = g.Key, Graded = g.Count(), Correct = g.Count(r => r.Rating != Rating.Again) })
                     .ToListAsync(ct))
                 .ToDictionary(x => x.Day, x => (x.Graded, x.Correct));
             totalPoints = await logs.SumAsync(r => (int?)r.PointsAwarded, ct) ?? 0;
@@ -131,7 +131,7 @@ internal sealed class StatsService(IAppDbContext db, TimeProvider time) : IStats
         var since = PragueCalendar.StartOfDayUtc(last90[0]);
         var recent = await (deckId is null ? db.ReviewLogs.Where(r => r.UserId == userId) : DeckLogs(userId, deckId.Value))
             .Where(r => r.ReviewedAt >= since)
-            .Select(r => new { r.ReviewedAt, Correct = r.Rating == Rating.Good })
+            .Select(r => new { r.ReviewedAt, Correct = r.Rating != Rating.Again })
             .ToListAsync(ct);
         var bestTime = BestWindow(recent.Select(r => (r.ReviewedAt, r.Correct)));
 

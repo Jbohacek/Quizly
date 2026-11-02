@@ -28,6 +28,9 @@ public sealed class PointsTests
         Assert.Equal(decimal.Parse(multiplier, System.Globalization.CultureInfo.InvariantCulture), m);
         Assert.Equal(know, Points.For(Rating.Good, m));
         Assert.Equal(dontKnow, Points.For(Rating.Again, m));
+        // Těžké and Snadné are worth a Vím (#19).
+        Assert.Equal(know, Points.For(Rating.Hard, m));
+        Assert.Equal(know, Points.For(Rating.Easy, m));
     }
 
     [Theory]

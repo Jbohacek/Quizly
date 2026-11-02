@@ -118,11 +118,17 @@ class SessionTally {
 
   Iterable<_Answer> _of(Rating rating) => _answers.values.where((a) => a.rating == rating);
 
-  int get knowCount => _of(Rating.know).length;
-  int get dontKnowCount => _of(Rating.dontKnow).length;
+  int countOf(Rating rating) => _of(rating).length;
+  int pointsOf(Rating rating) => _of(rating).fold(0, (sum, a) => sum + a.points);
+
+  int get knowCount => countOf(Rating.know);
+  int get dontKnowCount => countOf(Rating.dontKnow);
   int get graded => _answers.length;
-  int get knowPoints => _of(Rating.know).fold(0, (sum, a) => sum + a.points);
-  int get dontKnowPoints => _of(Rating.dontKnow).fold(0, (sum, a) => sum + a.points);
+
+  /// Vím, Těžké and Snadné: remembered.
+  int get correctCount => graded - dontKnowCount;
+  int get knowPoints => pointsOf(Rating.know);
+  int get dontKnowPoints => pointsOf(Rating.dontKnow);
   List<AppEvent> get milestones => List.unmodifiable(_milestones);
 
   /// Wishlist items the balance reached during this session.
@@ -130,7 +136,7 @@ class SessionTally {
   int get bonusPoints => _milestones.fold(0, (sum, e) => sum + (e.bonus ?? 0));
 
   /// Everything earned in this session.
-  int get points => knowPoints + dontKnowPoints + bonusPoints;
+  int get points => _answers.values.fold(0, (sum, a) => sum + a.points) + bonusPoints;
 }
 
 class _Answer {

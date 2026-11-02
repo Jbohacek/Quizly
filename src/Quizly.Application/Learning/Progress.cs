@@ -89,9 +89,10 @@ internal sealed class Progress(IAppDbContext db, TimeProvider time)
             broken is var (previous, brokenOn) ? new StreakBrokenResponse(previous, brokenOn) : null);
     }
 
-    /// <summary>What Vím/Nevím are worth now.</summary>
+    /// <summary>What each answer is worth now.</summary>
     public static PointsValueResponse PointsFor(SummaryResponse summary) =>
-        new(Points.For(Rating.Good, summary.Multiplier), Points.For(Rating.Again, summary.Multiplier));
+        new(Points.For(Rating.Good, summary.Multiplier), Points.For(Rating.Again, summary.Multiplier),
+            Points.For(Rating.Hard, summary.Multiplier), Points.For(Rating.Easy, summary.Multiplier));
 
     /// <summary>New cards the user may still start today, across all decks (docs/spec.md §4.1).</summary>
     public async Task<int> NewAllowanceLeftAsync(int userId, int newCardsPerDay, DateOnly day, CancellationToken ct)
