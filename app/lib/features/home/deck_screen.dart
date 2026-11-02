@@ -541,23 +541,21 @@ class _CardTileState extends State<_CardTile> {
                     const SizedBox(height: 14),
                     const Divider(height: 1, color: Q.border),
                     const SizedBox(height: 12),
-                    _CardProgress(card: card, color: color),
-                    if (widget.onEdit != null) ...[
-                      const SizedBox(height: 10),
-                      Align(
-                        alignment: Alignment.centerLeft,
-                        child: TextButton.icon(
-                          onPressed: widget.onEdit,
-                          style: TextButton.styleFrom(
-                            foregroundColor: Q.primary,
-                            minimumSize: const Size(44, 44),
-                            padding: const EdgeInsets.symmetric(horizontal: 10),
-                          ),
-                          icon: const Icon(Icons.edit_rounded, size: 18),
-                          label: Text(S.editCard, style: QText.body(14, color: Q.primary, weight: FontWeight.w800)),
-                        ),
-                      ),
-                    ],
+                    _CardProgress(
+                      card: card,
+                      color: color,
+                      // A pencil next to the answer counts: no extra row when the card opens.
+                      edit: widget.onEdit == null
+                          ? null
+                          : IconButton(
+                              tooltip: S.editCardTitle,
+                              onPressed: widget.onEdit,
+                              color: Q.primary,
+                              constraints: const BoxConstraints.tightFor(width: 44, height: 44),
+                              padding: EdgeInsets.zero,
+                              icon: const Icon(Icons.edit_rounded, size: 20),
+                            ),
+                    ),
                   ],
                 ],
               ),
@@ -571,15 +569,22 @@ class _CardTileState extends State<_CardTile> {
 
 /// How well I know the card: the way to Zvládnuto, my answers, the next review.
 class _CardProgress extends StatelessWidget {
-  const _CardProgress({required this.card, required this.color});
+  const _CardProgress({required this.card, required this.color, this.edit});
 
   final DeckCard card;
   final Color color;
 
+  /// The edit button, right of the answer counts and the next review.
+  final Widget? edit;
+
+  Widget _withEdit(Widget lines) => edit == null
+      ? lines
+      : Row(children: [Expanded(child: lines), const SizedBox(width: 8), edit!]);
+
   @override
   Widget build(BuildContext context) {
     final muted = QText.body(12, color: Q.textMuted, weight: FontWeight.w600);
-    if (card.status == CardStatus.newCard) return Text(S.notStudiedYet, style: muted);
+    if (card.status == CardStatus.newCard) return _withEdit(Text(S.notStudiedYet, style: muted));
     final next = card.nextReview;
     final now = DateTime.now();
     return Column(
@@ -602,11 +607,16 @@ class _CardProgress extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 8),
-        Text(S.cardAnswers(card.knowCount, card.dontKnowCount), style: muted),
-        if (next != null) ...[
-          const SizedBox(height: 2),
-          Text(next.isAfter(now) ? S.nextReview(formatWhen(next, now)) : S.nextReviewNow, style: muted),
-        ],
+        _withEdit(Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(S.cardAnswers(card.knowCount, card.dontKnowCount), style: muted),
+            if (next != null) ...[
+              const SizedBox(height: 2),
+              Text(next.isAfter(now) ? S.nextReview(formatWhen(next, now)) : S.nextReviewNow, style: muted),
+            ],
+          ],
+        )),
       ],
     );
   }

@@ -793,11 +793,11 @@ void main() {
     await tester.scrollUntilVisible(find.text('Co je class?'), 200, scrollable: _deckList);
     await tester.tap(find.text('Co je class?'));
     await settle(tester);
-    await tester.scrollUntilVisible(find.text(S.editCard), 200, scrollable: _deckList);
+    await tester.scrollUntilVisible(find.byTooltip(S.editCardTitle), 200, scrollable: _deckList);
     // Clear of the bottom navigation bar.
     await tester.drag(_deckList, const Offset(0, -200));
     await settle(tester);
-    await tester.tap(find.text(S.editCard));
+    await tester.tap(find.byTooltip(S.editCardTitle));
     await settle(tester);
 
     expect(find.text(S.editCardTitle), findsOneWidget);
