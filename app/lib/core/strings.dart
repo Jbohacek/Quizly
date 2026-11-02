@@ -116,10 +116,6 @@ abstract final class S {
   static String cardOf(int index, int total) => 'Karta $index z $total';
   static const progressLabel = 'Postup v sezení';
   static const allDecks = 'Vše';
-  static const kindNew = 'Nová';
-  static const kindLearning = 'Učím se';
-  static const kindReview = 'Opakování';
-  static const kindRelearning = 'Znovu';
   static String multiplierChip(num value) => 'násobič ${formatMultiplier(value)}';
   static const question = 'OTÁZKA';
   static const answer = 'ODPOVĚĎ';

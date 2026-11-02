@@ -174,14 +174,11 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
           const SizedBox(height: 14),
           Row(
             children: [
-              // The deck name gets all the room the other chips leave.
+              // The deck name gets all the room "Upravit" leaves (Jakub's review: no card-kind chip).
               Expanded(
-                child: Row(
-                  children: [
-                    Flexible(child: Tag(label: deck?.name ?? S.allDecks, color: deckColor)),
-                    const SizedBox(width: 8),
-                    Tag(label: _kind(card.kind), color: Q.textMuted, background: Q.surface),
-                  ],
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Tag(label: deck?.name ?? S.allDecks, color: deckColor),
                 ),
               ),
               const SizedBox(width: 8),
@@ -318,15 +315,9 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
             ),
       );
 
-  static String _kind(CardKind kind) => switch (kind) {
-        CardKind.newCard => S.kindNew,
-        CardKind.learning => S.kindLearning,
-        CardKind.review => S.kindReview,
-        CardKind.relearning => S.kindRelearning,
-      };
 }
 
-/// "✎ Upravit" in the chip row: opens the card editor.
+/// "✎ Upravit" in the chip row: plain purple text, no pill. Opens the card editor.
 class _EditChip extends StatelessWidget {
   const _EditChip({required this.onPressed});
 
@@ -339,14 +330,13 @@ class _EditChip extends StatelessWidget {
       label: S.editCardTitle,
       excludeSemantics: true,
       child: Material(
-        color: Q.surface2,
-        borderRadius: BorderRadius.circular(999),
+        type: MaterialType.transparency,
         child: InkWell(
-          borderRadius: BorderRadius.circular(999),
+          borderRadius: BorderRadius.circular(12),
           onTap: onPressed,
           child: Container(
             constraints: const BoxConstraints(minHeight: 44, minWidth: 44),
-            padding: const EdgeInsets.symmetric(horizontal: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 6),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
