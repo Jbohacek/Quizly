@@ -88,6 +88,29 @@ abstract final class S {
   static const hideCard = 'Skrýt odpověď';
   static const emptyDeck = 'V tomhle balíčku zatím nejsou žádné karty.';
 
+  // Card editor (#23)
+  static const editCard = 'Upravit';
+  static const editCardTitle = 'Upravit kartu';
+  static const newCard = 'Nová karta';
+  static const addCard = 'Přidat kartu';
+  static const questionLabel = 'Otázka';
+  static const answerLabel = 'Odpověď';
+  static const fillQuestion = 'Vyplň otázku.';
+  static const fillAnswer = 'Vyplň odpověď.';
+  static const formattingHint = 'Formátování: **tučně**, *kurzíva*, <small>malé písmo</small>. '
+      'Řádek začínající „- “ je odrážka, „1. “ číslovaný seznam.';
+  static const preview = 'Náhled';
+  static const saveCard = 'Uložit kartu';
+  static const deleteCard = 'Smazat kartu';
+  static const deleteCardTitle = 'Smazat kartu?';
+  static const deleteCardText = 'Karta zmizí všem uživatelům i s jejich postupem. Nejde to vrátit.';
+  static const delete = 'Smazat';
+  static const cardEditShared = 'Úprava se projeví všem, kdo balíček vidí. Postup v kartě zůstane.';
+  static const discardTitle = 'Zahodit změny?';
+  static const discardText = 'Úpravy karty se neuloží.';
+  static const keepEditing = 'Pokračovat v úpravách';
+  static const discard = 'Zahodit';
+
   // Session
   static const closeSession = 'Ukončit učení';
   static String cardOf(int index, int total) => 'Karta $index z $total';

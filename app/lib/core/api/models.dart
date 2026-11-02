@@ -344,6 +344,9 @@ class SessionCard {
   final String question;
   final String answer;
   final CardKind kind;
+
+  SessionCard withText({required String question, required String answer}) =>
+      SessionCard(cardId: cardId, deckId: deckId, question: question, answer: answer, kind: kind);
 }
 
 class SessionData {

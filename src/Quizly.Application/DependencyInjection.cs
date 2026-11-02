@@ -28,6 +28,7 @@ public static class DependencyInjection
         services.AddScoped<IUserAdminService, UserAdminService>();
         services.AddScoped<IDeckService, DeckService>();
         services.AddScoped<ICardService, CardService>();
+        services.AddScoped<IAppCardService, AppCardService>();
         services.AddScoped<IShopItemService, ShopItemService>();
         services.AddScoped<INotificationTextService, NotificationTextService>();
 

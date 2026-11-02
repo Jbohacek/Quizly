@@ -14,6 +14,7 @@ import '../../core/theme/theme.dart';
 import '../../core/theme/tokens.dart';
 import '../../core/widgets/card_text.dart';
 import '../../core/widgets/widgets.dart';
+import '../cards/card_editor.dart';
 import '../session/session_controller.dart';
 import '../settings/how_it_works.dart';
 
@@ -27,12 +28,36 @@ class DeckScreen extends ConsumerWidget {
 
   final int deckId;
 
+  /// Adds a card ([card] null) or edits one, then reloads the deck and the counts on Domů.
+  Future<void> _edit(BuildContext context, WidgetRef ref, [DeckCard? card]) async {
+    final result = await editCard(
+      context,
+      deckId: deckId,
+      cardId: card?.id,
+      question: card?.question ?? '',
+      answer: card?.answer ?? '',
+    );
+    if (result == null) return;
+    ref.invalidate(deckCardsProvider(deckId));
+    invalidateProgress(ref);
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final data = ref.watch(deckCardsProvider(deckId));
     // The deck as Domů knows it: enough to show the counts and "Učit se" if the card list fails.
     final known = ref.watch(homeProvider).value?.decks.items.where((d) => d.id == deckId).firstOrNull;
     return Scaffold(
+      floatingActionButton: data.hasValue
+          ? FloatingActionButton(
+              tooltip: S.addCard,
+              backgroundColor: Q.primary,
+              foregroundColor: Q.onPrimary,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              onPressed: () => _edit(context, ref),
+              child: const Icon(Icons.add_rounded, size: 30),
+            )
+          : null,
       body: SafeArea(
         bottom: false,
         child: switch (data) {
@@ -40,7 +65,7 @@ class DeckScreen extends ConsumerWidget {
               color: Q.primary,
               backgroundColor: Q.surface,
               onRefresh: () => ref.refresh(deckCardsProvider(deckId).future),
-              child: _DeckBody(data: value),
+              child: _DeckBody(data: value, onEdit: (card) => _edit(context, ref, card)),
             ),
           AsyncValue(:final error?) when known != null => RefreshIndicator(
               color: Q.primary,
@@ -71,9 +96,12 @@ class DeckScreen extends ConsumerWidget {
 }
 
 class _DeckBody extends StatefulWidget {
-  const _DeckBody({required this.data, this.cardsError, this.onRetry});
+  const _DeckBody({required this.data, this.cardsError, this.onRetry, this.onEdit});
 
   final DeckCards data;
+
+  /// "Upravit" on an opened card.
+  final ValueChanged<DeckCard>? onEdit;
 
   /// The card list failed to load; the rest comes from Domů and studying still works.
   final String? cardsError;
@@ -118,7 +146,8 @@ class _DeckBodyState extends State<_DeckBody> {
     final shown = _shown;
     final filtered = _status != null || _search.text.trim().isNotEmpty;
     return ListView(
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+      // Room at the end for the "+" button.
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 96),
       children: [
         _BackRow(title: deck.name, color: color),
         if (deck.description.isNotEmpty) ...[
@@ -231,7 +260,11 @@ class _DeckBodyState extends State<_DeckBody> {
               child: Text(S.noMatch, style: QText.body(14, color: Q.textMuted, weight: FontWeight.w400, height: 1.5)),
             ),
           for (final card in shown) ...[
-            _CardTile(key: ValueKey(card.id), card: card),
+            _CardTile(
+              key: ValueKey(card.id),
+              card: card,
+              onEdit: widget.onEdit == null ? null : () => widget.onEdit!(card),
+            ),
             const SizedBox(height: 8),
           ],
         ],
@@ -373,9 +406,10 @@ class _Tile extends StatelessWidget {
 }
 
 class _CardTile extends StatefulWidget {
-  const _CardTile({super.key, required this.card});
+  const _CardTile({super.key, required this.card, this.onEdit});
 
   final DeckCard card;
+  final VoidCallback? onEdit;
 
   @override
   State<_CardTile> createState() => _CardTileState();
@@ -439,6 +473,22 @@ class _CardTileState extends State<_CardTile> {
                     const Divider(height: 1, color: Q.border),
                     const SizedBox(height: 12),
                     _CardProgress(card: card, color: color),
+                    if (widget.onEdit != null) ...[
+                      const SizedBox(height: 10),
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: TextButton.icon(
+                          onPressed: widget.onEdit,
+                          style: TextButton.styleFrom(
+                            foregroundColor: Q.primary,
+                            minimumSize: const Size(44, 44),
+                            padding: const EdgeInsets.symmetric(horizontal: 10),
+                          ),
+                          icon: const Icon(Icons.edit_rounded, size: 18),
+                          label: Text(S.editCard, style: QText.body(14, color: Q.primary, weight: FontWeight.w800)),
+                        ),
+                      ),
+                    ],
                   ],
                 ],
               ),

@@ -208,6 +208,21 @@ Cards in deck order (`sortOrder`, then id). `status` is the mastery bucket (spec
 
 ---
 
+### POST `/decks/{id}/cards` · PUT `/decks/{id}/cards/{cardId}` · DELETE `/decks/{id}/cards/{cardId}`
+
+Any user edits the cards of the decks they see (#23), with the dashboard's rules.
+
+```json
+{ "question": "Co je record v C#?", "answer": "Typ s hodnotovou rovností." }
+```
+
+- **POST** adds the card at the end of the deck → `201` with the card (`id`, `deckId`, `question`, `answer`, `sortOrder`, `createdAt`, `updatedAt`).
+- **PUT** changes the text → `200` with the card. Every user's progress on the card is kept.
+- **DELETE** → `204`. The card goes with **every user's progress** on it (spec §2.14); the app asks first.
+- Text is trimmed; empty or too long (500 / 2 000) → `400 validation` with `errors.question` / `errors.answer`. A deck the user doesn't see, or a card of another deck → `404 notFound`.
+
+---
+
 ## 5. Session
 
 ### GET `/session?deckId=1`

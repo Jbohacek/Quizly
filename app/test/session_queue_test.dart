@@ -33,6 +33,25 @@ void main() {
       expect(q.graded, 3);
     });
 
+    test('#23: an edited card shows its new text in every copy', () {
+      final q = SessionQueue([card(1), card(2)]);
+      q.answer(Rating.dontKnow); // card 1 waits at the end again
+      q.replaceText(1, question: 'Nová otázka', answer: 'Nová odpověď');
+      q.answer(Rating.know);
+      expect((q.current!.cardId, q.current!.question, q.current!.answer), (1, 'Nová otázka', 'Nová odpověď'));
+    });
+
+    test('#23: a deleted card leaves the queue and the total', () {
+      final q = SessionQueue([card(1), card(2), card(3)]);
+      q.answer(Rating.dontKnow); // 1 answered and re-queued: total 4
+      q.remove(1); // only its waiting copy goes; the answer stays counted
+      expect((q.current!.cardId, q.total, q.remaining), (2, 3, 2));
+      q.remove(2);
+      expect((q.current!.cardId, q.position, q.total), (3, 2, 2));
+      q.remove(3);
+      expect(q.isDone, isTrue);
+    });
+
     test('Přeskočit moves the card to the end without counting', () {
       final q = SessionQueue([card(1), card(2), card(3)]);
       q.skip();

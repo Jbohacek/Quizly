@@ -3,6 +3,7 @@ using System.Security.Claims;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.IdentityModel.JsonWebTokens;
 using Quizly.Application.Auth;
+using Quizly.Application.Decks;
 using Quizly.Application.Learning;
 using Quizly.Application.NotificationTexts;
 using Quizly.Application.Profile;
@@ -43,6 +44,17 @@ internal static class AppEndpoints
                 (await study.GetDeckCardsAsync(user.UserId(), deckId, ct)).OkOrProblem())
             .WithTags("Study").WithName("GetDeckCards")
             .WithSummary("A deck with all its cards and my status per card (new, learning, mastered)");
+
+        var cards = api.MapGroup("/decks/{deckId:int}/cards").WithTags("Cards");
+        cards.MapPost("/", async (int deckId, AppCardRequest request, ClaimsPrincipal user, IAppCardService service, CancellationToken ct) =>
+                (await service.CreateAsync(user.UserId(), deckId, request, ct)).CreatedOrProblem(c => $"/api/decks/{deckId}/cards"))
+            .WithName("AppCreateCard").WithSummary("Add a card to a deck I see (at the end)");
+        cards.MapPut("/{cardId:int}", async (int deckId, int cardId, AppCardRequest request, ClaimsPrincipal user, IAppCardService service, CancellationToken ct) =>
+                (await service.UpdateAsync(user.UserId(), deckId, cardId, request, ct)).OkOrProblem())
+            .WithName("AppUpdateCard").WithSummary("Edit a card; every user's progress on it is kept");
+        cards.MapDelete("/{cardId:int}", async (int deckId, int cardId, ClaimsPrincipal user, IAppCardService service, CancellationToken ct) =>
+                (await service.DeleteAsync(user.UserId(), deckId, cardId, ct)).NoContentOrProblem())
+            .WithName("AppDeleteCard").WithSummary("Delete a card with every user's progress on it");
 
         api.MapGet("/session", async (int? deckId, int? extraNew, ClaimsPrincipal user, IStudyService study, CancellationToken ct) =>
                 (await study.GetSessionAsync(user.UserId(), deckId, extraNew ?? 0, ct)).OkOrProblem())
