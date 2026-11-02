@@ -15,6 +15,8 @@ public sealed class StudyTests(QuizlyFactory factory) : IClassFixture<QuizlyFact
     [Fact]
     public async Task Session_lists_due_cards_first_then_new_cards_up_to_the_daily_allowance()
     {
+        // The steps below must stay in one Prague day; the clock starts at the real time (failed near midnight).
+        factory.AdvanceToPrague(new TimeOnly(10, 0));
         var user = await factory.CreateUserAsync(newCardsPerDay: 3);
         var (deckA, cardsA) = await factory.CreateDeckAsync("A" + Guid.NewGuid().ToString("N")[..6], 4, sortOrder: -20);
         var (deckB, cardsB) = await factory.CreateDeckAsync("B" + Guid.NewGuid().ToString("N")[..6], 2, sortOrder: -10);

@@ -2,7 +2,10 @@ using System.Globalization;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.IdentityModel.JsonWebTokens;
+using Microsoft.EntityFrameworkCore;
+using Quizly.Application.Abstractions;
 using Quizly.Application.Auth;
+using Quizly.Application.Common;
 using Quizly.Application.Decks;
 using Quizly.Application.Learning;
 using Quizly.Application.NotificationTexts;
@@ -72,7 +75,15 @@ internal static class AppEndpoints
                 (await stats.GetAsync(user.UserId(), deckId, ct)).OkOrProblem())
             .WithTags("Stats").WithName("GetStats").WithSummary("Tiles, heatmap, daily bars, weekdays, best time and deck progress");
 
-        var shop = api.MapGroup("").WithTags("Shop");
+        // Users the admin keeps out of the shop get 403 shopDisabled on all of it (shop, claims, wishlist).
+        var shop = api.MapGroup("").WithTags("Shop").AddEndpointFilter(async (context, next) =>
+        {
+            var db = context.HttpContext.RequestServices.GetRequiredService<IAppDbContext>();
+            var userId = context.HttpContext.User.UserId();
+            return await db.Users.AnyAsync(u => u.Id == userId && u.ShopEnabled, context.HttpContext.RequestAborted)
+                ? await next(context)
+                : Errors.ShopDisabled.ToProblem();
+        });
         shop.MapGet("/shop", async (ClaimsPrincipal user, IShopService service, CancellationToken ct) =>
                 TypedResults.Ok(await service.GetShopAsync(user.UserId(), ct)))
             .WithName("GetShop").WithSummary("Active rewards with stock and wishlist flags, plus the balance");

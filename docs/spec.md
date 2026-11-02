@@ -43,6 +43,7 @@ PostgreSQL **18** (`postgres:18` in compose). All FKs are indexed.
 | `last_active_at` | `timestamptz` | yes | | updated on authenticated API calls, at most once per minute |
 | `current_streak` | `integer` | no | `0` | cache, see §5 |
 | `best_streak` | `integer` | no | `0` | record |
+| `shop_enabled` | `boolean` | no | `true` | the admin can keep the user out of the shop |
 | `last_goal_met_date` | `date` | yes | | last Prague day with `goal_met` |
 
 Users are never deleted in v1; the admin deactivates them.

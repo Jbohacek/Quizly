@@ -14,7 +14,8 @@ public sealed record UserResponse(
     int TotalReviews,
     int? SuccessRate,
     DateTimeOffset CreatedAt,
-    DateTimeOffset? LastActiveAt);
+    DateTimeOffset? LastActiveAt,
+    bool ShopEnabled);
 
 /// <summary>Payload for creating an app user. Without a password one is generated.</summary>
 public sealed record CreateUserRequest(
@@ -22,10 +23,11 @@ public sealed record CreateUserRequest(
     string DisplayName,
     string? Password = null,
     int? DailyGoal = null,
-    int? NewCardsPerDay = null);
+    int? NewCardsPerDay = null,
+    bool ShopEnabled = true);
 
 /// <summary>Payload for editing an app user.</summary>
-public sealed record UpdateUserRequest(string DisplayName, int DailyGoal, int NewCardsPerDay);
+public sealed record UpdateUserRequest(string DisplayName, int DailyGoal, int NewCardsPerDay, bool ShopEnabled = true);
 
 /// <summary>A created user and their password, shown once.</summary>
 public sealed record CreatedUserResponse(UserResponse User, string Password);

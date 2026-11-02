@@ -41,7 +41,7 @@
                                 <td>
                                     <span class="stack">
                                         <span class="strong">@u.Username</span>
-                                        <span class="small muted">@u.DisplayName@(u.IsActive ? "" : " · účet deaktivovaný")</span>
+                                        <span class="small muted">@u.DisplayName@(u.IsActive ? "" : " · účet deaktivovaný")@(u.ShopEnabled ? "" : " · bez obchodu")</span>
                                     </span>
                                 </td>
                                 <td class="right num">@Cz.Number(u.Balance)</td>
@@ -100,6 +100,8 @@
             </div>
         </div>
         <p class="hint">Výchozí hodnoty, uživatel si je může změnit v nastavení.</p>
+        <label class="check"><input type="checkbox" @bind="_new.ShopEnabled" /> Obchod v aplikaci</label>
+        <p class="hint">Bez obchodu uživatel v aplikaci neuvidí Obchod, odměny ani nákupy. Body dál sbírá.</p>
         <button class="btn primary block" @onclick="CreateAsync" disabled="@_busy">Vytvořit uživatele</button>
     </section>
 </div>
@@ -127,6 +129,8 @@
                     <FieldMessage Message="@FieldError("newCardsPerDay")" />
                 </div>
             </div>
+            <label class="check"><input type="checkbox" @bind="_editShop" /> Obchod v aplikaci</label>
+            <p class="hint">Vypnuto: v aplikaci zmizí Obchod, odměny i nákupy. Body zůstanou.</p>
             <div class="actions">
                 <button class="btn" @onclick="() => _editing = null">Zrušit</button>
                 <button class="btn primary" @onclick="SaveEditAsync" disabled="@_busy">Uložit</button>
@@ -167,6 +171,7 @@
     private string _editName = "";
     private int _editGoal;
     private int _editNew;
+    private bool _editShop;
     private UserResponse? _resetting;
     private UserResponse? _deactivating;
     private (string Username, string Password)? _shownPassword;
@@ -181,7 +186,7 @@
     {
         _busy = true;
         var f = _new;
-        var request = new CreateUserRequest(f.Username, f.DisplayName, string.IsNullOrEmpty(f.Password) ? null : f.Password, f.DailyGoal, f.NewCardsPerDay);
+        var request = new CreateUserRequest(f.Username, f.DisplayName, string.IsNullOrEmpty(f.Password) ? null : f.Password, f.DailyGoal, f.NewCardsPerDay, f.ShopEnabled);
         var result = await UseAsync<IUserAdminService, Result<CreatedUserResponse>>(s => s.CreateAsync(request, CancellationToken.None));
         if (Handle(result, $"Účet {request.Username.Trim().ToLowerInvariant()} je založený."))
         {
@@ -196,7 +201,7 @@
     private void Edit(UserResponse user)
     {
         ClearMessages();
-        (_editing, _editName, _editGoal, _editNew) = (user, user.DisplayName, user.DailyGoal, user.NewCardsPerDay);
+        (_editing, _editName, _editGoal, _editNew, _editShop) = (user, user.DisplayName, user.DailyGoal, user.NewCardsPerDay, user.ShopEnabled);
     }
 
     private async Task SaveEditAsync()
@@ -204,7 +209,7 @@
         var id = _editing!.Id;
         _busy = true;
         var result = await UseAsync<IUserAdminService, Result<UserResponse>>(s =>
-            s.UpdateAsync(id, new UpdateUserRequest(_editName, _editGoal, _editNew), CancellationToken.None));
+            s.UpdateAsync(id, new UpdateUserRequest(_editName, _editGoal, _editNew, _editShop), CancellationToken.None));
         if (Handle(result, "Uloženo."))
         {
             _editing = null;
@@ -257,5 +262,7 @@
         public int DailyGoal { get; set; } = Limits.DefaultDailyGoal;
 
         public int NewCardsPerDay { get; set; } = Limits.DefaultNewCardsPerDay;
+
+        public bool ShopEnabled { get; set; } = true;
     }
 }

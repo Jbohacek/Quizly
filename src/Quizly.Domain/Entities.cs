@@ -16,6 +16,9 @@ public class User
     public int BestStreak { get; set; }
     public DateOnly? LastGoalMetDate { get; set; }
 
+    /// <summary>Obchod in the app. Off: no shop, wishlist or claims for this user (set by the admin).</summary>
+    public bool ShopEnabled { get; set; } = true;
+
     public UserSettings Settings { get; set; } = null!;
 }
 

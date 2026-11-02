@@ -12,7 +12,7 @@ public sealed record RefreshRequest(string RefreshToken);
 public sealed record ChangePasswordRequest(string CurrentPassword, string NewPassword);
 
 /// <summary>The signed-in app user.</summary>
-public sealed record AuthUserResponse(int Id, string Username, string DisplayName);
+public sealed record AuthUserResponse(int Id, string Username, string DisplayName, bool ShopEnabled = true);
 
 /// <summary>Access and refresh tokens returned by login and refresh.</summary>
 public sealed record TokenResponse(

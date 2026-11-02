@@ -623,6 +623,10 @@ namespace Quizly.Infrastructure.Persistence.Migrations
                         .HasColumnType("text")
                         .HasColumnName("password_hash");
 
+                    b.Property<bool>("ShopEnabled")
+                        .HasColumnType("boolean")
+                        .HasColumnName("shop_enabled");
+
                     b.Property<string>("Username")
                         .IsRequired()
                         .HasMaxLength(32)

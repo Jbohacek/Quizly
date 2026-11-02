@@ -100,7 +100,7 @@ Base URL: `https://quizly.jbohacek.cz/api`. Rules behind the numbers are in [`sp
   "accessTokenExpiresAt": "2026-11-02T08:10:00Z",
   "refreshToken": "kQ3n…base64url…",
   "refreshTokenExpiresAt": "2027-01-31T07:10:00Z",
-  "user": { "id": 2, "username": "jakub", "displayName": "Jakub" }
+  "user": { "id": 2, "username": "jakub", "displayName": "Jakub", "shopEnabled": true }
 }
 ```
 
@@ -122,7 +122,7 @@ Errors: `validation`, `invalidCredentials`, `accountDisabled`, `rateLimited`. `d
 
 ```json
 {
-  "user": { "id": 2, "username": "jakub", "displayName": "Jakub" },
+  "user": { "id": 2, "username": "jakub", "displayName": "Jakub", "shopEnabled": true },
   "summary": { "…": "Summary, §1.2" },
   "dueNow": 23,
   "forecast": { "nextMorning": "2026-11-03T07:00:00Z", "dueByNextMorning": 31 },
@@ -326,6 +326,8 @@ Definitions: spec §10. `successRate` values are whole percent or `null`.
 
 ## 8. Shop
 
+A user the admin keeps out of the shop (`user.shopEnabled: false` in login and `/me`) gets `403 shopDisabled` from every endpoint of this section, and reviews never report `wishlistReached` for them.
+
 ### GET `/shop`
 
 ```json
@@ -419,9 +421,9 @@ Admin cookie (spec §9.2). Same error format. Writes with a body require `Conten
 | Method | Path | Body → Response |
 | --- | --- | --- |
 | GET | `/admin/overview` | → tiles, pending claims, users today (spec §11) |
-| GET | `/admin/users` | → list: id, username, displayName, isActive, balance, streak, bestStreak, totalReviews, successRate, lastActiveAt |
-| POST | `/admin/users` | `{ username, displayName, password?, dailyGoal?, newCardsPerDay? }` → `201 { user, password }` (generated when omitted, shown once) |
-| PUT | `/admin/users/{id}` | `{ displayName, dailyGoal, newCardsPerDay }` → user |
+| GET | `/admin/users` | → list: id, username, displayName, isActive, balance, streak, bestStreak, totalReviews, successRate, lastActiveAt, shopEnabled |
+| POST | `/admin/users` | `{ username, displayName, password?, dailyGoal?, newCardsPerDay?, shopEnabled? }` → `201 { user, password }` (generated when omitted, shown once; `shopEnabled` defaults to true) |
+| PUT | `/admin/users/{id}` | `{ displayName, dailyGoal, newCardsPerDay, shopEnabled? }` → user |
 | POST | `/admin/users/{id}/reset-password` | → `{ password }` (shown once; revokes refresh tokens) |
 | POST | `/admin/users/{id}/activate` · `/deactivate` | → `204` |
 | GET / POST | `/admin/decks` | `{ name, description, color, sortOrder }` → deck (with `forEveryone`, `userCount`) |

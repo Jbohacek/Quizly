@@ -54,7 +54,7 @@ internal sealed class MeService(IAppDbContext db, Progress progress, StudyServic
         var smart = SmartTimes.EveningTime(recent);
 
         return new MeResponse(
-            new AuthUserResponse(user.Id, user.Username, user.DisplayName),
+            new AuthUserResponse(user.Id, user.Username, user.DisplayName, user.ShopEnabled),
             await progress.SummaryAsync(userId, ct),
             dueReviews + Math.Min(unseen, allowanceToday),
             new ForecastResponse(nextMorning.ToUtcOffset(), dueByMorning + Math.Min(unseen, allowanceThen)),

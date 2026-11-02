@@ -128,6 +128,7 @@ points = round(base × min(2.0, 1.0 + 0.1 × floor(streakDays / 7)))
 ### 5.6 Shop and claims
 - **Items** are real-life rewards (e.g. "Jít na pizzu") with name, description, price in points, **stock**, active flag and sort order. **No cooldowns.** Stock 1 means the item can be claimed only once.
 - **One shared shop**; each user has their own balance.
+- **Shop per user:** the admin can turn the shop off for a user ("Obchod v aplikaci", default on). Then the app has no Obchod tab, the points pill doesn't open anything, Hotovo shows no wishlist card, no wishlist notification comes, and the shop, claims and wishlist endpoints answer `403 shopDisabled`. Points are still earned.
 - **Claim** requires balance ≥ price and stock ≥ 1. In **one DB transaction**: create `Claim(Pending)`, add `PointsEntry(−price, claim)`, decrement stock. Prevent overselling with a row lock or optimistic concurrency.
 - The **admin confirms** a claim (Confirmed, final) **or rejects** it (Rejected → `PointsEntry(+price, refund)` and stock +1).
 - **Sold out** (stock 0): the item stays visible as **"Vyprodáno"** and can't be bought. **Inactive** items are hidden in the app.
@@ -181,7 +182,7 @@ points = round(base × min(2.0, 1.0 + 0.1 × floor(streakDays / 7)))
 - **Přehled:** tiles (pending claims, users active today, reviews today + success, points in the last 7 days); pending claims table with **Schválit / Zamítnout**; "Uživatelé dnes" table (streak + multiplier, today's goal progress, points, last active); quick actions.
 - **Balíčky:** deck list (with "Kdo vidí"); deck detail with tabs **Karty** (cards CRUD), **YAML** (§8), **Nastavení** (name, description, color, order, **who sees it**, delete).
 - **Obchod:** items table (price, stock left of initial, pending, on wishlists, status); edit form; **purchase history** with filters (Vše / Čeká / Schváleno / Zamítnuto) and actions on pending claims.
-- **Uživatelé:** table (username, display name, points, streak + record, total reviews, success, last active); actions **Upravit / Reset hesla / Aktivovat–Deaktivovat**; new-user form (generated password shown once, default goal, new cards per day).
+- **Uživatelé:** table (username, display name, points, streak + record, total reviews, success, last active); actions **Upravit / Reset hesla / Aktivovat–Deaktivovat**; new-user form (generated password shown once, default goal, new cards per day, **Obchod v aplikaci**); the edit form has **Obchod v aplikaci** too.
 - **Texty upozornění:** texts per category; add / edit / delete / activate; preview with sample placeholder values.
 - The layout is responsive: the sidebar stacks on narrow screens.
 
@@ -199,7 +200,7 @@ Integer identity keys, except `ReviewLog.Id`, which is the client UUID. Timestam
 
 | Entity | Fields | Notes |
 | --- | --- | --- |
-| `User` | Id, Username (unique), DisplayName, PasswordHash, IsActive, CreatedAt, LastActiveAt, CurrentStreak, BestStreak, LastGoalMetDate | streak fields are a cache derived from DailyActivity |
+| `User` | Id, Username (unique), DisplayName, PasswordHash, IsActive, ShopEnabled = true, CreatedAt, LastActiveAt, CurrentStreak, BestStreak, LastGoalMetDate | streak fields are a cache derived from DailyActivity |
 | `UserSettings` | UserId (PK/FK), DailyGoal = 20, NewCardsPerDay = 5, NotificationsEnabled, MorningTime = 08:00, EveningTime = 18:30, LastCallTime = 21:00, QuietFrom = 22:00, QuietTo = 07:00, SmartTimes = true, FourRatings = false | 1:1 with User |
 | `RefreshToken` | Id, UserId, TokenHash, ExpiresAt, CreatedAt, RevokedAt, ReplacedById | rotation |
 | `Deck` | Id, Name, Description, Color, SortOrder, ForEveryone, CreatedAt, UpdatedAt | |
@@ -459,3 +460,4 @@ Jakub confirmed these defaults at the Etapa 0 gate (2026-10-31). Raise any of th
 | 2026-11-02 | #18 (replaces "every user sees every deck"): a deck is "Pro všechny" or for users the admin picks (`decks.for_everyone` + `deck_access`). Existing and new decks are for everyone; every app endpoint filters by it; losing access hides the deck but keeps progress, and history stays unfiltered. No app change needed. |
 | 2026-11-02 | #23: any app user adds, edits and deletes cards of the decks they see (`POST/PUT/DELETE /api/decks/{id}/cards`), the same rules as the dashboard. In a session "✎ Upravit" replaced the multiplier chip (the hint row's points include the multiplier). Deleting asks first, since everyone's progress on the card goes. The editor shows no snackbar: the changed list shows it. Jakub's review: "+ Přidat kartu" is a dashed tile first in the card list (hidden while searching), not a floating button over the cards. |
 | 2026-11-02 | #19: optional Těžké (FSRS Hard) and Snadné (FSRS Easy), setting "Těžké a Snadné" (`user_settings.four_ratings`, default off). Both are correct and worth a Vím (points never depend on which one is picked); swipes stay Vím / Nevím; in this mode there's no Přeskočit button and a swipe up skips (Jakub's review: not explained in the app); the session response says which buttons to show. Reference vectors now cover all four ratings (py-fsrs 6.3.2). An older app that saves its settings turns the option off. |
+| 2026-11-02 | Jakub: the admin can turn the shop off per user (`users.shop_enabled`, default on, dashboard "Obchod v aplikaci"), so invited users stay out of the rewards. Without it: no Obchod tab, a points pill without a link, no wishlist card or notification, and `403 shopDisabled` from the shop, claims and wishlist endpoints. The app learns it from `user.shopEnabled` in login and `/api/me`. |
