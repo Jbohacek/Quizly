@@ -100,6 +100,19 @@ class ApiClient {
   Future<DeckCards> deckCards(int deckId) async =>
       DeckCards.fromJson(await _send<Json>('GET', '/decks/$deckId/cards'));
 
+  /// Adds a card at the end of a deck (#23); returns its id.
+  Future<int> createCard(int deckId, {required String question, required String answer}) async {
+    final json = await _send<Json>('POST', '/decks/$deckId/cards', data: {'question': question, 'answer': answer});
+    return (json['id'] as num).toInt();
+  }
+
+  /// Edits a card; everyone's progress on it stays.
+  Future<void> updateCard(int deckId, int cardId, {required String question, required String answer}) =>
+      _send<Object?>('PUT', '/decks/$deckId/cards/$cardId', data: {'question': question, 'answer': answer});
+
+  /// Deletes a card with everyone's progress on it.
+  Future<void> deleteCard(int deckId, int cardId) => _send<Object?>('DELETE', '/decks/$deckId/cards/$cardId');
+
   /// Changes my password. The server signs out every other device and returns new tokens for this one.
   Future<void> changePassword(String currentPassword, String newPassword) async {
     final json = await _send<Json>('POST', '/me/password', data: {

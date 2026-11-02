@@ -14,6 +14,7 @@ import '../../core/theme/theme.dart';
 import '../../core/theme/tokens.dart';
 import '../../core/widgets/card_text.dart';
 import '../../core/widgets/widgets.dart';
+import '../cards/card_editor.dart';
 import '../session/session_controller.dart';
 import '../settings/how_it_works.dart';
 
@@ -26,6 +27,20 @@ class DeckScreen extends ConsumerWidget {
   const DeckScreen({super.key, required this.deckId});
 
   final int deckId;
+
+  /// Adds a card ([card] null) or edits one, then reloads the deck and the counts on Domů.
+  Future<void> _edit(BuildContext context, WidgetRef ref, [DeckCard? card]) async {
+    final result = await editCard(
+      context,
+      deckId: deckId,
+      cardId: card?.id,
+      question: card?.question ?? '',
+      answer: card?.answer ?? '',
+    );
+    if (result == null) return;
+    ref.invalidate(deckCardsProvider(deckId));
+    invalidateProgress(ref);
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -40,7 +55,11 @@ class DeckScreen extends ConsumerWidget {
               color: Q.primary,
               backgroundColor: Q.surface,
               onRefresh: () => ref.refresh(deckCardsProvider(deckId).future),
-              child: _DeckBody(data: value),
+              child: _DeckBody(
+                data: value,
+                onEdit: (card) => _edit(context, ref, card),
+                onAdd: () => _edit(context, ref),
+              ),
             ),
           AsyncValue(:final error?) when known != null => RefreshIndicator(
               color: Q.primary,
@@ -71,9 +90,15 @@ class DeckScreen extends ConsumerWidget {
 }
 
 class _DeckBody extends StatefulWidget {
-  const _DeckBody({required this.data, this.cardsError, this.onRetry});
+  const _DeckBody({required this.data, this.cardsError, this.onRetry, this.onEdit, this.onAdd});
 
   final DeckCards data;
+
+  /// "Upravit" on an opened card.
+  final ValueChanged<DeckCard>? onEdit;
+
+  /// "+ Přidat kartu", the first tile of the list (hidden while searching).
+  final VoidCallback? onAdd;
 
   /// The card list failed to load; the rest comes from Domů and studying still works.
   final String? cardsError;
@@ -184,12 +209,16 @@ class _DeckBodyState extends State<_DeckBody> {
               ],
             ),
           )
-        else if (data.cards.isEmpty)
+        else if (data.cards.isEmpty) ...[
+          if (widget.onAdd != null) ...[
+            _AddCardTile(onTap: widget.onAdd!),
+            const SizedBox(height: 8),
+          ],
           Panel(
             radius: 18,
             child: Text(S.emptyDeck, style: QText.body(14, color: Q.textMuted, weight: FontWeight.w400, height: 1.5)),
-          )
-        else ...[
+          ),
+        ] else ...[
           TextField(
             controller: _search,
             textInputAction: TextInputAction.search,
@@ -225,19 +254,92 @@ class _DeckBodyState extends State<_DeckBody> {
             ],
           ),
           const SizedBox(height: 12),
+          if (widget.onAdd != null && _search.text.trim().isEmpty) ...[
+            _AddCardTile(onTap: widget.onAdd!),
+            const SizedBox(height: 8),
+          ],
           if (shown.isEmpty)
             Panel(
               radius: 18,
               child: Text(S.noMatch, style: QText.body(14, color: Q.textMuted, weight: FontWeight.w400, height: 1.5)),
             ),
           for (final card in shown) ...[
-            _CardTile(key: ValueKey(card.id), card: card),
+            _CardTile(
+              key: ValueKey(card.id),
+              card: card,
+              onEdit: widget.onEdit == null ? null : () => widget.onEdit!(card),
+            ),
             const SizedBox(height: 8),
           ],
         ],
       ],
     );
   }
+}
+
+/// "+ Přidat kartu": a card-sized tile with a dashed outline and muted text, first in the list.
+class _AddCardTile extends StatelessWidget {
+  const _AddCardTile({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final radius = BorderRadius.circular(18);
+    return Semantics(
+      button: true,
+      label: S.addCard,
+      excludeSemantics: true,
+      child: CustomPaint(
+        painter: _DashedOutline(radius: 18, color: Q.textMuted.withValues(alpha: 0.6)),
+        child: Material(
+          type: MaterialType.transparency,
+          child: InkWell(
+            borderRadius: radius,
+            onTap: onTap,
+            child: Container(
+              constraints: const BoxConstraints(minHeight: 56),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.add_rounded, size: 20, color: Q.textMuted),
+                  const SizedBox(width: 6),
+                  Text(S.addCard, style: QText.body(15, color: Q.textMuted, weight: FontWeight.w700)),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _DashedOutline extends CustomPainter {
+  const _DashedOutline({required this.radius, required this.color});
+
+  final double radius;
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.5;
+    final outline = Path()
+      ..addRRect(RRect.fromRectAndRadius(Offset.zero & size, Radius.circular(radius)).deflate(0.75));
+    const dash = 7.0, gap = 5.0;
+    for (final metric in outline.computeMetrics()) {
+      for (var d = 0.0; d < metric.length; d += dash + gap) {
+        canvas.drawPath(metric.extractPath(d, d + dash), paint);
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(_DashedOutline old) => old.color != color || old.radius != radius;
 }
 
 /// Zvládnuto / Učím se / Nové in one bar, like Statistiky (green, lavender, grey).
@@ -373,9 +475,10 @@ class _Tile extends StatelessWidget {
 }
 
 class _CardTile extends StatefulWidget {
-  const _CardTile({super.key, required this.card});
+  const _CardTile({super.key, required this.card, this.onEdit});
 
   final DeckCard card;
+  final VoidCallback? onEdit;
 
   @override
   State<_CardTile> createState() => _CardTileState();
@@ -438,7 +541,21 @@ class _CardTileState extends State<_CardTile> {
                     const SizedBox(height: 14),
                     const Divider(height: 1, color: Q.border),
                     const SizedBox(height: 12),
-                    _CardProgress(card: card, color: color),
+                    _CardProgress(
+                      card: card,
+                      color: color,
+                      // A pencil next to the answer counts: no extra row when the card opens.
+                      edit: widget.onEdit == null
+                          ? null
+                          : IconButton(
+                              tooltip: S.editCardTitle,
+                              onPressed: widget.onEdit,
+                              color: Q.primary,
+                              constraints: const BoxConstraints.tightFor(width: 44, height: 44),
+                              padding: EdgeInsets.zero,
+                              icon: const Icon(Icons.edit_rounded, size: 20),
+                            ),
+                    ),
                   ],
                 ],
               ),
@@ -452,15 +569,22 @@ class _CardTileState extends State<_CardTile> {
 
 /// How well I know the card: the way to Zvládnuto, my answers, the next review.
 class _CardProgress extends StatelessWidget {
-  const _CardProgress({required this.card, required this.color});
+  const _CardProgress({required this.card, required this.color, this.edit});
 
   final DeckCard card;
   final Color color;
 
+  /// The edit button, right of the answer counts and the next review.
+  final Widget? edit;
+
+  Widget _withEdit(Widget lines) => edit == null
+      ? lines
+      : Row(children: [Expanded(child: lines), const SizedBox(width: 8), edit!]);
+
   @override
   Widget build(BuildContext context) {
     final muted = QText.body(12, color: Q.textMuted, weight: FontWeight.w600);
-    if (card.status == CardStatus.newCard) return Text(S.notStudiedYet, style: muted);
+    if (card.status == CardStatus.newCard) return _withEdit(Text(S.notStudiedYet, style: muted));
     final next = card.nextReview;
     final now = DateTime.now();
     return Column(
@@ -483,11 +607,16 @@ class _CardProgress extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 8),
-        Text(S.cardAnswers(card.knowCount, card.dontKnowCount), style: muted),
-        if (next != null) ...[
-          const SizedBox(height: 2),
-          Text(next.isAfter(now) ? S.nextReview(formatWhen(next, now)) : S.nextReviewNow, style: muted),
-        ],
+        _withEdit(Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(S.cardAnswers(card.knowCount, card.dontKnowCount), style: muted),
+            if (next != null) ...[
+              const SizedBox(height: 2),
+              Text(next.isAfter(now) ? S.nextReview(formatWhen(next, now)) : S.nextReviewNow, style: muted),
+            ],
+          ],
+        )),
       ],
     );
   }

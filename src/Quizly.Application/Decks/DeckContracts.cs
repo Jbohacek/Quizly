@@ -35,5 +35,8 @@ public sealed record CardResponse(
     DateTimeOffset CreatedAt,
     DateTimeOffset UpdatedAt);
 
+/// <summary>A card added or edited in the app; the app doesn't reorder cards.</summary>
+public sealed record AppCardRequest(string Question, string Answer);
+
 /// <summary>Payload for creating or editing a card. Omitted sort order puts a new card at the end.</summary>
 public sealed record CardRequest(string Question, string Answer, int? SortOrder = null);

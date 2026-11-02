@@ -12,7 +12,7 @@ class SessionQueue {
         _initial = cards.length;
 
   final List<_Entry> _queue;
-  final int _initial;
+  int _initial;
   int _requeued = 0;
   int _graded = 0;
 
@@ -49,6 +49,28 @@ class SessionQueue {
   void skip() {
     if (_queue.length < 2) return;
     _queue.add(_queue.removeAt(0));
+  }
+
+  /// The card was edited during the session (#23): every copy shows the new text.
+  void replaceText(int cardId, {required String question, required String answer}) {
+    for (var i = 0; i < _queue.length; i++) {
+      final entry = _queue[i];
+      if (entry.card.cardId == cardId) {
+        _queue[i] = _Entry(entry.card.withText(question: question, answer: answer), requeued: entry.requeued);
+      }
+    }
+  }
+
+  /// The card was deleted during the session: it leaves the queue and "Karta X z Y".
+  void remove(int cardId) {
+    for (final entry in _queue.where((e) => e.card.cardId == cardId).toList()) {
+      _queue.remove(entry);
+      if (entry.requeued) {
+        _requeued--;
+      } else {
+        _initial--;
+      }
+    }
   }
 }
 

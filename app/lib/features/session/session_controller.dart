@@ -119,6 +119,27 @@ class SessionController extends ChangeNotifier {
     _notify();
   }
 
+  /// The current card was edited (#23): the session goes on with the new text.
+  void cardEdited(int cardId, {required String question, required String answer}) {
+    queue.replaceText(cardId, question: question, answer: answer);
+    _notify();
+  }
+
+  /// The current card was deleted: nothing is graded, the next card comes.
+  void cardDeleted(int cardId) {
+    queue.remove(cardId);
+    lastAnswer = null;
+    turn++;
+    if (queue.isDone) {
+      if (tally.graded == 0) {
+        phase = SessionPhase.empty;
+      } else {
+        unawaited(_finish());
+      }
+    }
+    _notify();
+  }
+
   Future<void> _finish() async {
     phase = SessionPhase.saving;
     _notify();

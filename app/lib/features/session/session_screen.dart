@@ -12,6 +12,7 @@ import '../../core/strings.dart';
 import '../../core/theme/theme.dart';
 import '../../core/theme/tokens.dart';
 import '../../core/widgets/widgets.dart';
+import '../cards/card_editor.dart';
 import '../home/deck_screen.dart';
 import 'session_controller.dart';
 import 'swipe_card.dart';
@@ -173,18 +174,16 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
           const SizedBox(height: 14),
           Row(
             children: [
-              // The deck name gets all the room the other chips leave.
+              // The deck name gets all the room "Upravit" leaves (Jakub's review: no card-kind chip).
               Expanded(
-                child: Row(
-                  children: [
-                    Flexible(child: Tag(label: deck?.name ?? S.allDecks, color: deckColor)),
-                    const SizedBox(width: 8),
-                    Tag(label: _kind(card.kind), color: Q.textMuted, background: Q.surface),
-                  ],
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Tag(label: deck?.name ?? S.allDecks, color: deckColor),
                 ),
               ),
               const SizedBox(width: 8),
-              Pulse(trigger: c.multiplier, child: Tag(label: S.multiplierChip(c.multiplier), color: Q.multiplier)),
+              // #23: the card can be fixed right here (the multiplier still shows in the points below).
+              _EditChip(onPressed: () => _editCurrent(c)),
             ],
           ),
           const SizedBox(height: 14),
@@ -264,6 +263,24 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
     );
   }
 
+  Future<void> _editCurrent(SessionController c) async {
+    final card = c.queue.current;
+    if (card == null) return;
+    final result = await editCard(
+      context,
+      deckId: card.deckId,
+      cardId: card.cardId,
+      question: card.question,
+      answer: card.answer,
+    );
+    if (result == null || !mounted) return;
+    if (result.deleted) {
+      c.cardDeleted(card.cardId);
+    } else {
+      c.cardEdited(card.cardId, question: result.question, answer: result.answer);
+    }
+  }
+
   /// After the card is turned: Nevím / Přeskočit / Vím.
   Widget _answerRow(SessionController c) => Padding(
         key: const ValueKey('answer'),
@@ -298,12 +315,41 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
             ),
       );
 
-  static String _kind(CardKind kind) => switch (kind) {
-        CardKind.newCard => S.kindNew,
-        CardKind.learning => S.kindLearning,
-        CardKind.review => S.kindReview,
-        CardKind.relearning => S.kindRelearning,
-      };
+}
+
+/// "✎ Upravit" in the chip row: plain purple text, no pill. Opens the card editor.
+class _EditChip extends StatelessWidget {
+  const _EditChip({required this.onPressed});
+
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: S.editCardTitle,
+      excludeSemantics: true,
+      child: Material(
+        type: MaterialType.transparency,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: onPressed,
+          child: Container(
+            constraints: const BoxConstraints(minHeight: 44, minWidth: 44),
+            padding: const EdgeInsets.symmetric(horizontal: 6),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.edit_rounded, size: 16, color: Q.multiplier),
+                const SizedBox(width: 6),
+                Text(S.editCard, style: QText.body(13, color: Q.multiplier, weight: FontWeight.w800)),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class _Header extends StatelessWidget {

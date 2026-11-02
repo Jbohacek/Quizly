@@ -34,6 +34,12 @@ class FakeApi implements HttpClientAdapter {
   int passwordChanges = 0;
   int dueNow = 2;
   final sessionQueries = <Map<String, String>>[];
+
+  /// Card edits from the app (#23): "METHOD path" with the body.
+  final cardRequests = <(String, Object?)>[];
+  final editedCards = <int, ({String question, String answer})>{};
+  final deletedCards = <int>{};
+  final addedCards = <Map<String, Object?>>[];
   final savedSettings = <Map<String, Object?>>[];
   Map<String, Object?> settings = {
     'dailyGoal': 20, 'newCardsPerDay': 5, 'notificationsEnabled': true,
@@ -165,17 +171,28 @@ class FakeApi implements HttpClientAdapter {
             'learningPercent': 33, 'unseenCards': 1,
           },
           'cards': [
-            {
-              'id': 101, 'question': 'Co je struct?', 'answer': 'Hodnotový typ.', 'status': 'mastered',
-              'masteryPercent': 100, 'knowCount': 6, 'dontKnowCount': 0, 'nextReview': '2099-01-01T08:00:00Z',
-            },
-            {
-              'id': 102, 'question': 'Co je class?', 'answer': '**Referenční** typ.', 'status': 'learning',
-              'masteryPercent': 45, 'knowCount': 3, 'dontKnowCount': 1, 'nextReview': '2026-11-01T08:00:00Z',
-            },
-            {'id': 103, 'question': 'Co je record?', 'answer': 'Typ s hodnotovou rovností.', 'status': 'new'},
+            for (final c in <Map<String, Object?>>[
+              {
+                'id': 101, 'question': 'Co je struct?', 'answer': 'Hodnotový typ.', 'status': 'mastered',
+                'masteryPercent': 100, 'knowCount': 6, 'dontKnowCount': 0, 'nextReview': '2099-01-01T08:00:00Z',
+              },
+              {
+                'id': 102, 'question': 'Co je class?', 'answer': '**Referenční** typ.', 'status': 'learning',
+                'masteryPercent': 45, 'knowCount': 3, 'dontKnowCount': 1, 'nextReview': '2026-11-01T08:00:00Z',
+              },
+              {'id': 103, 'question': 'Co je record?', 'answer': 'Typ s hodnotovou rovností.', 'status': 'new'},
+              ...addedCards,
+            ])
+              if (!deletedCards.contains(c['id']))
+                {
+                  ...c,
+                  if (editedCards[c['id']] case final e?) ...{'question': e.question, 'answer': e.answer},
+                },
           ],
         }),
+      'POST /api/decks/1/cards' => _addCard(body as Map<String, Object?>),
+      final r when r.startsWith('PUT /api/decks/1/cards/') => _editCard(r, body as Map<String, Object?>),
+      final r when r.startsWith('DELETE /api/decks/1/cards/') => _deleteCard(r),
       'POST /api/me/password' => _changePassword(body as Map<String, Object?>),
       'GET /api/stats' => _json(stats((statsQueries..add(options.uri.queryParameters['deckId'])).last)),
       'GET /api/shop' => _json(shop),
@@ -224,6 +241,26 @@ class FakeApi implements HttpClientAdapter {
     };
     claims.add(claim);
     return _json({'claim': claim, 'balance': balance}, 201);
+  }
+
+  ResponseBody _addCard(Map<String, Object?> body) {
+    cardRequests.add(('POST', body));
+    final card = {'id': 200 + addedCards.length, 'question': body['question'], 'answer': body['answer'], 'status': 'new'};
+    addedCards.add(card);
+    return _json({...card, 'deckId': 1, 'sortOrder': 9}, 201);
+  }
+
+  ResponseBody _editCard(String route, Map<String, Object?> body) {
+    cardRequests.add((route, body));
+    final id = int.parse(route.split('/').last);
+    editedCards[id] = (question: body['question']! as String, answer: body['answer']! as String);
+    return _json({'id': id, 'deckId': 1, ...body});
+  }
+
+  ResponseBody _deleteCard(String route) {
+    cardRequests.add((route, null));
+    deletedCards.add(int.parse(route.split('/').last));
+    return ResponseBody.fromString('', 204);
   }
 
   ResponseBody _changePassword(Map<String, Object?> body) {
@@ -747,6 +784,93 @@ void main() {
     expect(find.textContaining('FSRS', findRichText: true), findsOneWidget);
   });
 
+  testWidgets('#23: edit a card from the deck, add one with +', (tester) async {
+    final (api, _) = await _signedIn(tester);
+    await _scrollTo(tester, find.text('C# základy'));
+    await tester.tap(find.text('C# základy'));
+    await settle(tester);
+
+    await tester.scrollUntilVisible(find.text('Co je class?'), 200, scrollable: _deckList);
+    await tester.tap(find.text('Co je class?'));
+    await settle(tester);
+    await tester.scrollUntilVisible(find.byTooltip(S.editCardTitle), 200, scrollable: _deckList);
+    // Clear of the bottom navigation bar.
+    await tester.drag(_deckList, const Offset(0, -200));
+    await settle(tester);
+    await tester.tap(find.byTooltip(S.editCardTitle));
+    await settle(tester);
+
+    expect(find.text(S.editCardTitle), findsOneWidget);
+    // The fields hold the text as typed; the preview shows it formatted.
+    expect(find.widgetWithText(TextField, '**Referenční** typ.'), findsOneWidget);
+    expect(find.text('Referenční typ.', findRichText: true), findsOneWidget);
+    await tester.enterText(find.widgetWithText(TextField, 'Co je class?'), 'Co je class v C#?');
+    await tester.scrollUntilVisible(find.text(S.saveCard), 200, scrollable: find.byType(Scrollable).last);
+    await tester.tap(find.text(S.saveCard));
+    await settle(tester);
+
+    expect(api.cardRequests.single.$1, 'PUT /api/decks/1/cards/102');
+    expect(api.cardRequests.single.$2, {'question': 'Co je class v C#?', 'answer': '**Referenční** typ.'});
+    expect(find.text('Co je class v C#?'), findsOneWidget);
+
+    // "+ Přidat kartu" is the first tile; it hides while searching.
+    await tester.enterText(find.byType(TextField), 'class');
+    await settle(tester);
+    expect(find.bySemanticsLabel(S.addCard), findsNothing);
+    await tester.enterText(find.byType(TextField), '');
+    await settle(tester);
+    await tester.scrollUntilVisible(find.bySemanticsLabel(S.addCard), -200, scrollable: _deckList);
+    // Empty fields are caught before anything is sent.
+    await tester.tap(find.bySemanticsLabel(S.addCard));
+    await settle(tester);
+    expect(find.text(S.newCard), findsOneWidget);
+    await tester.scrollUntilVisible(find.text(S.addCard), 200, scrollable: find.byType(Scrollable).last);
+    await tester.tap(find.text(S.addCard));
+    await settle(tester);
+    expect(find.text(S.fillQuestion), findsOneWidget);
+    expect(api.cardRequests, hasLength(1));
+    await tester.enterText(find.byType(TextField).at(0), 'Co je interface?');
+    await tester.enterText(find.byType(TextField).at(1), 'Smlouva, kterou třída splní.');
+    await tester.tap(find.text(S.addCard));
+    await settle(tester);
+    expect(api.cardRequests.last.$1, 'POST');
+    expect(api.cardRequests.last.$2, {'question': 'Co je interface?', 'answer': 'Smlouva, kterou třída splní.'});
+    await tester.scrollUntilVisible(find.text('Co je interface?'), 200, scrollable: _deckList);
+    expect(find.text('Co je interface?'), findsOneWidget);
+  });
+
+  testWidgets('#23: "Upravit" in a session fixes the card; deleting it moves on', (tester) async {
+    final (api, _) = await _signedIn(tester);
+    await tester.tap(find.text(S.studyAll(2)));
+    await settle(tester);
+    expect(find.text(S.multiplierChip(1.1)), findsNothing);
+
+    await tester.tap(find.bySemanticsLabel(S.editCardTitle));
+    await settle(tester);
+    await tester.enterText(find.widgetWithText(TextField, 'Hodnotový typ.'), 'Hodnotový typ na zásobníku.');
+    await tester.scrollUntilVisible(find.text(S.saveCard), 200, scrollable: find.byType(Scrollable).last);
+    await tester.tap(find.text(S.saveCard));
+    await settle(tester);
+    expect(api.cardRequests.single.$1, 'PUT /api/decks/1/cards/101');
+    await tester.tap(find.byType(SwipeCard));
+    await settle(tester);
+    expect(find.text('Hodnotový typ na zásobníku.', findRichText: true), findsOneWidget);
+    expect(api.reviewed, isEmpty);
+
+    await tester.tap(find.bySemanticsLabel(S.editCardTitle));
+    await settle(tester);
+    await tester.tap(find.byTooltip(S.deleteCard));
+    await settle(tester);
+    expect(find.text(S.deleteCardText), findsOneWidget);
+    await tester.tap(find.text(S.delete));
+    await settle(tester);
+    expect(api.cardRequests.last, ('DELETE /api/decks/1/cards/101', null));
+    // The next card, and the deleted one no longer counts.
+    expect(find.text('Co je class?'), findsOneWidget);
+    expect(find.text(S.cardOf(1, 1)), findsOneWidget);
+    expect(api.reviewed, isEmpty);
+  });
+
   group('accessibility (CLAUDE.md §9.3)', () {
     // Touch targets ≥ 44 px, every tappable thing has a label, text contrast ≥ 4.5:1.
     const tapTargets = MinimumTapTargetGuideline(size: Size(44, 44), link: 'CLAUDE.md §9.3');
@@ -807,6 +931,12 @@ void main() {
       await tester.tap(find.byType(SwipeCard));
       await settle(tester);
       await meetsAll(tester, 'Učení, answer side');
+
+      await tester.tap(find.bySemanticsLabel(S.editCardTitle));
+      await settle(tester);
+      await meetsAll(tester, 'Upravit kartu');
+      await tester.tap(find.byTooltip(S.back));
+      await settle(tester);
 
       await _answer(tester, 'Vím');
       await _answer(tester, 'Vím');
