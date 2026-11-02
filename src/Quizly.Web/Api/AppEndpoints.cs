@@ -44,11 +44,11 @@ internal static class AppEndpoints
             .WithTags("Study").WithName("GetDeckCards")
             .WithSummary("A deck with all its cards and my status per card (new, learning, mastered)");
 
-        api.MapGet("/session", async (int? deckId, ClaimsPrincipal user, IStudyService study, CancellationToken ct) =>
-                (await study.GetSessionAsync(user.UserId(), deckId, ct)).OkOrProblem())
+        api.MapGet("/session", async (int? deckId, int? extraNew, ClaimsPrincipal user, IStudyService study, CancellationToken ct) =>
+                (await study.GetSessionAsync(user.UserId(), deckId, extraNew ?? 0, ct)).OkOrProblem())
             .WithTags("Study").WithName("GetSession")
             .WithSummary("Session queue: due cards (most overdue first), then new cards up to today's allowance")
-            .WithDescription("Omit deckId for \"Učit se vše\".");
+            .WithDescription("Omit deckId for \"Učit se vše\". extraNew (0–50) adds new cards over today's allowance.");
 
         api.MapPost("/reviews", async (ReviewBatchRequest request, ClaimsPrincipal user, IReviewService reviews, CancellationToken ct) =>
                 (await reviews.SubmitAsync(user.UserId(), request, ct)).OkOrProblem())
