@@ -184,6 +184,8 @@ class Deck {
     required this.dueNow,
     required this.newAvailable,
     required this.masteredPercent,
+    this.learningPercent = 0,
+    this.unseenCards = 0,
   });
 
   factory Deck.fromJson(Json j) => Deck(
@@ -195,6 +197,9 @@ class Deck {
         dueNow: _int(j['dueNow']),
         newAvailable: _int(j['newAvailable']),
         masteredPercent: _int(j['masteredPercent']),
+        // Older servers (before Etapa 8 fixes) don't send these.
+        learningPercent: _int(j['learningPercent'] ?? 0),
+        unseenCards: _int(j['unseenCards'] ?? 0),
       );
 
   final int id;
@@ -209,6 +214,12 @@ class Deck {
   final int dueNow;
   final int newAvailable;
   final int masteredPercent;
+  final int learningPercent;
+
+  /// Cards never answered, whether or not today's allowance is left ("Ještě 5 nových karet").
+  final int unseenCards;
+
+  int get freshPercent => (100 - masteredPercent - learningPercent).clamp(0, 100);
 }
 
 /// My progress on one card (spec §3.5): Nová, Učím se, Zvládnuto.
@@ -225,19 +236,40 @@ enum CardStatus {
 }
 
 class DeckCard {
-  const DeckCard({required this.id, required this.question, required this.answer, required this.status});
+  const DeckCard({
+    required this.id,
+    required this.question,
+    required this.answer,
+    required this.status,
+    this.masteryPercent = 0,
+    this.knowCount = 0,
+    this.dontKnowCount = 0,
+    this.nextReview,
+  });
 
   factory DeckCard.fromJson(Json j) => DeckCard(
         id: _int(j['id']),
         question: j['question'] as String,
         answer: j['answer'] as String,
         status: CardStatus.parse(j['status'] as String),
+        masteryPercent: _int(j['masteryPercent'] ?? 0),
+        knowCount: _int(j['knowCount'] ?? 0),
+        dontKnowCount: _int(j['dontKnowCount'] ?? 0),
+        nextReview: j['nextReview'] == null ? null : DateTime.parse(j['nextReview'] as String),
       );
 
   final int id;
   final String question;
   final String answer;
   final CardStatus status;
+
+  /// Way to Zvládnuto: the memory's stability out of 21 days (100 = Zvládnuto).
+  final int masteryPercent;
+  final int knowCount;
+  final int dontKnowCount;
+
+  /// When the card is due again; null for a new card.
+  final DateTime? nextReview;
 }
 
 /// `GET /decks/{id}/cards`: the deck with my counts and all its cards in order.

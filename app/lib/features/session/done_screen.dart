@@ -173,9 +173,7 @@ class _DoneScreenState extends State<DoneScreen> {
                     Expanded(
                       child: SecondaryButton(
                         label: S.studyMore,
-                        onPressed: () => context.pushReplacement(
-                          result.deckId == null ? '/session' : '/session?deck=${result.deckId}',
-                        ),
+                        onPressed: () => context.pushReplacement(sessionPath(deckId: result.deckId)),
                       ),
                     ),
                     const SizedBox(width: 10),

@@ -15,6 +15,7 @@ import '../../core/theme/theme.dart';
 import '../../core/theme/tokens.dart';
 import '../../core/widgets/widgets.dart';
 import '../notifications/notifications.dart';
+import 'how_it_works.dart';
 
 final settingsProvider = FutureProvider.autoDispose<UserSettings>((ref) => ref.watch(apiClientProvider).settings());
 
@@ -294,6 +295,35 @@ class _SettingsBodyState extends ConsumerState<_SettingsBody> {
                 onChanged: (v) => _change(_settings.copyWith(newCardsPerDay: v)),
               ),
             ],
+          ),
+        ),
+        const SizedBox(height: 10),
+        Material(
+          color: Q.surface,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20), side: const BorderSide(color: Q.border)),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: () => showHowItWorks(context),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 14, 14, 14),
+              child: Row(
+                children: [
+                  const Icon(Icons.help_outline_rounded, color: Q.textMuted),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(S.howItWorks, style: QText.body(15, weight: FontWeight.w800)),
+                        const SizedBox(height: 2),
+                        Text(S.howItWorksHint, style: QText.body(12, color: Q.textMuted, weight: FontWeight.w400)),
+                      ],
+                    ),
+                  ),
+                  const Icon(Icons.chevron_right_rounded, color: Q.textMuted),
+                ],
+              ),
+            ),
           ),
         ),
         const SizedBox(height: 16),

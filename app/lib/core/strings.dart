@@ -56,6 +56,11 @@ abstract final class S {
   static String deckNew(int fresh) => countOf(fresh, 'nová', 'nové', 'nových');
   static const deckDone = 'hotovo';
   static String deckMeta(int total, int mastered) => '${cards(total)} · ${formatPercent(mastered)} zvládnuto';
+  static String deckMetaLearning(int total, int mastered, int learning) =>
+      '${cards(total)} · ${formatPercent(mastered)} zvládnuto · ${formatPercent(learning)} učím se';
+  static String deckProgressLabel(int mastered, int learning) =>
+      'Postup: ${formatPercent(mastered)} zvládnuto, ${formatPercent(learning)} učím se';
+  static String moreNewCards(int count) => 'Ještě ${countOf(count, 'nová karta', 'nové karty', 'nových karet')}';
   static const noDecks = 'Zatím tu nejsou žádné balíčky. Správce je brzy přidá.';
 
   // Deck detail
@@ -69,7 +74,18 @@ abstract final class S {
   static const statusNew = 'Nová';
   static const statusLearning = 'Učím se';
   static const statusMastered = 'Zvládnuto';
-  static const showAnswer = 'Klepni a uvidíš odpověď';
+  static const searchCards = 'Hledat v kartách';
+  static const clearSearch = 'Smazat hledání';
+  static const filterAll = 'Vše';
+  static const noMatch = 'Tomu neodpovídá žádná karta.';
+  static String cardsShown(int shown, int total) => '${formatInt(shown)} z ${formatInt(total)}';
+  static const cardProgress = 'Cesta ke zvládnutí';
+  static String cardAnswers(int know, int dontKnow) => 'Vím: ${formatInt(know)} · Nevím: ${formatInt(dontKnow)}';
+  static String nextReview(String when) => 'Další opakování: $when';
+  static const nextReviewNow = 'Další opakování: teď';
+  static const notStudiedYet = 'Zatím bez odpovědi. Přijde na řadu mezi novými kartami.';
+  static const showCard = 'Ukázat odpověď a postup';
+  static const hideCard = 'Skrýt odpověď';
   static const emptyDeck = 'V tomhle balíčku zatím nejsou žádné karty.';
 
   // Session
@@ -89,6 +105,7 @@ abstract final class S {
   static String hintDontKnow(int value) => '← Nevím · ${formatSigned(value)}';
   static String hintKnow(int value) => 'Vím · ${formatSigned(value)} →';
   static const hintDrag = 'nebo táhni kartou';
+  static const flipCard = 'Otočit kartu';
   static const know = 'Vím';
   static const dontKnow = 'Nevím';
   static const skip = 'Přeskočit';
@@ -97,6 +114,7 @@ abstract final class S {
   static const saving = 'Ukládám odpovědi…';
   static const emptySessionTitle = 'Na teď je hotovo';
   static const emptySessionText = 'Žádné karty k opakování ani nové karty na dnešek. Zítra tu budou další.';
+  static const emptySessionMore = 'Nové karty na dnešek máš za sebou. Jestli máš chuť, přidej si další.';
   static const backHome = 'Zpět domů';
   static const leaveTitle = 'Ukončit učení?';
   static const leaveText = 'Odpovědi, které už máš, zůstanou uložené.';
@@ -135,6 +153,16 @@ abstract final class S {
   static const fillCurrentPassword = 'Vyplň současné heslo.';
   static const passwordChanged = 'Heslo je změněné.';
   static const learning = 'Učení';
+  static const howItWorks = 'Jak Quizly dávkuje karty';
+  static const howItWorksHint = 'Proč se karty vracejí, kdy se vracejí';
+  static const howItWorksText = [
+    'Quizly používá algoritmus FSRS. U každé karty sleduje, jak dlouho ti odpověď vydrží v paměti.',
+    'Kartu ti ukáže znovu ve chvíli, kdy šance, že si odpověď vybavíš, klesne zhruba na 90 %. Opakuješ tak jen to, co je potřeba.',
+    '**Vím:** pauza do dalšího opakování se prodlouží. Z minut jsou dny, pak týdny a měsíce.',
+    '**Nevím:** karta se ještě jednou vrátí na konec učení a pak brzy znovu, dokud se neusadí.',
+    '**Nové karty** přibývají po pár denně (Nové karty denně v Nastavení), ať se opakování nenahromadí. Chceš víc? Až bude na dnešek hotovo, dej na Domů „Ještě 5 nových karet“.',
+    '**Nová:** zatím bez odpovědi. **Učím se:** karta se teprve usazuje. **Zvládnuto:** vydrží v paměti aspoň 3 týdny.',
+  ];
   static const dailyGoalHint = 'Kolik karet denně stačí, aby se den počítal do série';
   static const decreaseGoal = 'Snížit denní cíl';
   static const increaseGoal = 'Zvýšit denní cíl';
