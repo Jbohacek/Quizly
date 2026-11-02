@@ -2,6 +2,7 @@
 @attribute [Authorize(Policy = AuthSetup.AdminPolicy)]
 @inherits AdminPage
 @using Quizly.Application.Decks
+@using Quizly.Application.Users
 @using Quizly.Application.Yaml
 @inject NavigationManager Navigation
 @inject IJSRuntime JS
@@ -19,7 +20,7 @@
     <div>
         <a class="eyebrow" href="/admin/balicky">← Balíčky</a>
         <h1><span class="swatch" style="background:@_deck.Color; width:22px; height:22px; border-radius:7px"></span>@_deck.Name</h1>
-        <span class="muted">@Cz.Cards(_deck.CardCount)@(_deck.Description.Length > 0 ? $" · {_deck.Description}" : "")</span>
+        <span class="muted">@Cz.Cards(_deck.CardCount) · vidí: @Cz.DeckAudience(_deck.ForEveryone, _deck.UserCount)@(_deck.Description.Length > 0 ? $" · {_deck.Description}" : "")</span>
     </div>
 </header>
 
@@ -147,6 +148,39 @@
             </div>
         </section>
 
+        <section class="card form" aria-labelledby="access-title">
+            <h2 id="access-title">Kdo balíček vidí</h2>
+            <label class="check"><input type="checkbox" @bind="_forEveryone" /> Pro všechny (i pro nové uživatele)</label>
+            @if (!_forEveryone)
+            {
+                <p class="hint">Balíček uvidí jen vybraní uživatelé. Komu ho odebereš, tomu zmizí z aplikace, ale postup mu zůstane a vrátí se s přístupem.</p>
+                @if (_users is null)
+                {
+                    <p class="muted">Načítám…</p>
+                }
+                else if (_users.Count == 0)
+                {
+                    <p class="empty">Zatím žádní uživatelé.</p>
+                }
+                else
+                {
+                    <div class="stack">
+                        @foreach (var u in _users)
+                        {
+                            <label class="check">
+                                <input type="checkbox" checked="@_access.Contains(u.Id)" @onchange="e => Toggle(u.Id, e.Value is true)" />
+                                @u.DisplayName <span class="muted" style="font-weight:400">@u.Username@(u.IsActive ? "" : " · deaktivovaný účet")</span>
+                            </label>
+                        }
+                    </div>
+                }
+                <FieldMessage Message="@FieldError("userIds")" />
+            }
+            <div class="row">
+                <button class="btn primary" @onclick="SaveAccessAsync" disabled="@_busy">Uložit přístup</button>
+            </div>
+        </section>
+
         <section class="card" aria-labelledby="danger-title">
             <h2 id="danger-title">Smazání balíčku</h2>
             <p class="muted">Smaže balíček, všechny jeho karty a postup všech uživatelů v nich. Body ani historie dnů se nemění.</p>
@@ -198,6 +232,9 @@
     private string _color = Limits.DefaultDeckColor;
     private int _sortOrder;
     private DeckDeleteImpact? _deleteImpact;
+    private bool _forEveryone = true;
+    private HashSet<int> _access = [];
+    private IReadOnlyList<UserResponse>? _users;
 
     private bool NothingToApply => _preview is { Counts: { New: 0, Changed: 0, Deleted: 0 }, OrderChanged: false, Deck: { NameChanged: false, DescriptionChanged: false, ColorChanged: false } };
 
@@ -231,6 +268,10 @@
         if (tab == Tab.Yaml && _yaml.Length == 0)
         {
             await LoadExportAsync();
+        }
+        else if (tab == Tab.Settings)
+        {
+            await LoadAccessAsync();
         }
     }
 
@@ -345,6 +386,43 @@
         {
             _yaml = "";
             await LoadDeckAsync();
+        }
+
+        _busy = false;
+    }
+
+    private async Task LoadAccessAsync()
+    {
+        var access = await UseAsync<IDeckService, Result<DeckAccessDto>>(s => s.GetAccessAsync(Id, CancellationToken.None));
+        if (access.Value is { } a)
+        {
+            (_forEveryone, _access) = (a.ForEveryone, [.. a.UserIds]);
+        }
+
+        _users = await UseAsync<IUserAdminService, IReadOnlyList<UserResponse>>(s => s.ListAsync(CancellationToken.None));
+    }
+
+    private void Toggle(int userId, bool on)
+    {
+        if (on)
+        {
+            _access.Add(userId);
+        }
+        else
+        {
+            _access.Remove(userId);
+        }
+    }
+
+    private async Task SaveAccessAsync()
+    {
+        _busy = true;
+        var request = new DeckAccessDto(_forEveryone, [.. _access]);
+        var result = await UseAsync<IDeckService, Result<DeckAccessDto>>(s => s.SetAccessAsync(Id, request, CancellationToken.None));
+        if (Handle(result, "Přístup uložen."))
+        {
+            await LoadDeckAsync();
+            await LoadAccessAsync();
         }
 
         _busy = false;

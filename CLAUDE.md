@@ -80,7 +80,7 @@ Final layout and package lists: [`docs/architecture.md`](./docs/architecture.md)
 ### 5.1 Cards and decks
 - A **card** is a question plus an answer: text with **light formatting** (`**tučně**`, `*kurzíva*`, `<small>malé</small>`, `- ` / `1. ` lists; [`docs/yaml-format.md`](./docs/yaml-format.md) §10), no images. Suggested limits: question ≤ 500 chars, answer ≤ 2 000 chars.
 - Cards are grouped into **decks**: name, description, color, sort order.
-- **Every app user sees every deck** and picks what to study. The admin does not assign decks.
+- A deck is **"Pro všechny"** (default; every app user sees it) or visible only to **users the admin picks** (deck Nastavení). Users pick what to study from the decks they see. Losing access hides the deck but keeps the user's progress.
 - The admin can CRUD decks and cards, and edit a whole deck as **YAML** (§8). AI-assisted deck creation inside the dashboard comes later and is **out of scope**.
 
 ### 5.2 Study session (app)
@@ -177,7 +177,7 @@ points = round(base × min(2.0, 1.0 + 0.1 × floor(streakDays / 7)))
 
 ### 5.10 Admin dashboard (`/admin`, Blazor, Czech)
 - **Přehled:** tiles (pending claims, users active today, reviews today + success, points in the last 7 days); pending claims table with **Schválit / Zamítnout**; "Uživatelé dnes" table (streak + multiplier, today's goal progress, points, last active); quick actions.
-- **Balíčky:** deck list; deck detail with tabs **Karty** (cards CRUD), **YAML** (§8), **Nastavení** (name, description, color, order, delete).
+- **Balíčky:** deck list (with "Kdo vidí"); deck detail with tabs **Karty** (cards CRUD), **YAML** (§8), **Nastavení** (name, description, color, order, **who sees it**, delete).
 - **Obchod:** items table (price, stock left of initial, pending, on wishlists, status); edit form; **purchase history** with filters (Vše / Čeká / Schváleno / Zamítnuto) and actions on pending claims.
 - **Uživatelé:** table (username, display name, points, streak + record, total reviews, success, last active); actions **Upravit / Reset hesla / Aktivovat–Deaktivovat**; new-user form (generated password shown once, default goal, new cards per day).
 - **Texty upozornění:** texts per category; add / edit / delete / activate; preview with sample placeholder values.
@@ -200,7 +200,8 @@ Integer identity keys, except `ReviewLog.Id`, which is the client UUID. Timestam
 | `User` | Id, Username (unique), DisplayName, PasswordHash, IsActive, CreatedAt, LastActiveAt, CurrentStreak, BestStreak, LastGoalMetDate | streak fields are a cache derived from DailyActivity |
 | `UserSettings` | UserId (PK/FK), DailyGoal = 20, NewCardsPerDay = 5, NotificationsEnabled, MorningTime = 08:00, EveningTime = 18:30, LastCallTime = 21:00, QuietFrom = 22:00, QuietTo = 07:00, SmartTimes = true | 1:1 with User |
 | `RefreshToken` | Id, UserId, TokenHash, ExpiresAt, CreatedAt, RevokedAt, ReplacedById | rotation |
-| `Deck` | Id, Name, Description, Color, SortOrder, CreatedAt, UpdatedAt | |
+| `Deck` | Id, Name, Description, Color, SortOrder, ForEveryone, CreatedAt, UpdatedAt | |
+| `DeckAccess` | (DeckId, UserId) PK | users who see a deck that isn't for everyone |
 | `Card` | Id, DeckId, Question, Answer, SortOrder, CreatedAt, UpdatedAt | Id is the stable id used in YAML |
 | `CardState` | (UserId, CardId) PK, State, Stability, Difficulty, Due, LastReview, FirstReview, Reps, Lapses, Step | FSRS memory state; no row = new card |
 | `ReviewLog` | Id (uuid from client), UserId, CardId, Rating, StateBefore, ReviewedAt, Day, Multiplier, PointsAwarded, ElapsedDays, ScheduledDays | append-only |
@@ -243,7 +244,7 @@ Everything is under `/api`: JSON, camelCase, errors as RFC 7807 ProblemDetails. 
 | GET | `/api/notification-texts` | active texts grouped by category (ETag) |
 | GET | `/api/health` | health check (no auth) |
 
-**Admin endpoints** (`/api/admin/*`, admin auth) mirror the dashboard: `users` (+ `reset-password`, `activate`, `deactivate`), `decks`, `decks/{id}/cards`, `decks/{id}/yaml` (GET export, POST preview, PUT apply), `shop-items`, `claims` (+ `confirm`, `reject`), `notification-texts`, `overview`.
+**Admin endpoints** (`/api/admin/*`, admin auth) mirror the dashboard: `users` (+ `reset-password`, `activate`, `deactivate`), `decks` (+ `access`), `decks/{id}/cards`, `decks/{id}/yaml` (GET export, POST preview, PUT apply), `shop-items`, `claims` (+ `confirm`, `reject`), `notification-texts`, `overview`.
 Blazor pages call the **application services directly**; the REST endpoints use the same services.
 
 ---
@@ -452,3 +453,4 @@ Jakub confirmed these defaults at the Etapa 0 gate (2026-10-31). Raise any of th
 | 2026-11-01 | Nastavení "Povolit upozornění" (when Android blocks notifications) first asks with the system dialog and opens Android's settings only if that's no longer allowed. |
 | 2026-11-02 | Jakub's issues #9–#16 (Etapa 8 fixes): "Ještě 5 nových karet" over the daily allowance (`GET /api/session?extraNew=`, 0–50); light card formatting (`**`, `*`, `<small>`, `- ` / `1. ` lists) parsed in the app, stored as typed; no buttons before the flip (Jakub's review: no "Otočit kartu" / Přeskočit there), Nevím / Přeskočit / Vím after it, swipe any time, the card grows when flipped; deck detail with search (ignores diacritics), status filter and per-card progress (stability out of 21 days, Vím / Nevím counts, next review); the deck bar shows Zvládnuto / Učím se / Nové like Statistiky; "Jak Quizly dávkuje karty" explains FSRS. |
 | 2026-11-02 | #20: the dashboard's Blazor circuit accepts messages up to 4 MB (SignalR's 32 KB default dropped pasted YAML decks), and the YAML editors send their text on change (paste, leaving the field) instead of on every keystroke. |
+| 2026-11-02 | #18 (replaces "every user sees every deck"): a deck is "Pro všechny" or for users the admin picks (`decks.for_everyone` + `deck_access`). Existing and new decks are for everyone; every app endpoint filters by it; losing access hides the deck but keeps progress, and history stays unfiltered. No app change needed. |

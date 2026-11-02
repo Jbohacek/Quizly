@@ -31,6 +31,13 @@ public static class Cz
     /// <summary>1 text · 2 texty · 5 textů.</summary>
     public static string Texts(int count) => $"{Number(count)}{Nbsp}{Plural(count, "text", "texty", "textů")}";
 
+    /// <summary>1 uživatel · 2 uživatelé · 5 uživatelů.</summary>
+    public static string Users(int count) => $"{Number(count)}{Nbsp}{Plural(count, "uživatel", "uživatelé", "uživatelů")}";
+
+    /// <summary>Who sees a deck: Všichni, or how many chosen users.</summary>
+    public static string DeckAudience(bool forEveryone, int users) =>
+        forEveryone ? "Všichni" : users == 0 ? "Nikdo" : Users(users);
+
     public static string Plural(int count, string one, string few, string many) => count switch
     {
         1 => one,

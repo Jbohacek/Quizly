@@ -13,6 +13,7 @@ public interface IAppDbContext
     DbSet<RefreshToken> RefreshTokens { get; }
     DbSet<Deck> Decks { get; }
     DbSet<Card> Cards { get; }
+    DbSet<DeckAccess> DeckAccess { get; }
     DbSet<CardState> CardStates { get; }
     DbSet<ReviewLog> ReviewLogs { get; }
     DbSet<DailyActivity> DailyActivities { get; }

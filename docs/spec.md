@@ -87,9 +87,14 @@ Expired or revoked tokens older than 30 days are deleted by a daily cleanup on s
 | `description` | `varchar(500)` | no | `''` | |
 | `color` | `char(7)` | no | `'#BAD69B'` | check `^#[0-9A-Fa-f]{6}$`, stored uppercase |
 | `sort_order` | `integer` | no | `0` | |
+| `for_everyone` | `boolean` | no | `true` | "Pro všechny" |
 | `created_at` / `updated_at` | `timestamptz` | no | | |
 
 Index: `(sort_order, id)`.
+
+**`deck_access`** (`deck_id` FK → decks **cascade**, `user_id` FK → users **cascade**; PK both; index `user_id`): the users who see a deck that isn't `for_everyone`.
+
+**Who sees a deck (#18):** an app user sees a deck when it's `for_everyone` or they're in its `deck_access`. Every app endpoint applies this: `/decks`, `/decks/{id}/cards`, `/session` (one deck and all decks), `/me` (due now, the morning forecast), `/stats` (deck filter and deck progress) and `/reviews` (a card of a hidden deck is rejected as `cardNotFound`). Losing access keeps the user's `card_states` and `review_logs`; the deck comes back where it was left. History (streak, heatmap, daily counts, points) is never filtered. The access list is kept while a deck is `for_everyone`, so switching back restores it.
 
 ### 2.5 `cards`
 

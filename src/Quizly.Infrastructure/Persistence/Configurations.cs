@@ -55,6 +55,17 @@ internal sealed class DeckConfiguration : IEntityTypeConfiguration<Deck>
     }
 }
 
+internal sealed class DeckAccessConfiguration : IEntityTypeConfiguration<DeckAccess>
+{
+    public void Configure(EntityTypeBuilder<DeckAccess> b)
+    {
+        b.HasKey(a => new { a.DeckId, a.UserId });
+        b.HasOne<Deck>().WithMany(d => d.Access).HasForeignKey(a => a.DeckId).OnDelete(DeleteBehavior.Cascade);
+        b.HasOne<User>().WithMany().HasForeignKey(a => a.UserId).OnDelete(DeleteBehavior.Cascade);
+        b.HasIndex(a => a.UserId);
+    }
+}
+
 internal sealed class CardConfiguration : IEntityTypeConfiguration<Card>
 {
     public void Configure(EntityTypeBuilder<Card> b)

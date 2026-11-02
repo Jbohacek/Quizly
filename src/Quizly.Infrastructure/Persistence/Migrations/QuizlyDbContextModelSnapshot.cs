@@ -256,6 +256,10 @@ namespace Quizly.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(500)")
                         .HasColumnName("description");
 
+                    b.Property<bool>("ForEveryone")
+                        .HasColumnType("boolean")
+                        .HasColumnName("for_everyone");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(100)
@@ -280,6 +284,25 @@ namespace Quizly.Infrastructure.Persistence.Migrations
                         {
                             t.HasCheckConstraint("ck_decks_color", "color ~ '^#[0-9A-Fa-f]{6}$'");
                         });
+                });
+
+            modelBuilder.Entity("Quizly.Domain.DeckAccess", b =>
+                {
+                    b.Property<int>("DeckId")
+                        .HasColumnType("integer")
+                        .HasColumnName("deck_id");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("integer")
+                        .HasColumnName("user_id");
+
+                    b.HasKey("DeckId", "UserId")
+                        .HasName("pk_deck_access");
+
+                    b.HasIndex("UserId")
+                        .HasDatabaseName("ix_deck_access_user_id");
+
+                    b.ToTable("deck_access", (string)null);
                 });
 
             modelBuilder.Entity("Quizly.Domain.NotificationText", b =>
@@ -761,6 +784,23 @@ namespace Quizly.Infrastructure.Persistence.Migrations
                         .HasConstraintName("fk_daily_activities_users_user_id");
                 });
 
+            modelBuilder.Entity("Quizly.Domain.DeckAccess", b =>
+                {
+                    b.HasOne("Quizly.Domain.Deck", null)
+                        .WithMany("Access")
+                        .HasForeignKey("DeckId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_deck_access_decks_deck_id");
+
+                    b.HasOne("Quizly.Domain.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_deck_access_users_user_id");
+                });
+
             modelBuilder.Entity("Quizly.Domain.PointsEntry", b =>
                 {
                     b.HasOne("Quizly.Domain.User", null)
@@ -837,6 +877,8 @@ namespace Quizly.Infrastructure.Persistence.Migrations
 
             modelBuilder.Entity("Quizly.Domain.Deck", b =>
                 {
+                    b.Navigation("Access");
+
                     b.Navigation("Cards");
                 });
 

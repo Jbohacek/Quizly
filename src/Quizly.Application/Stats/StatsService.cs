@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Quizly.Application.Abstractions;
 using Quizly.Application.Common;
+using Quizly.Application.Decks;
 using Quizly.Application.Learning;
 using Quizly.Domain;
 using Quizly.Domain.Gamification;
@@ -61,7 +62,7 @@ internal sealed class StatsService(IAppDbContext db, TimeProvider time) : IStats
 
     public async Task<Result<StatsResponse>> GetAsync(int userId, int? deckId, CancellationToken ct)
     {
-        if (deckId is not null && !await db.Decks.AnyAsync(d => d.Id == deckId, ct))
+        if (deckId is not null && !await db.Decks.VisibleTo(userId).AnyAsync(d => d.Id == deckId, ct))
         {
             return Progress.NotFoundDeck;
         }
@@ -181,7 +182,7 @@ internal sealed class StatsService(IAppDbContext db, TimeProvider time) : IStats
     private async Task<(IReadOnlyList<DeckProgressResponse> Decks, ProgressCountsResponse Total)> ProgressAsync(
         int userId, int? deckId, CancellationToken ct)
     {
-        var rows = await db.Decks
+        var rows = await db.Decks.VisibleTo(userId)
             .Where(d => deckId == null || d.Id == deckId)
             .OrderBy(d => d.SortOrder).ThenBy(d => d.Id)
             .Select(d => new

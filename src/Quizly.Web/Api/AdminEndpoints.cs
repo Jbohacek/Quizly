@@ -85,6 +85,15 @@ internal static class AdminEndpoints
         g.MapDelete("/{id:int}", async (int id, IDeckService decks, CancellationToken ct) =>
                 (await decks.DeleteAsync(id, ct)).NoContentOrProblem())
             .WithName("DeleteDeck").WithSummary("Delete a deck with its cards and all users' progress on them");
+
+        g.MapGet("/{id:int}/access", async (int id, IDeckService decks, CancellationToken ct) =>
+                (await decks.GetAccessAsync(id, ct)).OkOrProblem())
+            .WithName("GetDeckAccess").WithSummary("Who sees the deck in the app");
+
+        g.MapPut("/{id:int}/access", async (int id, DeckAccessDto request, IDeckService decks, CancellationToken ct) =>
+                (await decks.SetAccessAsync(id, request, ct)).OkOrProblem())
+            .WithName("SetDeckAccess").WithSummary("Set who sees the deck: everyone, or the listed users")
+            .WithDescription("Users who lose the deck keep their progress; it comes back with access.");
     }
 
     private static void MapYaml(RouteGroupBuilder g)

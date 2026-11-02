@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Quizly.Application.Abstractions;
 using Quizly.Application.Common;
+using Quizly.Application.Decks;
 using Quizly.Domain;
 using Quizly.Domain.Gamification;
 using Quizly.Domain.Scheduling;
@@ -36,7 +37,8 @@ internal sealed class ReviewService(IAppDbContext db, Progress progress, TimePro
         var ids = reviews.Select(r => r.Id).ToList();
         var cardIds = reviews.Select(r => r.CardId).Distinct().ToList();
         var processed = await db.ReviewLogs.AsNoTracking().Where(r => ids.Contains(r.Id)).ToDictionaryAsync(r => r.Id, ct);
-        var existingCards = (await db.Cards.Where(c => cardIds.Contains(c.Id)).Select(c => c.Id).ToListAsync(ct)).ToHashSet();
+        // A card of a deck the user doesn't see is rejected like a deleted one.
+        var existingCards = (await db.Cards.VisibleTo(userId).Where(c => cardIds.Contains(c.Id)).Select(c => c.Id).ToListAsync(ct)).ToHashSet();
         var states = await db.CardStates.Where(s => s.UserId == userId && cardIds.Contains(s.CardId)).ToDictionaryAsync(s => s.CardId, ct);
         var days = new Dictionary<DateOnly, DailyActivity>();
 
