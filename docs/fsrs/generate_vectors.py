@@ -3,7 +3,7 @@
 Uses the reference implementation py-fsrs (pip package `fsrs`) with the exact
 scheduler configuration Quizly uses: default parameters, desired retention 0.9,
 learning steps 1m/10m, relearning step 10m, maximum interval 36500, fuzz OFF.
-Only the ratings Again (1) and Good (3) are used.
+All four ratings are used: Again (1), Hard (2), Good (3), Easy (4).
 
 Usage (in a throwaway virtualenv):
     pip install fsrs==6.3.2
@@ -70,7 +70,7 @@ def run(name, description, plan):
     return {"name": name, "description": description, "steps": steps}
 
 
-A, G = Rating.Again, Rating.Good
+A, H, G, E = Rating.Again, Rating.Hard, Rating.Good, Rating.Easy
 
 # Good at START (moves to the 10 min step), Good 10 min later -> graduates to Review.
 GRADUATED_AT = START + timedelta(minutes=10)
@@ -118,6 +118,28 @@ cases = [
         "Reviews done before the card is due.",
         [(G, "due"), (G, "due"), (G, ("due+", -timedelta(days=1))), (G, ("due+", -timedelta(days=3))),
          (A, ("due+", -timedelta(days=2))), (G, "due")],
+    ),
+    # Těžké / Snadné (#19).
+    run(
+        "easy_first",
+        "New card answered Easy (skips the learning steps), then Easy and Good at every due time.",
+        [(E, "due"), (E, "due"), (G, "due"), (E, "due"), (G, "due")],
+    ),
+    run(
+        "hard_in_learning",
+        "Hard inside the learning steps, then Good.",
+        [(H, "due"), (H, "due"), (G, "due"), (H, "due"), (G, "due"), (G, "due")],
+    ),
+    run(
+        "hard_and_easy_in_review",
+        "Graduated card answered Hard and Easy in Review, including late and early reviews.",
+        [(G, "due"), (G, "due"), (H, "due"), (E, "due"), (H, ("due+", timedelta(days=6))),
+         (E, ("due+", -timedelta(days=2))), (G, "due")],
+    ),
+    run(
+        "hard_and_easy_in_relearning",
+        "A lapse, then Hard and Easy while relearning.",
+        [(G, "due"), (G, "due"), (G, "due"), (A, "due"), (H, "due"), (E, "due"), (A, "due"), (E, "due"), (G, "due")],
     ),
 ]
 

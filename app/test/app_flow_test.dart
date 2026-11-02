@@ -154,9 +154,10 @@ class FakeApi implements HttpClientAdapter {
       'GET /api/session' when (sessionQueries..add(options.uri.queryParameters)).isNotEmpty => _json({
           'deckId': null,
           'multiplier': 1.1,
-          'points': {'know': 11, 'dontKnow': 2},
+          'points': {'know': 11, 'dontKnow': 2, 'hard': 11, 'easy': 11},
           'dueCount': 2,
           'newCount': 0,
+          'fourRatings': settings['fourRatings'] ?? false,
           'cards': [
             {'cardId': 101, 'deckId': 1, 'question': 'Co je struct?', 'answer': 'Hodnotový typ.', 'kind': 'review'},
             {'cardId': 102, 'deckId': 1, 'question': 'Co je class?', 'answer': 'Referenční typ.', 'kind': 'new'},
@@ -288,7 +289,7 @@ class FakeApi implements HttpClientAdapter {
     final results = <Object>[];
     for (final r in (body['reviews']! as List).cast<Map<String, Object?>>()) {
       reviewed.add(r);
-      final points = r['rating'] == 'know' ? 11 : 2;
+      final points = r['rating'] == 'dontKnow' ? 2 : 11;
       balance += points;
       graded++;
       results.add({'id': r['id'], 'status': 'applied', 'pointsAwarded': points, 'multiplier': 1.1});
@@ -685,6 +686,53 @@ void main() {
     await settle(tester);
     expect(api.savedSettings.last['notificationsEnabled'], false);
     expect(platform.scheduled, isEmpty);
+  });
+
+  testWidgets('#19: with Těžké a Snadné on, the session offers four answers', (tester) async {
+    final semantics = tester.ensureSemantics();
+    final (api, _) = await _signedIn(tester);
+    await tester.tap(find.text('Nastavení'));
+    await settle(tester);
+    await tester.scrollUntilVisible(find.text(S.fourRatings), 200, scrollable: find.byType(Scrollable).last);
+    await tester.tap(find.text(S.fourRatings));
+    await settle(tester);
+    expect(api.savedSettings.last['fourRatings'], true);
+
+    await tester.tap(find.text('Domů'));
+    await settle(tester);
+    await _scrollTo(tester, find.text(S.studyAll(2)), up: true);
+    await tester.tap(find.text(S.studyAll(2)));
+    await settle(tester);
+    await tester.tap(find.byType(SwipeCard));
+    await settle(tester);
+    for (final label in [S.dontKnow, S.hard, S.know, S.easy]) {
+      expect(find.bySemanticsLabel(label), findsWidgets, reason: label);
+    }
+    // No Přeskočit button: a swipe up skips, and nothing on screen says so.
+    expect(find.bySemanticsLabel(S.skip), findsNothing);
+    expect(find.textContaining('nahoru'), findsNothing);
+    await tester.drag(find.byType(SwipeCard), const Offset(0, -400));
+    await settle(tester);
+    expect(find.text('Co je class?'), findsOneWidget);
+    expect(api.reviewed, isEmpty);
+    // Back to the first card, turned over for the buttons.
+    await tester.drag(find.byType(SwipeCard), const Offset(0, -400));
+    await settle(tester);
+    expect(find.text('Co je struct?'), findsOneWidget);
+    await tester.tap(find.byType(SwipeCard));
+    await settle(tester);
+    // The buttons still fit a phone with 44 px targets and readable labels (CLAUDE.md §9.3).
+    await expectLater(tester, meetsGuideline(const MinimumTapTargetGuideline(size: Size(44, 44), link: 'CLAUDE.md §9.3')));
+    await expectLater(tester, meetsGuideline(textContrastGuideline));
+
+    await _answer(tester, S.hard);
+    await _answer(tester, S.easy);
+    expect(api.reviewed.map((r) => r['rating']), ['hard', 'easy']);
+    // Hotovo: both remembered, a row for each.
+    expect(find.text(formatPercent(100)), findsOneWidget);
+    expect(find.text(S.hardRow(1)), findsOneWidget);
+    expect(find.text(S.easyRow(1)), findsOneWidget);
+    semantics.dispose();
   });
 
   testWidgets('a milestone in a review response shows a notification right away', (tester) async {

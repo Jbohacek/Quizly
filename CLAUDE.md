@@ -92,6 +92,7 @@ Final layout and package lists: [`docs/architecture.md`](./docs/architecture.md)
 - **Swipe left / "Nevím"** = Don't know → FSRS rating **Again (1)**.
 - **"Přeskočit"** = Skip → no points, no FSRS rating, nothing sent to the server. The card moves to the end of the current session queue.
 - **Vím / Nevím / Přeskočit buttons** are shown in addition to swipes, once the card is turned.
+- **"Těžké a Snadné"** (user setting, default off, #19): after the flip the buttons are **Nevím / Těžké / Vím / Snadné**, and a **swipe up skips** the card (no Přeskočit button; on purpose, nothing in the app says so). **Těžké** = FSRS **Hard (2)**, **Snadné** = FSRS **Easy (4)**; both are correct answers worth a Vím. Swipes stay Vím / Nevím.
 - When nothing is left for today, **"Ještě 5 nových karet"** (Domů, deck detail, empty session) starts a session with new cards over the daily allowance (`extraNew`); they count as today's new cards.
 - A card answered **"Nevím"** is added once more to the end of the same session. The second answer is a normal review.
 - The session screen shows "Karta X z Y", points earned this session, "✎ Upravit" (the card editor; it replaced the multiplier chip), and what each answer is worth ("← Nevím · +2 | Vím · +11 →", which includes the multiplier).
@@ -100,12 +101,12 @@ Final layout and package lists: [`docs/architecture.md`](./docs/architecture.md)
 ### 5.3 FSRS (spaced repetition)
 - Runs **on the server**. Implement **FSRS-6**, ported from **py-fsrs 6.3.2**, with **default parameters**, **desired retention 0.9** and **fuzz off**. Exact rules: [`docs/spec.md`](./docs/spec.md) §3; reference vectors in `docs/fsrs/`.
 - Port carefully and **unit-test against reference values** produced by the reference implementation.
-- Only two ratings are used: **Again (1)** and **Good (3)**.
+- Ratings: **Again (1)** = Nevím, **Good (3)** = Vím, and with "Těžké a Snadné" on also **Hard (2)** = Těžké and **Easy (4)** = Snadné. The port is checked against reference vectors for all four.
 - Per user × card store: state (Learning / Review / Relearning; a card with no stored state is New), stability, difficulty, due, last review, reps, lapses, plus anything the chosen FSRS version needs (e.g. learning step).
 - Keep every review in `ReviewLog` for stats and possible future parameter optimization.
 
 ### 5.4 Points
-- **Know: 10 × multiplier. Don't know: 2 × multiplier. Skip: 0.**
+- **Know: 10 × multiplier. Don't know: 2 × multiplier. Skip: 0.** Těžké and Snadné are worth a Know, so neither pays more than the other.
 - **Rounding:** to the nearest integer, halves away from zero (2 × 1.1 = 2.2 → **2**; 10 × 1.1 → **11**). Confirmed at the Etapa 0 gate.
 - **Multiplier** = `min(2.0, 1.0 + 0.1 × floor(streak / 7))`. `streak` is the current streak at the moment of the review; today counts once today's goal has been reached.
 
@@ -119,7 +120,7 @@ points = round(base × min(2.0, 1.0 + 0.1 × floor(streakDays / 7)))
 
 ### 5.5 Daily goal and streak
 - **A day** is a calendar day in **Europe/Prague** (midnight to midnight, DST-aware), always computed explicitly regardless of server timezone.
-- **Daily goal** ("Denní cíl", user setting, default **20**) = number of **graded answers** (Vím or Nevím; skips don't count) across all decks that day.
+- **Daily goal** ("Denní cíl", user setting, default **20**) = number of **graded answers** (Vím, Nevím, Těžké or Snadné; skips don't count) across all decks that day.
 - A day is **met** when graded answers ≥ goal. Changing the goal takes effect immediately; a day that is already met stays met (a raised goal applies from tomorrow, a lowered goal can complete today).
 - **Streak** = consecutive met days, ending today if today is already met, otherwise ending yesterday. Today isn't lost until the day ends. One fully missed day resets the streak to 0.
 - Store the **best streak** (record) per user.
@@ -199,7 +200,7 @@ Integer identity keys, except `ReviewLog.Id`, which is the client UUID. Timestam
 | Entity | Fields | Notes |
 | --- | --- | --- |
 | `User` | Id, Username (unique), DisplayName, PasswordHash, IsActive, CreatedAt, LastActiveAt, CurrentStreak, BestStreak, LastGoalMetDate | streak fields are a cache derived from DailyActivity |
-| `UserSettings` | UserId (PK/FK), DailyGoal = 20, NewCardsPerDay = 5, NotificationsEnabled, MorningTime = 08:00, EveningTime = 18:30, LastCallTime = 21:00, QuietFrom = 22:00, QuietTo = 07:00, SmartTimes = true | 1:1 with User |
+| `UserSettings` | UserId (PK/FK), DailyGoal = 20, NewCardsPerDay = 5, NotificationsEnabled, MorningTime = 08:00, EveningTime = 18:30, LastCallTime = 21:00, QuietFrom = 22:00, QuietTo = 07:00, SmartTimes = true, FourRatings = false | 1:1 with User |
 | `RefreshToken` | Id, UserId, TokenHash, ExpiresAt, CreatedAt, RevokedAt, ReplacedById | rotation |
 | `Deck` | Id, Name, Description, Color, SortOrder, ForEveryone, CreatedAt, UpdatedAt | |
 | `DeckAccess` | (DeckId, UserId) PK | users who see a deck that isn't for everyone |
@@ -237,7 +238,7 @@ Everything is under `/api`: JSON, camelCase, errors as RFC 7807 ProblemDetails. 
 | GET | `/api/decks/{id}/cards` | one deck with counts and every card (question, answer, my status: new / learning / mastered) |
 | POST / PUT / DELETE | `/api/decks/{id}/cards[/{cardId}]` | add, edit, delete a card of a deck I see |
 | GET | `/api/session?deckId={id}` | session queue (omit `deckId` for all decks) |
-| POST | `/api/reviews` | batch `[{ id: uuid, cardId, rating: "know" \| "dontKnow" }]` → points per review + updated summary (balance, streak, multiplier, today, milestone events) |
+| POST | `/api/reviews` | batch `[{ id: uuid, cardId, rating: "know" \| "dontKnow" \| "hard" \| "easy" }]` → points per review + updated summary (balance, streak, multiplier, today, milestone events) |
 | GET | `/api/stats?deckId={id}` | tiles, heatmap, daily bars, weekday, best time, deck progress |
 | GET | `/api/shop` | items with stock and wishlist flags, plus balance |
 | POST | `/api/shop/{itemId}/claim` | create a claim |
@@ -324,13 +325,13 @@ Status chips: pending `#FFF1D6` / `#8A5300` · confirmed `#E3F4E6` / `#1F7A3A` �
 1. **Přihlášení:** logo, username, password with show toggle, "Přihlásit se", note "Účet ti založí správce aplikace. Zapomenuté heslo ti také resetuje správce."
 2. **Domů:** date + greeting, points pill (→ shop), streak card (days, multiplier, Mon–Sun week strip, "Za 2 dny násobič stoupne na 1,2×"), daily goal ring `13/20`, CTA **"Učit se vše · 23 karet"**, deck list (due count, mastered bar; tap → deck detail). Bottom nav: **Domů / Statistiky / Obchod / Nastavení**.
    - **Balíček** (deck detail, added after the canvas): name, description, tiles (cards, due, new today, % mastered), a Zvládnuto / Učím se / Nové bar, **"Učit se · N karet"** (or "Ještě 5 nových karet"), search and a status filter, and every card with a status chip (*Nová / Učím se / Zvládnuto*); tapping a card shows its answer, its progress (way to Zvládnuto, Vím / Nevím counts, next review, with a pencil to edit it right of those lines); a dashed "+ Přidat kartu" tile, first in the list and hidden while searching, adds a card. The card editor has question, answer, a formatting hint and a preview of the card face. A help button opens **"Jak Quizly dávkuje karty"** (also in Nastavení).
-3. **Učení, otázka:** close button, progress bar "Karta 8 z 23", session points, the deck chip and "✎ Upravit" (plain purple text), card stack, hint row; after the flip (a tap on the card) buttons **Nevím / Přeskočit / Vím**.
+3. **Učení, otázka:** close button, progress bar "Karta 8 z 23", session points, the deck chip and "✎ Upravit" (plain purple text), card stack, hint row; after the flip (a tap on the card) buttons **Nevím / Přeskočit / Vím** (with "Těžké a Snadné": **Nevím / Těžké / Vím / Snadné**, a swipe up skips).
 4. **Učení, odpověď:** flipped card mid-swipe with the "VÍM" stamp and floating "+11".
 5. **Hotovo:** streak circle, **"Denní cíl splněn!"**, tiles (cards, % correct, points), points breakdown, new balance, wishlist progress card, "Učit se dál" / "Hotovo".
 6. **Statistiky:** see §5.9.
 7. **Obchod:** balance, "Šetříš na" wishlist card, tabs **Odměny / Moje nákupy**, item grid (name, stock line, price, **Koupit** or "Chybí X" / "Vyprodáno", heart), my claims with status chips.
 8. **Potvrzení nákupu** (bottom sheet): title, description, price / balance / after purchase, info that points are deducted now and the admin approves; **Zrušit / Koupit za X**.
-9. **Nastavení:** account ("Tvůj účet"), **Změnit heslo** (current, new, new again), **Denní cíl** stepper, **Nové karty denně** stepper, notifications toggle, morning / evening / last-call times, quiet hours, **Chytré časy** toggle, "Odhlásit se", version.
+9. **Nastavení:** account ("Tvůj účet"), **Změnit heslo** (current, new, new again), **Denní cíl** stepper, **Nové karty denně** stepper, **Těžké a Snadné** toggle, notifications toggle, morning / evening / last-call times, quiet hours, **Chytré časy** toggle, "Odhlásit se", version.
 10. **Upozornění:** examples of every notification category (§5.8).
 
 ### 9.5 Czech UI glossary (use these exact terms)
@@ -457,3 +458,4 @@ Jakub confirmed these defaults at the Etapa 0 gate (2026-10-31). Raise any of th
 | 2026-11-02 | #20: the dashboard's Blazor circuit accepts messages up to 4 MB (SignalR's 32 KB default dropped pasted YAML decks), and the YAML editors send their text on change (paste, leaving the field) instead of on every keystroke. |
 | 2026-11-02 | #18 (replaces "every user sees every deck"): a deck is "Pro všechny" or for users the admin picks (`decks.for_everyone` + `deck_access`). Existing and new decks are for everyone; every app endpoint filters by it; losing access hides the deck but keeps progress, and history stays unfiltered. No app change needed. |
 | 2026-11-02 | #23: any app user adds, edits and deletes cards of the decks they see (`POST/PUT/DELETE /api/decks/{id}/cards`), the same rules as the dashboard. In a session "✎ Upravit" replaced the multiplier chip (the hint row's points include the multiplier). Deleting asks first, since everyone's progress on the card goes. The editor shows no snackbar: the changed list shows it. Jakub's review: "+ Přidat kartu" is a dashed tile first in the card list (hidden while searching), not a floating button over the cards. |
+| 2026-11-02 | #19: optional Těžké (FSRS Hard) and Snadné (FSRS Easy), setting "Těžké a Snadné" (`user_settings.four_ratings`, default off). Both are correct and worth a Vím (points never depend on which one is picked); swipes stay Vím / Nevím; in this mode there's no Přeskočit button and a swipe up skips (Jakub's review: not explained in the app); the session response says which buttons to show. Reference vectors now cover all four ratings (py-fsrs 6.3.2). An older app that saves its settings turns the option off. |

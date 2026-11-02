@@ -11,9 +11,12 @@ public static class Points
     public static decimal Multiplier(int streak) =>
         Math.Min(MaxMultiplier, 1.0m + (0.1m * (Math.Max(streak, 0) / 7)));
 
-    /// <summary><c>round(base × multiplier)</c>, halves away from zero.</summary>
+    /// <summary>
+    /// <c>round(base × multiplier)</c>, halves away from zero. Těžké and Snadné are worth a Vím (#19),
+    /// so picking one never pays more than another.
+    /// </summary>
     public static int For(Rating rating, decimal multiplier) =>
-        (int)Math.Round((rating == Rating.Good ? KnowBase : DontKnowBase) * multiplier, MidpointRounding.AwayFromZero);
+        (int)Math.Round((rating == Rating.Again ? DontKnowBase : KnowBase) * multiplier, MidpointRounding.AwayFromZero);
 
     /// <summary>The next multiplier and how many more met days it takes, or null at 2,0×.</summary>
     public static (decimal Value, int InDays)? NextMultiplier(int streak)

@@ -88,6 +88,20 @@ void main() {
       expect((t.knowCount, t.dontKnowCount, t.graded), (1, 1, 2));
     });
 
+    test('#19: Těžké and Snadné count as correct and add their points', () {
+      final t = SessionTally()
+        ..add(know, 11)
+        ..add(dontKnow, 2)
+        ..add(const ReviewItem(id: 'c', cardId: 3, rating: Rating.hard), 11)
+        ..add(const ReviewItem(id: 'd', cardId: 4, rating: Rating.easy), 11);
+      expect((t.graded, t.correctCount, t.knowCount), (4, 3, 1));
+      expect((t.countOf(Rating.hard), t.pointsOf(Rating.easy)), (1, 11));
+      expect(t.points, 35);
+      // An older server sends no Těžké / Snadné values: they are worth a Vím.
+      final points = PointsValue.fromJson({'know': 11, 'dontKnow': 2});
+      expect((points.of(Rating.hard), points.of(Rating.easy)), (11, 11));
+    });
+
     test('server points win, rejected answers are dropped, milestones add a bonus', () {
       final t = SessionTally()
         ..add(know, 11)

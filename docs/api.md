@@ -143,7 +143,8 @@ Errors: `validation`, `invalidCredentials`, `accountDisabled`, `rateLimited`. `d
   "notificationsEnabled": true,
   "morningTime": "08:00", "eveningTime": "18:30", "lastCallTime": "21:00",
   "quietFrom": "22:00", "quietTo": "07:00",
-  "smartTimes": true
+  "smartTimes": true,
+  "fourRatings": false
 }
 ```
 
@@ -204,7 +205,7 @@ Ordered by deck `sortOrder`. `newAvailable` = `min(unseen cards in the deck, new
 }
 ```
 
-Cards in deck order (`sortOrder`, then id). `status` is the mastery bucket (spec §3.5): `new` · `learning` · `mastered`. `masteryPercent` = stability ÷ 21 days (100 once mastered, at most 99 before). `knowCount` / `dontKnowCount` count my Vím / Nevím answers, `nextReview` is the card's due time (`null` for a new card). `404 notFound` for an unknown deck.
+Cards in deck order (`sortOrder`, then id). `status` is the mastery bucket (spec §3.5): `new` · `learning` · `mastered`. `masteryPercent` = stability ÷ 21 days (100 once mastered, at most 99 before). `knowCount` / `dontKnowCount` count my correct (Vím, Těžké, Snadné) / Nevím answers, `nextReview` is the card's due time (`null` for a new card). `404 notFound` for an unknown deck.
 
 ---
 
@@ -233,7 +234,8 @@ Omit `deckId` for "Učit se vše". `extraNew` (0–50, default 0) adds that many
 {
   "deckId": 1,
   "multiplier": 1.1,
-  "points": { "know": 11, "dontKnow": 2 },
+  "points": { "know": 11, "dontKnow": 2, "hard": 11, "easy": 11 },
+  "fourRatings": false,
   "dueCount": 14,
   "newCount": 5,
   "cards": [
@@ -273,11 +275,12 @@ Omit `deckId` for "Učit se vše". `extraNew` (0–50, default 0) adds that many
     { "id": "0b9d8c3a-…", "status": "applied", "pointsAwarded": 2, "multiplier": 1.1 }
   ],
   "summary": { "…": "Summary, §1.2" },
-  "points": { "know": 11, "dontKnow": 2 },
+  "points": { "know": 11, "dontKnow": 2, "hard": 11, "easy": 11 },
   "events": [ { "type": "goalMet" }, { "type": "milestone", "days": 7, "bonus": 50 } ]
 }
 ```
 
+- `rating`: `know` (Vím, FSRS Good), `dontKnow` (Nevím, Again), `hard` (Těžké, Hard), `easy` (Snadné, Easy). Těžké and Snadné are correct and worth a Vím (#19). `fourRatings` in the session (the user's "Těžké a Snadné" setting) tells the app which buttons to show; the server accepts all four either way.
 - Items are processed **in order**, in **one transaction**, under a lock on the user row (two batches of one user never interleave).
 - `status`:
   - `applied`: processed now.

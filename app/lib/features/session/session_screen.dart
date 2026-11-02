@@ -210,6 +210,8 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
                       enabled: c.canAnswer,
                       onAnswer: c.answer,
                       onRevealed: () => setState(() => _revealed = true),
+                      // With four answer buttons there's no Přeskočit button: a swipe up skips.
+                      onSkip: c.fourRatings && c.queue.remaining > 1 ? c.skip : null,
                     ),
                   ),
                 ),
@@ -281,8 +283,29 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
     }
   }
 
-  /// After the card is turned: Nevím / Přeskočit / Vím.
-  Widget _answerRow(SessionController c) => Padding(
+  /// After the card is turned: Nevím / Přeskočit / Vím, or with "Těžké a Snadné" on
+  /// Nevím / Těžké / Vím / Snadné (#19); there a swipe up skips the card (no hint on purpose).
+  Widget _answerRow(SessionController c) => c.fourRatings ? _fourRow(c) : _twoRow(c);
+
+  Widget _fourRow(SessionController c) {
+    VoidCallback? rate(Rating r) => c.canAnswer ? () => _answer(r) : null;
+    // Four equal slots: the labels shrink to fit if a phone is narrow.
+    return Row(
+      key: const ValueKey('answer'),
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        for (final button in [
+          _RoundButton(label: S.dontKnow, icon: Icons.close_rounded, color: Q.dontKnow, size: 58, onPressed: rate(Rating.dontKnow)),
+          _RoundButton(label: S.hard, icon: Icons.trending_down_rounded, color: Q.points, size: 58, onPressed: rate(Rating.hard)),
+          _RoundButton(label: S.know, icon: Icons.check_rounded, color: Q.primary, size: 58, onPressed: rate(Rating.know)),
+          _RoundButton(label: S.easy, icon: Icons.bolt_rounded, color: Q.info, size: 58, onPressed: rate(Rating.easy)),
+        ])
+          Expanded(child: button),
+      ],
+    );
+  }
+
+  Widget _twoRow(SessionController c) => Padding(
         key: const ValueKey('answer'),
         padding: const EdgeInsets.symmetric(horizontal: 12),
         child: Row(
@@ -441,7 +464,12 @@ class _FloatingPoints extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = rating == Rating.know ? Q.primary : Q.dontKnow;
+    final color = switch (rating) {
+      Rating.know => Q.primary,
+      Rating.dontKnow => Q.dontKnow,
+      Rating.hard => Q.points,
+      Rating.easy => Q.info,
+    };
     return ExcludeSemantics(
       child: Center(
         child: Container(
@@ -527,7 +555,7 @@ class _RoundButton extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 6),
-        Text(label, style: QText.body(13, color: c, weight: FontWeight.w800)),
+        FittedBox(fit: BoxFit.scaleDown, child: Text(label, style: QText.body(13, color: c, weight: FontWeight.w800))),
       ],
     );
   }

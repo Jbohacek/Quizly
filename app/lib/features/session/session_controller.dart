@@ -63,6 +63,9 @@ class SessionController extends ChangeNotifier {
   final tally = SessionTally();
   PointsValue points = const PointsValue(know: 10, dontKnow: 2);
   double multiplier = 1;
+
+  /// Four answer buttons (Nevím, Těžké, Vím, Snadné) instead of two (#19).
+  bool fourRatings = false;
   Summary? summary;
   SessionResult? result;
   bool offline = false;
@@ -86,6 +89,7 @@ class SessionController extends ChangeNotifier {
       queue = SessionQueue(data.cards);
       points = data.points;
       multiplier = data.multiplier;
+      fourRatings = data.fourRatings;
       phase = queue.isDone ? SessionPhase.empty : SessionPhase.studying;
     } on ApiException catch (e) {
       phase = SessionPhase.error;

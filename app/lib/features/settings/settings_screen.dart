@@ -294,6 +294,13 @@ class _SettingsBodyState extends ConsumerState<_SettingsBody> {
                 increaseLabel: S.moreNew,
                 onChanged: (v) => _change(_settings.copyWith(newCardsPerDay: v)),
               ),
+              const Divider(height: 1, color: Q.border),
+              _Toggle(
+                title: S.fourRatings,
+                hint: S.fourRatingsHint,
+                value: _settings.fourRatings,
+                onChanged: (v) => _change(_settings.copyWith(fourRatings: v)),
+              ),
             ],
           ),
         ),

@@ -58,7 +58,7 @@ internal sealed class StudyService(IAppDbContext db, Progress progress, TimeProv
                 .ToListAsync(ct);
 
         var summary = await progress.SummaryAsync(userId, ct);
-        return new SessionResponse(deckId, summary.Multiplier, Progress.PointsFor(summary), due.Count, fresh.Count, [.. due, .. fresh]);
+        return new SessionResponse(deckId, summary.Multiplier, Progress.PointsFor(summary), due.Count, fresh.Count, [.. due, .. fresh], settings.FourRatings);
     }
 
     public async Task<AppDeckListResponse> GetDecksAsync(int userId, CancellationToken ct)
@@ -114,7 +114,7 @@ internal sealed class StudyService(IAppDbContext db, Progress progress, TimeProv
                 State = db.CardStates.Where(s => s.UserId == userId && s.CardId == c.Id)
                     .Select(s => new { s.State, s.Stability, s.Due })
                     .FirstOrDefault(),
-                Know = db.ReviewLogs.Count(r => r.UserId == userId && r.CardId == c.Id && r.Rating == Rating.Good),
+                Know = db.ReviewLogs.Count(r => r.UserId == userId && r.CardId == c.Id && r.Rating != Rating.Again),
                 DontKnow = db.ReviewLogs.Count(r => r.UserId == userId && r.CardId == c.Id && r.Rating == Rating.Again),
             })
             .ToListAsync(ct);

@@ -126,6 +126,10 @@ abstract final class S {
   static const hintDrag = 'nebo táhni kartou';
   static const know = 'Vím';
   static const dontKnow = 'Nevím';
+  static const hard = 'Těžké';
+  static const easy = 'Snadné';
+  static const stampHard = 'TĚŽKÉ';
+  static const stampEasy = 'SNADNÉ';
   static const skip = 'Přeskočit';
   static const stampKnow = 'VÍM';
   static const stampDontKnow = 'NEVÍM';
@@ -150,6 +154,8 @@ abstract final class S {
   static const tilePoints = 'bodů';
   static String knowRow(int count) => '${formatInt(count)} × Vím';
   static String dontKnowRow(int count) => '${formatInt(count)} × Nevím';
+  static String hardRow(int count) => '${formatInt(count)} × Těžké';
+  static String easyRow(int count) => '${formatInt(count)} × Snadné';
   static String milestoneRow(int streakDays) => 'Bonus za ${days(streakDays)} v řadě';
   static const multiplierRow = 'Násobič série';
   static String multiplierCounted(num value) => '${formatMultiplier(value)} započten';
@@ -178,6 +184,7 @@ abstract final class S {
     'Kartu ti ukáže znovu ve chvíli, kdy šance, že si odpověď vybavíš, klesne zhruba na 90 %. Opakuješ tak jen to, co je potřeba.',
     '**Vím:** pauza do dalšího opakování se prodlouží. Z minut jsou dny, pak týdny a měsíce.',
     '**Nevím:** karta se ještě jednou vrátí na konec učení a pak brzy znovu, dokud se neusadí.',
+    '**Těžké a Snadné** (zapneš v Nastavení): Těžké znamená, že odpověď šla ztuha, pauza se prodlouží méně. Snadné ji prodlouží víc. Body jsou stejné jako za Vím.',
     '**Nové karty** přibývají po pár denně (Nové karty denně v Nastavení), ať se opakování nenahromadí. Chceš víc? Až bude na dnešek hotovo, dej na Domů „Ještě 5 nových karet“.',
     '**Nová:** zatím bez odpovědi. **Učím se:** karta se teprve usazuje. **Zvládnuto:** vydrží v paměti aspoň 3 týdny.',
   ];
@@ -186,6 +193,8 @@ abstract final class S {
   static const increaseGoal = 'Zvýšit denní cíl';
   static const newPerDay = 'Nové karty denně';
   static const newPerDayHint = 'Kolik nových karet přidat k opakování';
+  static const fourRatings = 'Těžké a Snadné';
+  static const fourRatingsHint = 'Po otočení karty i tlačítka Těžké a Snadné. Body jako za Vím.';
   static const fewerNew = 'Méně nových karet';
   static const moreNew = 'Více nových karet';
   static const settingsSaveFailed = 'Nastavení se nepodařilo uložit.';

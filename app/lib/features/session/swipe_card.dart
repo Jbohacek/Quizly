@@ -13,12 +13,23 @@ import '../../core/widgets/card_text.dart';
 /// a long enough drag (or [SwipeCardState.fly]) throws it off screen and calls [onAnswer].
 /// Swiping works on either side; [onRevealed] fires the first time the answer shows.
 class SwipeCard extends StatefulWidget {
-  const SwipeCard({super.key, required this.card, required this.enabled, required this.onAnswer, this.onRevealed});
+  const SwipeCard({
+    super.key,
+    required this.card,
+    required this.enabled,
+    required this.onAnswer,
+    this.onRevealed,
+    this.onSkip,
+  });
 
   final SessionCard card;
   final bool enabled;
   final ValueChanged<Rating> onAnswer;
   final VoidCallback? onRevealed;
+
+  /// A swipe up skips the card (with "Těžké a Snadné", where there's no Přeskočit button, #19).
+  /// Null: an upward swipe springs back.
+  final VoidCallback? onSkip;
 
   @override
   State<SwipeCard> createState() => SwipeCardState();
@@ -59,12 +70,16 @@ class SwipeCardState extends State<SwipeCard> with TickerProviderStateMixin {
     }
   }
 
-  /// Throws the card to the right (Vím) or left (Nevím), then reports the answer.
+  /// The answer being thrown with a button: its stamp shows instead of VÍM (Těžké, Snadné).
+  Rating? _thrown;
+
+  /// Throws the card to the right (Vím, Těžké, Snadné) or left (Nevím), then reports the answer.
   Future<void> fly(Rating rating) async {
     if (_flying || !widget.enabled) return;
     _flying = true;
+    setState(() => _thrown = rating);
     final width = MediaQuery.sizeOf(context).width;
-    final target = Offset((rating == Rating.know ? 1 : -1) * width * 1.4, _drag.dy + 40);
+    final target = Offset((rating.correct ? 1 : -1) * width * 1.4, _drag.dy + 40);
     if (!_reduceMotion) {
       await _animateTo(target, const Duration(milliseconds: 260), Curves.easeIn);
     }
@@ -72,6 +87,24 @@ class SwipeCardState extends State<SwipeCard> with TickerProviderStateMixin {
     widget.onAnswer(rating);
     // An accepted answer replaces this card (new key). If it was refused (e.g. offline
     // since the throw started), bring the card back instead of leaving it off screen.
+    if (mounted) {
+      setState(() {
+        _flying = false;
+        _thrown = null;
+        _drag = Offset.zero;
+      });
+    }
+  }
+
+  /// Throws the card up, then skips it.
+  Future<void> _skipUp(double height) async {
+    if (_flying || !widget.enabled) return;
+    _flying = true;
+    if (!_reduceMotion) {
+      await _animateTo(Offset(_drag.dx, -height * 1.4), const Duration(milliseconds: 240), Curves.easeIn);
+    }
+    if (!mounted) return;
+    widget.onSkip?.call();
     if (mounted) {
       setState(() {
         _flying = false;
@@ -92,11 +125,17 @@ class SwipeCardState extends State<SwipeCard> with TickerProviderStateMixin {
     setState(() => _drag += d.delta);
   }
 
-  void _onPanEnd(DragEndDetails d, double width) {
+  void _onPanEnd(DragEndDetails d, double width, double height) {
     if (_flying || !widget.enabled) return;
     final threshold = width * 0.28;
     final vx = d.velocity.pixelsPerSecond.dx;
-    if (_drag.dx > threshold || vx > 900) {
+    final vy = d.velocity.pixelsPerSecond.dy;
+    final upward = _drag.dy.abs() > _drag.dx.abs() && (_drag.dy < -height * 0.2 || vy < -900);
+    if (upward && widget.onSkip != null) {
+      _skipUp(height);
+    } else if (upward) {
+      _animateTo(Offset.zero, const Duration(milliseconds: 300), Curves.easeOutBack);
+    } else if (_drag.dx > threshold || vx > 900) {
       fly(Rating.know);
     } else if (_drag.dx < -threshold || vx < -900) {
       fly(Rating.dontKnow);
@@ -119,7 +158,7 @@ class SwipeCardState extends State<SwipeCard> with TickerProviderStateMixin {
       return GestureDetector(
         onTap: flip,
         onPanUpdate: _onPanUpdate,
-        onPanEnd: (d) => _onPanEnd(d, width),
+        onPanEnd: (d) => _onPanEnd(d, width, constraints.maxHeight),
         child: Transform.translate(
           offset: _drag,
           child: Transform.rotate(
@@ -145,7 +184,15 @@ class SwipeCardState extends State<SwipeCard> with TickerProviderStateMixin {
                   ),
                 ),
                 if (progress > 0.15)
-                  Positioned(left: 28, top: 36, child: _Stamp(S.stampKnow, Q.primary, -0.2, progress)),
+                  Positioned(
+                    left: 28,
+                    top: 36,
+                    child: switch (_thrown) {
+                      Rating.hard => _Stamp(S.stampHard, Q.points, -0.2, progress),
+                      Rating.easy => _Stamp(S.stampEasy, Q.info, -0.2, progress),
+                      _ => _Stamp(S.stampKnow, Q.primary, -0.2, progress),
+                    },
+                  ),
                 if (progress < -0.15)
                   Positioned(right: 28, top: 36, child: _Stamp(S.stampDontKnow, Q.dontKnow, 0.2, -progress)),
               ],

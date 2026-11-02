@@ -8,11 +8,13 @@ public enum FsrsState : short
     Relearning = 3,
 }
 
-/// <summary>FSRS rating. Quizly only produces Again (Nevím) and Good (Vím).</summary>
+/// <summary>FSRS ratings: Nevím, Těžké, Vím, Snadné (#19).</summary>
 public enum Rating : short
 {
     Again = 1,
+    Hard = 2,
     Good = 3,
+    Easy = 4,
 }
 
 public enum PointsReason

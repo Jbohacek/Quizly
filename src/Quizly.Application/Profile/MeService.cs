@@ -99,6 +99,7 @@ internal sealed class MeService(IAppDbContext db, Progress progress, StudyServic
         settings.QuietFrom = quietFrom!.Value;
         settings.QuietTo = quietTo!.Value;
         settings.SmartTimes = request.SmartTimes;
+        settings.FourRatings = request.FourRatings;
 
         // A met day stays met; an open day takes the new goal and may be met right away (docs/spec.md §5.3).
         var events = new List<EventResponse>();
@@ -142,5 +143,6 @@ internal sealed class MeService(IAppDbContext db, Progress progress, StudyServic
         s.LastCallTime.ToString(TimeFormat, CultureInfo.InvariantCulture),
         s.QuietFrom.ToString(TimeFormat, CultureInfo.InvariantCulture),
         s.QuietTo.ToString(TimeFormat, CultureInfo.InvariantCulture),
-        s.SmartTimes);
+        s.SmartTimes,
+        s.FourRatings);
 }

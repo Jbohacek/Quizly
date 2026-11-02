@@ -97,7 +97,7 @@ internal sealed class ReviewLogConfiguration : IEntityTypeConfiguration<ReviewLo
     public void Configure(EntityTypeBuilder<ReviewLog> b)
     {
         b.Property(r => r.Id).ValueGeneratedNever();
-        b.ToTable(t => t.HasCheckConstraint("ck_review_logs_rating", "rating IN (1, 3)"));
+        b.ToTable(t => t.HasCheckConstraint("ck_review_logs_rating", "rating IN (1, 2, 3, 4)"));
         b.Property(r => r.Rating).HasConversion<short>();
         b.Property(r => r.StateBefore).HasConversion<short>();
         b.Property(r => r.Multiplier).HasPrecision(3, 1);
