@@ -94,6 +94,15 @@ internal static class AdminEndpoints
                 (await decks.SetAccessAsync(id, request, ct)).OkOrProblem())
             .WithName("SetDeckAccess").WithSummary("Set who sees the deck: everyone, or the listed users")
             .WithDescription("Users who lose the deck keep their progress; it comes back with access.");
+
+        g.MapPost("/{id:int}/archive", async (int id, IDeckService decks, CancellationToken ct) =>
+                (await decks.ArchiveAsync(id, ct)).OkOrProblem())
+            .WithName("ArchiveDeck").WithSummary("Archive the deck: hidden from every app user, nothing deleted")
+            .WithDescription("Cards, access and everyone's progress stay. Archiving an archived deck keeps its archivedAt.");
+
+        g.MapPost("/{id:int}/restore", async (int id, IDeckService decks, CancellationToken ct) =>
+                (await decks.RestoreAsync(id, ct)).OkOrProblem())
+            .WithName("RestoreDeck").WithSummary("Restore an archived deck to the app, with everyone's progress");
     }
 
     private static void MapYaml(RouteGroupBuilder g)

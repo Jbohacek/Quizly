@@ -1,6 +1,9 @@
 namespace Quizly.Application.Decks;
 
-/// <summary>A deck with its card count and who sees it (everyone, or <c>UserCount</c> chosen users).</summary>
+/// <summary>
+/// A deck with its card count, who sees it (everyone, or <c>UserCount</c> chosen users) and when it was archived
+/// (<c>null</c> = active, #28).
+/// </summary>
 public sealed record DeckResponse(
     int Id,
     string Name,
@@ -11,7 +14,8 @@ public sealed record DeckResponse(
     DateTimeOffset CreatedAt,
     DateTimeOffset UpdatedAt,
     bool ForEveryone,
-    int UserCount);
+    int UserCount,
+    DateTimeOffset? ArchivedAt = null);
 
 /// <summary>Payload for creating or editing a deck. Omitted color and sort order get defaults on create.</summary>
 public sealed record DeckRequest(string Name, string? Description = null, string? Color = null, int? SortOrder = null);

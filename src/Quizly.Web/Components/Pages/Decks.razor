@@ -9,7 +9,7 @@
 
 <header class="page-head">
     <div>
-        <span class="eyebrow">@(_decks is null ? "" : $"{_decks.Count} {Cz.Plural(_decks.Count, "balíček", "balíčky", "balíčků")} · {Cz.Cards(_decks.Sum(d => d.CardCount))}")</span>
+        <span class="eyebrow">@(_decks is null ? "" : $"{Active.Count} {Cz.Plural(Active.Count, "balíček", "balíčky", "balíčků")} · {Cz.Cards(Active.Sum(d => d.CardCount))}")</span>
         <h1>Balíčky</h1>
     </div>
     <div class="row">
@@ -76,6 +76,10 @@
     {
         <p class="empty">Zatím žádné balíčky. Vytvoř první, nebo importuj YAML.</p>
     }
+    else if (Active.Count == 0)
+    {
+        <p class="empty">Žádné aktivní balíčky. Vytvoř nový, nebo obnov některý z archivovaných.</p>
+    }
     else
     {
         <div class="table-wrap">
@@ -84,7 +88,7 @@
                     <tr><th>Balíček</th><th class="right">Karet</th><th>Kdo vidí</th><th class="right">Pořadí</th><th>Upraveno</th><th></th></tr>
                 </thead>
                 <tbody>
-                    @foreach (var d in _decks)
+                    @foreach (var d in Active)
                     {
                         <tr>
                             <td>
@@ -109,6 +113,35 @@
     }
 </section>
 
+@if (Archived.Count > 0)
+{
+    <details class="card archive" aria-label="Archivované balíčky">
+        <summary>Archivované (@Archived.Count)</summary>
+        <p class="hint">Uživatelé je v aplikaci nevidí. Karty i postup zůstávají; po obnovení se balíček vrátí, jak byl.</p>
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr><th>Balíček</th><th class="right">Karet</th><th>Archivováno</th><th></th></tr>
+                </thead>
+                <tbody>
+                    @foreach (var d in Archived)
+                    {
+                        <tr>
+                            <td><a class="strong" href="/admin/balicky/@d.Id"><span class="swatch" style="background:@d.Color"></span>@d.Name</a></td>
+                            <td class="right num">@Cz.Number(d.CardCount)</td>
+                            <td class="muted">@Cz.DateTime(d.ArchivedAt!.Value)</td>
+                            <td class="actions">
+                                <a class="btn small" href="/admin/balicky/@d.Id">Otevřít</a>
+                                <button class="btn small" @onclick="() => RestoreAsync(d)" disabled="@_busy">Obnovit</button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </details>
+}
+
 @code {
     private enum Mode { None, Create, Import }
 
@@ -121,8 +154,27 @@
     private string _yaml = "";
     private YamlPreviewResponse? _preview;
 
-    protected override async Task OnInitializedAsync() =>
+    private List<DeckResponse> Active => _decks?.Where(d => d.ArchivedAt is null).ToList() ?? [];
+
+    private List<DeckResponse> Archived => _decks?.Where(d => d.ArchivedAt is not null).ToList() ?? [];
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync() =>
         _decks = await UseAsync<IDeckService, IReadOnlyList<DeckResponse>>(s => s.ListAsync(CancellationToken.None));
+
+    private async Task RestoreAsync(DeckResponse deck)
+    {
+        _busy = true;
+        ClearMessages();
+        var result = await UseAsync<IDeckService, Result<DeckResponse>>(s => s.RestoreAsync(deck.Id, CancellationToken.None));
+        if (Handle(result, $"Balíček „{deck.Name}“ je zpět v aplikaci."))
+        {
+            await LoadAsync();
+        }
+
+        _busy = false;
+    }
 
     private async Task CreateAsync()
     {

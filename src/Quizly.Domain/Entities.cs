@@ -67,6 +67,12 @@ public class Deck
     /// <summary>"Pro všechny": every user sees the deck. Otherwise only the users in <see cref="Access"/>.</summary>
     public bool ForEveryone { get; set; } = true;
 
+    /// <summary>
+    /// When the admin archived the deck (#28): hidden from every app user, nothing deleted, can be restored.
+    /// Null = active.
+    /// </summary>
+    public DateTime? ArchivedAt { get; set; }
+
     public List<Card> Cards { get; set; } = [];
     public List<DeckAccess> Access { get; set; } = [];
 }
