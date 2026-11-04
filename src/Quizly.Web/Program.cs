@@ -10,6 +10,7 @@ using Quizly.Infrastructure.Persistence;
 using Quizly.Web.Api;
 using Quizly.Web.Auth;
 using Quizly.Web.Components;
+using Quizly.Web.Mcp;
 using Quizly.Web.Middleware;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -40,6 +41,8 @@ builder.Services.AddRazorComponents().AddInteractiveServerComponents()
     .AddHubOptions(o => o.MaximumReceiveMessageSize = 4 * 1024 * 1024);
 builder.Services.AddCascadingAuthenticationState();
 builder.Services.AddHealthChecks().AddDbContextCheck<QuizlyDbContext>();
+// Off unless Mcp__Enabled; refuses to start with a missing or short Mcp__Secret (docs/mcp.md).
+builder.Services.AddQuizlyMcp(config);
 
 // Behind Nginx Proxy Manager: trust X-Forwarded-For/Proto from the proxy network (deploy/README-deploy.md).
 builder.Services.Configure<ForwardedHeadersOptions>(o =>
@@ -59,6 +62,9 @@ if (config["DataProtection:KeysPath"] is { Length: > 0 } keysPath)
 var app = builder.Build();
 
 app.UseForwardedHeaders();
+// Strips the secret from /mcp/<secret> before routing, so nothing after this logs it.
+app.UseQuizlyMcpSecret(config);
+app.UseRouting();
 app.UseExceptionHandler();
 app.UseStatusCodePages();
 app.UseAuthentication();
@@ -78,6 +84,7 @@ app.MapApp();
 app.MapAdmin();
 app.MapDocs();
 app.MapAdminDashboard();
+app.MapQuizlyMcp(config);
 app.MapRazorComponents<Quizly.Web.Components.App>().AddInteractiveServerRenderMode();
 
 // Fail fast on missing secrets, then migrate and seed.

@@ -81,6 +81,7 @@ Import is **always** a preview first. The preview never writes anything.
 - **unchanged:** everything else.
 - **orderChanged:** card order differs; applying it updates `sort_order` (not counted as "changed").
 - `baseHash` = SHA-256 of the deck's current export. Apply sends it back; if the deck changed in the meantime, apply fails with `concurrencyConflict` ("Balíček se mezitím změnil. Načti náhled znovu.").
+- **kept** / `counts.kept`: always empty / 0 here. They are used by the MCP server, which keeps missing cards instead of deleting them ([mcp.md](./mcp.md) §2); there the cards that would be `deleted` are `kept` and stay untouched after the file's cards.
 
 ## 6. Validation errors
 
@@ -128,6 +129,8 @@ Every error has a 1-based `line` (and `column` where known) and a Czech message.
 1. Balíčky → deck → **YAML** tab → **Kopírovat** (or **Stáhnout**).
 2. Give it to an AI agent with an instruction such as: *"Přidej 20 karet o LINQ. Existující karty a jejich `id` nech beze změny. Nové karty piš bez `id`. Formátování jen `**tučně**`, `*kurzíva*`, `<small>malé</small>` a seznamy `- ` / `1. `."*
 3. Paste the result → **Náhled** → check new / changed / deleted → **Uložit** (confirm deletes if any).
+
+With the MCP server on, Claude can do steps 1–3 itself: read the deck, preview the change and save it, without deleting any cards ([mcp.md](./mcp.md)).
 
 ## 10. Formatting
 

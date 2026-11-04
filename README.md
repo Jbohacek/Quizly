@@ -12,7 +12,7 @@ A private Android flashcard app in Czech. Spaced repetition (FSRS) on the server
 
 The project is built in stages. Progress lives in [`STAGES.md`](./STAGES.md). Now: Etapa 8, polish and a first beta tester ([`docs/beta.md`](./docs/beta.md)), then `v1.0.0`.
 The full brief (features, business rules, data model, API, design tokens) is in [`CLAUDE.md`](./CLAUDE.md).
-Detailed specs live in [`docs/`](./docs): [spec](./docs/spec.md) · [API](./docs/api.md) · [YAML format](./docs/yaml-format.md) · [notifications](./docs/notifications.md) · [notification texts](./docs/notification-texts.md) · [architecture](./docs/architecture.md) · [design](./docs/design/).
+Detailed specs live in [`docs/`](./docs): [spec](./docs/spec.md) · [API](./docs/api.md) · [YAML format](./docs/yaml-format.md) · [notifications](./docs/notifications.md) · [notification texts](./docs/notification-texts.md) · [architecture](./docs/architecture.md) · [MCP server](./docs/mcp.md) · [design](./docs/design/).
 
 ## Repository layout
 

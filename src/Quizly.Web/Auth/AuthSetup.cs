@@ -24,6 +24,7 @@ internal static class AuthSetup
     public const string LoginLimit = "login";
     public const string RefreshLimit = "refresh";
     public const string AdminLoginLimit = "admin-login";
+    public const string McpLimit = "mcp";
 
     private const string AuthErrorKey = "quizly.authError";
 
@@ -109,6 +110,7 @@ internal static class AuthSetup
             AddPerIpLimit(options, config, LoginLimit, defaultPermits: 10);
             AddPerIpLimit(options, config, RefreshLimit, defaultPermits: 30);
             AddPerIpLimit(options, config, AdminLoginLimit, defaultPermits: 5);
+            AddPerIpLimit(options, config, McpLimit, defaultPermits: 60, defaultWindow: TimeSpan.FromMinutes(1));
             options.OnRejected = async (context, ct) =>
             {
                 if (context.Lease.TryGetMetadata(MetadataName.RetryAfter, out var retryAfter))
@@ -167,10 +169,11 @@ internal static class AuthSetup
         return error.ToProblem().ExecuteAsync(context.HttpContext);
     }
 
-    private static void AddPerIpLimit(RateLimiterOptions options, IConfiguration config, string name, int defaultPermits)
+    private static void AddPerIpLimit(
+        RateLimiterOptions options, IConfiguration config, string name, int defaultPermits, TimeSpan? defaultWindow = null)
     {
         var permits = config.GetValue($"RateLimits:{name}:PermitLimit", defaultPermits);
-        var window = config.GetValue($"RateLimits:{name}:Window", TimeSpan.FromMinutes(5));
+        var window = config.GetValue($"RateLimits:{name}:Window", defaultWindow ?? TimeSpan.FromMinutes(5));
         options.AddPolicy(name, context => RateLimitPartition.GetFixedWindowLimiter(
             context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
             _ => new FixedWindowRateLimiterOptions { PermitLimit = permits, Window = window, QueueLimit = 0 }));
