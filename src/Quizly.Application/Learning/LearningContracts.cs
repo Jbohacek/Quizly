@@ -78,8 +78,8 @@ public sealed record ReviewBatchResponse(
     PointsValueResponse Points,
     IReadOnlyList<EventResponse> Events);
 
-/// <summary>One card in the session queue.</summary>
-public sealed record SessionCardResponse(int CardId, int DeckId, string Question, string Answer, string Kind);
+/// <summary>One card in the session queue, with its tags (sorted).</summary>
+public sealed record SessionCardResponse(int CardId, int DeckId, string Question, string Answer, string Kind, IReadOnlyList<string> Tags);
 
 /// <summary>The session queue: due cards first (most overdue first), then new cards.</summary>
 public sealed record SessionResponse(
@@ -104,7 +104,7 @@ public sealed record AppDeckResponse(
     int LearningPercent,
     int UnseenCards);
 
-/// <summary>One card of a deck with the user's status: <c>new</c>, <c>learning</c> or <c>mastered</c> (spec §3.5).</summary>
+/// <summary>One card of a deck with the user's status: <c>new</c>, <c>learning</c> or <c>mastered</c> (spec §3.5), and its tags (sorted).</summary>
 public sealed record DeckCardResponse(
     int Id,
     string Question,
@@ -113,7 +113,8 @@ public sealed record DeckCardResponse(
     int MasteryPercent,
     int KnowCount,
     int DontKnowCount,
-    DateTimeOffset? NextReview);
+    DateTimeOffset? NextReview,
+    IReadOnlyList<string> Tags);
 
 /// <summary>A deck (with the user's counts) and all its cards in sort order.</summary>
 public sealed record DeckCardsResponse(AppDeckResponse Deck, IReadOnlyList<DeckCardResponse> Cards);

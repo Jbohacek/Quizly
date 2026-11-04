@@ -56,6 +56,22 @@ public sealed partial class Validator
         return this;
     }
 
+    /// <summary>Card tags (#29): every name valid and not too many.</summary>
+    public Validator Tags(string field, IReadOnlyList<string> invalid, bool tooMany)
+    {
+        foreach (var name in invalid)
+        {
+            Add(field, Decks.CardTagging.InvalidMessage(name));
+        }
+
+        if (tooMany)
+        {
+            Add(field, Decks.CardTagging.TooManyMessage);
+        }
+
+        return this;
+    }
+
     public AppError ToError() =>
         Errors.Validation(_errors.ToDictionary(e => e.Key, e => e.Value.ToArray()));
 

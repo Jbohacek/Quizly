@@ -22,12 +22,12 @@ internal sealed class AppCardService(IAppDbContext db, ICardService cards) : IAp
 {
     public async Task<Result<CardResponse>> CreateAsync(int userId, int deckId, AppCardRequest request, CancellationToken ct) =>
         await SeesAsync(userId, deckId, ct)
-            ? await cards.CreateAsync(deckId, new CardRequest(request.Question, request.Answer), ct)
+            ? await cards.CreateAsync(deckId, new CardRequest(request.Question, request.Answer, Tags: request.Tags), ct)
             : DeckService.DeckNotFound;
 
     public async Task<Result<CardResponse>> UpdateAsync(int userId, int deckId, int cardId, AppCardRequest request, CancellationToken ct) =>
         await SeesAsync(userId, deckId, ct)
-            ? await cards.UpdateAsync(deckId, cardId, new CardRequest(request.Question, request.Answer), ct)
+            ? await cards.UpdateAsync(deckId, cardId, new CardRequest(request.Question, request.Answer, Tags: request.Tags), ct)
             : DeckService.DeckNotFound;
 
     public async Task<Result> DeleteAsync(int userId, int deckId, int cardId, CancellationToken ct) =>

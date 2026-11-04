@@ -14,6 +14,8 @@ public interface IAppDbContext
     DbSet<Deck> Decks { get; }
     DbSet<Card> Cards { get; }
     DbSet<DeckAccess> DeckAccess { get; }
+    DbSet<Tag> Tags { get; }
+    DbSet<CardTag> CardTags { get; }
     DbSet<CardState> CardStates { get; }
     DbSet<ReviewLog> ReviewLogs { get; }
     DbSet<DailyActivity> DailyActivities { get; }

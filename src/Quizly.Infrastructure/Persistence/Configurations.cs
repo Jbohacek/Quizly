@@ -74,6 +74,24 @@ internal sealed class CardConfiguration : IEntityTypeConfiguration<Card>
         b.Property(c => c.Answer).HasMaxLength(Limits.AnswerMax);
         b.HasOne(c => c.Deck).WithMany(d => d.Cards).HasForeignKey(c => c.DeckId).OnDelete(DeleteBehavior.Cascade);
         b.HasIndex(c => new { c.DeckId, c.SortOrder, c.Id });
+        b.HasMany(c => c.Tags).WithMany(t => t.Cards).UsingEntity<CardTag>(
+            r => r.HasOne<Tag>().WithMany().HasForeignKey(ct => ct.TagId).OnDelete(DeleteBehavior.Cascade),
+            l => l.HasOne<Card>().WithMany().HasForeignKey(ct => ct.CardId).OnDelete(DeleteBehavior.Cascade),
+            j =>
+            {
+                j.ToTable("card_tags");
+                j.HasKey(ct => new { ct.CardId, ct.TagId });
+                j.HasIndex(ct => ct.TagId);
+            });
+    }
+}
+
+internal sealed class TagConfiguration : IEntityTypeConfiguration<Tag>
+{
+    public void Configure(EntityTypeBuilder<Tag> b)
+    {
+        b.Property(t => t.Name).HasMaxLength(Limits.TagNameMax);
+        b.HasIndex(t => t.Name).IsUnique();
     }
 }
 

@@ -15,12 +15,13 @@ internal sealed class DeckTools(IDeckService decks, IYamlDeckService yamlDecks, 
 {
     private const string Format =
         """
-        Quizly deck YAML format v1: a mapping with `deck` (`name` 1–100 chars, optional `description` ≤ 500 chars, optional `color` "#RRGGBB") and `cards`, a list of { id, question, answer }.
+        Quizly deck YAML format v1: a mapping with `deck` (`name` 1–100 chars, optional `description` ≤ 500 chars, optional `color` "#RRGGBB") and `cards`, a list of { id, question, answer, tags }.
         Rules:
         - Keep every existing card's `id` exactly as exported. A card with an `id` is updated in place and users keep their learning progress on it.
         - A card without `id` is a new card. Never invent ids.
         - Card order in the file is the order in the deck.
         - `question` 1–500 chars, `answer` 1–2000 chars, no other keys. Multi-line text uses a block scalar (`|`). Quote text that starts with `*` or `&`.
+        - `tags` is optional: a list like `tags: [ai_gen, prednaska_01]` for organizing cards (where a card comes from, which lecture). Lowercase letters, digits, `_` and `-`, at most 30 chars each, at most 10 per card. Keep the tags of existing cards; a card without `tags` has none.
         - Text is plain, with only this light formatting: **bold**, *italic*, <small>small note</small>, and lines starting with "- " or "1. " for lists. No images, links, headings or other Markdown/HTML.
         - The app is Czech: write cards in Czech unless asked otherwise.
         - Cards missing from the YAML are never deleted through this server; they stay untouched (deleting is dashboard-only).

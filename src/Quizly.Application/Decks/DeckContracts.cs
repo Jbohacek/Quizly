@@ -25,7 +25,7 @@ public sealed record DeckAccessDto(bool ForEveryone, IReadOnlyList<int> UserIds)
 /// <summary>What deleting a deck removes: its cards and the progress of this many users.</summary>
 public sealed record DeckDeleteImpact(int Cards, int UsersWithProgress);
 
-/// <summary>A flashcard.</summary>
+/// <summary>A flashcard with its tags (sorted).</summary>
 public sealed record CardResponse(
     int Id,
     int DeckId,
@@ -33,10 +33,17 @@ public sealed record CardResponse(
     string Answer,
     int SortOrder,
     DateTimeOffset CreatedAt,
-    DateTimeOffset UpdatedAt);
+    DateTimeOffset UpdatedAt,
+    IReadOnlyList<string> Tags);
 
-/// <summary>A card added or edited in the app; the app doesn't reorder cards.</summary>
-public sealed record AppCardRequest(string Question, string Answer);
+/// <summary>
+/// A card added or edited in the app; the app doesn't reorder cards. Omitted <c>tags</c> keep the card's tags
+/// (an app without tag editing never clears them).
+/// </summary>
+public sealed record AppCardRequest(string Question, string Answer, IReadOnlyList<string>? Tags = null);
 
-/// <summary>Payload for creating or editing a card. Omitted sort order puts a new card at the end.</summary>
-public sealed record CardRequest(string Question, string Answer, int? SortOrder = null);
+/// <summary>
+/// Payload for creating or editing a card. Omitted sort order puts a new card at the end; omitted <c>tags</c>
+/// keep the card's tags (none on a new card).
+/// </summary>
+public sealed record CardRequest(string Question, string Answer, int? SortOrder = null, IReadOnlyList<string>? Tags = null);

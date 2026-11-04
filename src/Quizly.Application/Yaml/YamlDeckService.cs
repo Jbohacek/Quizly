@@ -58,7 +58,8 @@ internal sealed class YamlDeckService(IAppDbContext db, IDeckService decks, Time
             return DeckService.DeckNotFound;
         }
 
-        var cards = await db.Cards.Where(c => c.DeckId == deckId).OrderBy(c => c.SortOrder).ThenBy(c => c.Id).ToListAsync(ct);
+        var cards = await db.Cards.Include(c => c.Tags).Where(c => c.DeckId == deckId)
+            .OrderBy(c => c.SortOrder).ThenBy(c => c.Id).ToListAsync(ct);
         var plan = await PlanAsync(deck, cards, request.Yaml, missingCards, ct);
         if (plan.Errors.Count > 0)
         {
@@ -81,6 +82,7 @@ internal sealed class YamlDeckService(IAppDbContext db, IDeckService decks, Time
         var byId = cards.ToDictionary(c => c.Id);
         var counts = Counts(plan, cards.Count, plan.Deck.Cards.Count(c => c.Id is int id && IsChanged(byId[id], c)));
         var kept = plan.Kept.Select(c => new YamlKeptCard(c.Id, c.Question)).ToList();
+        var tags = await CardTagging.ResolveAsync(db, plan.Deck.Cards.SelectMany(c => c.Tags), ct);
         deck.Name = plan.Deck.Name;
         deck.Description = plan.Deck.Description;
         deck.Color = plan.Deck.Color ?? deck.Color;
@@ -96,6 +98,7 @@ internal sealed class YamlDeckService(IAppDbContext db, IDeckService decks, Time
                 {
                     card.Question = parsed.Question;
                     card.Answer = parsed.Answer;
+                    CardTagging.Set(card, parsed.Tags, tags);
                     card.UpdatedAt = now;
                 }
 
@@ -111,6 +114,7 @@ internal sealed class YamlDeckService(IAppDbContext db, IDeckService decks, Time
                     SortOrder = position,
                     CreatedAt = now,
                     UpdatedAt = now,
+                    Tags = [.. parsed.Tags.Select(n => tags[n])],
                 });
             }
         }
@@ -159,6 +163,7 @@ internal sealed class YamlDeckService(IAppDbContext db, IDeckService decks, Time
         }
 
         var now = time.GetUtcNow().UtcDateTime;
+        var tags = await CardTagging.ResolveAsync(db, parsed.Cards.SelectMany(c => c.Tags), ct);
         var deck = new Deck
         {
             Name = parsed.Name,
@@ -174,6 +179,7 @@ internal sealed class YamlDeckService(IAppDbContext db, IDeckService decks, Time
                 SortOrder = i,
                 CreatedAt = now,
                 UpdatedAt = now,
+                Tags = [.. c.Tags.Select(n => tags[n])],
             }).ToList(),
         };
         db.Decks.Add(deck);
@@ -246,14 +252,19 @@ internal sealed class YamlDeckService(IAppDbContext db, IDeckService decks, Time
 
             var questionChanged = current.Question != parsed.Question;
             var answerChanged = current.Answer != parsed.Answer;
+            var tagsChanged = !CardTagging.SameAs(current, parsed.Tags);
 
             changed.Add(new YamlChangedCard(
                 current.Id,
                 parsed.Line,
                 parsed.Question,
-                [.. questionChanged ? ["question"] : Array.Empty<string>(), .. answerChanged ? ["answer"] : Array.Empty<string>()],
-                new YamlCardText(questionChanged ? current.Question : null, answerChanged ? current.Answer : null),
-                new YamlCardText(questionChanged ? parsed.Question : null, answerChanged ? parsed.Answer : null)));
+                [
+                    .. questionChanged ? ["question"] : Array.Empty<string>(),
+                    .. answerChanged ? ["answer"] : Array.Empty<string>(),
+                    .. tagsChanged ? ["tags"] : Array.Empty<string>(),
+                ],
+                new YamlCardText(questionChanged ? current.Question : null, answerChanged ? current.Answer : null, tagsChanged ? CardTagging.Names(current) : null),
+                new YamlCardText(questionChanged ? parsed.Question : null, answerChanged ? parsed.Answer : null, tagsChanged ? parsed.Tags : null)));
         }
 
         var deletedIds = plan.Deleted.Select(c => c.Id).ToList();
@@ -286,7 +297,7 @@ internal sealed class YamlDeckService(IAppDbContext db, IDeckService decks, Time
 
     /// <summary>Stored text is already normalized, so a plain comparison finds real changes only (docs/yaml-format.md §4).</summary>
     private static bool IsChanged(Card current, ParsedCard parsed) =>
-        current.Question != parsed.Question || current.Answer != parsed.Answer;
+        current.Question != parsed.Question || current.Answer != parsed.Answer || !CardTagging.SameAs(current, parsed.Tags);
 
     private static YamlCounts Counts(Plan plan, int existing, int changed)
     {
@@ -295,7 +306,7 @@ internal sealed class YamlDeckService(IAppDbContext db, IDeckService decks, Time
     }
 
     private async Task<List<Card>> CardsAsync(int deckId, CancellationToken ct) =>
-        await db.Cards.AsNoTracking().Where(c => c.DeckId == deckId).OrderBy(c => c.SortOrder).ThenBy(c => c.Id).ToListAsync(ct);
+        await db.Cards.AsNoTracking().Include(c => c.Tags).Where(c => c.DeckId == deckId).OrderBy(c => c.SortOrder).ThenBy(c => c.Id).ToListAsync(ct);
 
     private static YamlPreviewResponse Invalid(IReadOnlyList<YamlIssue> errors) =>
         new(false, null, null, new YamlCounts(0, 0, 0, 0), false, [], [], [], errors, []);

@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Text;
 using System.Text.RegularExpressions;
 using Quizly.Application.Common;
+using Quizly.Application.Decks;
 using Quizly.Domain;
 using YamlDotNet.Core;
 using YamlDotNet.Core.Events;
@@ -12,8 +13,8 @@ namespace Quizly.Application.Yaml;
 /// <summary>A validation error with a 1-based line (docs/yaml-format.md §6).</summary>
 public sealed record YamlIssue(string Code, string Message, int? Line = null, int? Column = null);
 
-/// <summary>A card as written in the file; <see cref="Line"/> is where its item starts.</summary>
-public sealed record ParsedCard(int? Id, string Question, string Answer, int Line);
+/// <summary>A card as written in the file; <see cref="Line"/> is where its item starts. <see cref="Tags"/> are normalized (<see cref="TagNames"/>).</summary>
+public sealed record ParsedCard(int? Id, string Question, string Answer, int Line, IReadOnlyList<string> Tags);
 
 /// <summary>A syntactically valid deck file. <see cref="Color"/> is null when the key is missing.</summary>
 public sealed record ParsedDeck(string Name, string Description, string? Color, IReadOnlyList<ParsedCard> Cards);
@@ -27,7 +28,7 @@ public static partial class DeckYaml
 
     private static readonly string[] RootKeys = ["deck", "cards"];
     private static readonly string[] DeckKeys = ["name", "description", "color"];
-    private static readonly string[] CardKeys = ["id", "question", "answer"];
+    private static readonly string[] CardKeys = ["id", "question", "answer", "tags"];
 
     public static (ParsedDeck? Deck, IReadOnlyList<YamlIssue> Errors) Parse(string? yaml)
     {
@@ -93,6 +94,10 @@ public static partial class DeckYaml
             b.Append("  - id: ").Append(card.Id.ToString(CultureInfo.InvariantCulture)).Append('\n');
             AppendText(b, "question", card.Question);
             AppendText(b, "answer", card.Answer);
+            if (card.Tags.Count > 0)
+            {
+                b.Append("    tags: [").Append(string.Join(", ", CardTagging.Names(card).Select(Scalar))).Append("]\n");
+            }
         }
 
         return b.ToString();
@@ -298,9 +303,10 @@ public static partial class DeckYaml
 
             var question = Text(fields, "question", card, Limits.QuestionMax, required: true, errors);
             var answer = Text(fields, "answer", card, Limits.AnswerMax, required: true, errors);
-            if (question is not null && answer is not null)
+            var tags = Tags(fields, errors);
+            if (question is not null && answer is not null && tags is not null)
             {
-                cards.Add(new ParsedCard(id, question, answer, Line(card.Start)));
+                cards.Add(new ParsedCard(id, question, answer, Line(card.Start), tags));
             }
         }
 
@@ -341,6 +347,42 @@ public static partial class DeckYaml
         }
 
         return text;
+    }
+
+    /// <summary>
+    /// Card tags (#29): a list (<c>[ai_gen, prednaska_01]</c>) or one text split at <c>;</c>, <c>,</c> and spaces
+    /// (<c>ai_gen ; prednaska_01</c>). Missing means no tags.
+    /// </summary>
+    private static IReadOnlyList<string>? Tags(Dictionary<string, (YamlScalarNode Key, YamlNode Value)> fields, List<YamlIssue> errors)
+    {
+        if (!fields.TryGetValue("tags", out var entry))
+        {
+            return [];
+        }
+
+        List<string?> raw;
+        switch (entry.Value)
+        {
+            case YamlScalarNode scalar:
+                raw = [.. TagNames.Split(scalar.Value)];
+                break;
+            case YamlSequenceNode sequence when sequence.Children.All(c => c is YamlScalarNode):
+                raw = sequence.Children.Select(c => ((YamlScalarNode)c).Value).ToList();
+                break;
+            default:
+                errors.Add(WrongType("tags", "seznam tagů", entry.Value));
+                return null;
+        }
+
+        var (names, invalid, tooMany) = TagNames.Normalize(raw);
+        var (line, column) = (Line(entry.Value.Start), Column(entry.Value.Start));
+        errors.AddRange(invalid.Select(n => new YamlIssue("invalidTag", CardTagging.InvalidMessage(n), line, column)));
+        if (tooMany)
+        {
+            errors.Add(new YamlIssue("tooManyTags", CardTagging.TooManyMessage, line, column));
+        }
+
+        return invalid.Count > 0 || tooMany ? null : names;
     }
 
     private static YamlIssue WrongType(string key, string type, YamlNode node) =>
