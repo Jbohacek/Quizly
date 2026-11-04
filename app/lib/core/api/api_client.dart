@@ -113,6 +113,30 @@ class ApiClient {
   static Json _cardBody(String question, String answer, List<String>? tags) =>
       {'question': question, 'answer': answer, 'tags': ?tags};
 
+  /// The newest app version the server can hand out (docs/api.md §15); null when there's none.
+  Future<AppLatest?> latestApp() async {
+    final json = await _send<Json>('GET', '/app/latest');
+    final latest = json['latest'];
+    return latest == null ? null : AppLatest.fromJson(latest as Json);
+  }
+
+  /// Downloads the newest APK to [path], reporting bytes received and the total.
+  Future<void> downloadApp(String path, {void Function(int received, int total)? onProgress, CancelToken? cancel}) async {
+    try {
+      await _dio.download(
+        '/app/apk',
+        path,
+        onReceiveProgress: onProgress,
+        cancelToken: cancel,
+        deleteOnError: true,
+        // A slow connection may pause for a while between chunks.
+        options: Options(extra: {'auth': true}, receiveTimeout: const Duration(minutes: 1)),
+      );
+    } on DioException catch (e) {
+      throw e.error is ApiException ? e.error! as ApiException : ApiException.fromDio(e);
+    }
+  }
+
   /// Deletes a card with everyone's progress on it.
   Future<void> deleteCard(int deckId, int cardId) => _send<Object?>('DELETE', '/decks/$deckId/cards/$cardId');
 

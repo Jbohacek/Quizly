@@ -55,4 +55,4 @@ Copy, fill in, send (gender-neutral, like the app):
 
 ## 5. After the beta
 
-Part 2 of Etapa 8: fix what came up, set `version: 1.0.0+1` in `app/pubspec.yaml`, tag `v1.0.0`. The tester installs that APK over the beta.
+Part 2 of Etapa 8: fix what came up, then tag `v1.0.0` (`app/pubspec.yaml` already says `1.0.0`). The tester installs that APK over the beta by hand, one last time: from `v1.0.0` on, new versions are offered in the app ([`app-updates.md`](./app-updates.md)).

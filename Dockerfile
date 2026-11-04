@@ -17,8 +17,8 @@ RUN dotnet publish src/Quizly.Web/Quizly.Web.csproj -c Release -o /app
 # Runtime: Debian-based ASP.NET image (ICU + tzdata for Europe/Prague), non-root user.
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
 WORKDIR /app
-# Data Protection keys live on a volume so admin cookies survive restarts.
-RUN mkdir -p /data/keys && chown -R "$APP_UID" /data
+# Data Protection keys live on a volume so admin cookies survive restarts; the newest APK too (docs/app-updates.md).
+RUN mkdir -p /data/keys /data/apk && chown -R "$APP_UID" /data
 COPY --from=build /app .
 ENV ASPNETCORE_HTTP_PORTS=8080 \
     DataProtection__KeysPath=/data/keys

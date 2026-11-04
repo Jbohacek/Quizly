@@ -898,3 +898,22 @@ class NotificationTexts {
         },
       };
 }
+
+/// `GET /app/latest`: the newest app version on the server (docs/api.md §15).
+class AppLatest {
+  const AppLatest({required this.versionName, required this.versionCode, required this.size});
+
+  factory AppLatest.fromJson(Json j) => AppLatest(
+        versionName: j['versionName'] as String,
+        versionCode: _int(j['versionCode']),
+        size: _int(j['size']),
+      );
+
+  final String versionName;
+
+  /// Higher than the installed app's versionCode means an update.
+  final int versionCode;
+
+  /// Bytes of the APK.
+  final int size;
+}

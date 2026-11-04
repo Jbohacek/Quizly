@@ -210,6 +210,8 @@ Jakub (2026-11-01): polish first, then a first beta user tests the app, then the
 - [x] #29 card tags, API part: `tags` / `card_tags`, admin and app card APIs, session and deck cards, dashboard "Tagy", deck YAML, MCP descriptions
 - [x] #29 card tags, app part: deck name (in its color, no frame) and tags in the session, tags in the deck detail (and its search) and the card editor
 - [ ] Fixes from the beta user's testing
+- [x] App updates: the server fetches the newest full release from GitHub; Domů offers "Je dostupná nová verze", downloads it in the app and opens the installer (`docs/app-updates.md`)
+- [ ] **(Jakub)** GitHub token + `Updates__*` in the stack (`docs/app-updates.md` §3)
 - [ ] Tag `v1.0.0`, APK attached to the GitHub Release
 
 **Gate**

@@ -15,6 +15,8 @@ import '../../core/theme/tokens.dart';
 import '../../core/widgets/widgets.dart';
 import '../notifications/ask_card.dart';
 import '../session/session_controller.dart';
+import '../updates/app_update.dart';
+import '../updates/update_card.dart';
 import 'deck_screen.dart';
 import 'week.dart';
 
@@ -31,7 +33,10 @@ class HomeScreen extends ConsumerWidget {
         AsyncValue(:final value?) => RefreshIndicator(
             color: Q.primary,
             backgroundColor: Q.surface,
-            onRefresh: () => ref.refresh(homeProvider.future),
+            onRefresh: () {
+              ref.invalidate(availableUpdateProvider);
+              return ref.refresh(homeProvider.future);
+            },
             child: _HomeBody(data: value),
           ),
         AsyncValue(:final error?) => ErrorView(
@@ -60,6 +65,7 @@ class _HomeBody extends StatelessWidget {
       children: [
         _Header(name: me.user.displayName, balance: me.summary.balance),
         const SizedBox(height: 16),
+        const UpdateCard(),
         const NotificationAskCard(),
         _StreakCard(summary: me.summary, week: data.week),
         const SizedBox(height: 16),

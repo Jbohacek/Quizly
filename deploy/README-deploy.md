@@ -47,7 +47,7 @@ Portainer → **Stacks → Add stack**:
 4. **Deploy the stack.** Portainer pulls the image with the `ghcr` registry credentials.
 5. Check the `quizly` container log for `Now listening on: http://[::]:8080` and no errors. `http://<server>:<QUIZLY_PORT>/api/health` returns `{"status":"ok"}`.
 
-The database lives in the `quizly_pgdata` volume, the Data Protection keys (admin cookies survive restarts) in `quizly_keys`.
+The database lives in the `quizly_pgdata` volume, the Data Protection keys (admin cookies survive restarts) in `quizly_keys`, the newest app APK in `quizly_apk`.
 
 ## 5. Proxy host in Nginx Proxy Manager
 
@@ -133,6 +133,14 @@ Lets Claude (claude.ai and Claude Code) list decks, read one as YAML, preview a 
 
 The full URL ends up in NPM's access log on the server, so treat that log like the `.env`. To turn MCP off, set `Mcp__Enabled` = `false` and update the stack.
 
+## 9. App updates
+
+The server fetches each new full release's APK from GitHub and the app offers it on Domů. Setup, releasing and troubleshooting: [`docs/app-updates.md`](../docs/app-updates.md).
+
+1. Create a fine-grained GitHub token: only `Jbohacek/Quizly`, **Contents: Read-only**, with an expiry (note the date).
+2. Portainer → stack `quizly`: paste the new [`docker-compose.yml`](./docker-compose.yml) (it adds the `apk` volume), set `Updates__Repository` = `Jbohacek/Quizly` and `Updates__GitHubToken` = the token → **Update the stack**.
+3. The `quizly` log shows `App update 1.0.0 (<run>) is ready` once a full release exists (before that: `No full release found`).
+
 ## Runbook
 
 ### Update
@@ -145,7 +153,7 @@ Every merge to `main` pushes `ghcr.io/jbohacek/quizly:latest` and `:<commit sha>
 
 Migrations run on startup; a failed migration stops the container (check its log) and leaves the database as it was.
 
-The app updates separately: install the new APK from the GitHub Release (or the `app` workflow's artifact) over the old one. The login stays.
+The app updates separately: tag `v1.0.1` and phones offer the new version on Domů within ~15 minutes (§9). Builds older than `v1.0.0` (betas) are installed by hand from the GitHub Release. The login stays.
 
 ### Rollback
 
@@ -180,6 +188,7 @@ Change the value in the stack's environment variables in Portainer, then **Updat
 | Sign every phone out | Delete the refresh tokens: `docker exec quizly-db-1 psql -U quizly -d quizly -c "DELETE FROM refresh_tokens"`. Each user logs in again with their password. For one user, use **Reset hesla** on the dashboard instead. |
 | `Mcp__Secret` | Generate a new one (§8), put it in the stack and **Update the stack**. The old URL answers `404` at once; change the URL in the claude.ai connector and in Claude Code (`claude mcp remove quizly`, then add it again). |
 | GHCR token (Portainer registry) | Create a new `read:packages` token, put it in Portainer → Registries → `ghcr`, delete the old one on GitHub. |
+| `Updates__GitHubToken` | Before it expires: create a new token (§9), put it in the stack and **Update the stack**, then revoke the old one on GitHub. Until then phones simply aren't offered new versions. |
 | Android signing key | **Never rotate.** A new key can't install over the old app; every phone would have to uninstall (and log in again). Keep a copy of the keystore and its passwords outside GitHub. |
 
 ## Troubleshooting
@@ -194,4 +203,6 @@ Change the value in the stack's environment variables in Portainer, then **Updat
 | `/api/health` → 503 | database not reachable: check `ConnectionStrings__Default` and the `db` container |
 | Container exits with `Mcp__Secret must be at least 48 URL-safe characters` | `Mcp__Enabled=true` but the secret is missing, short, or has characters like `+` `/` `=` (§8) |
 | Claude says the Quizly connector can't connect | `Mcp__Enabled` is off, or the URL's secret differs from `Mcp__Secret` (both give `404`), or too many requests (`429`, 60 per minute) |
+| Log: `App update check failed` … `401` | `Updates__GitHubToken` expired or was revoked (Runbook → Rotate secrets) |
+| Phones don't offer a new version | only a pre-release was tagged, the APK isn't attached yet, or updates are off (`docs/app-updates.md` §5) |
 | First start logs one failed `SELECT … FROM "__EFMigrationsHistory"` | normal: EF checks the history table before the first migration creates it |

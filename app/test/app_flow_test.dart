@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 import 'dart:math';
 import 'dart:typed_data';
 
@@ -21,6 +22,7 @@ import 'package:quizly/features/notifications/notifications.dart';
 import 'package:quizly/features/notifications/planner.dart';
 import 'package:quizly/features/session/review_sync.dart';
 import 'package:quizly/features/session/swipe_card.dart';
+import 'package:quizly/features/updates/app_update.dart';
 import 'package:quizly/main.dart';
 import 'package:quizly/router.dart';
 import 'package:timezone/data/latest.dart' as tzdata;
@@ -40,6 +42,11 @@ class FakeApi implements HttpClientAdapter {
 
   /// The admin keeps this user out of the shop when false.
   bool shopEnabled = true;
+
+  /// `GET /api/app/latest` (docs/api.md §15): null = nothing to offer.
+  Map<String, Object?>? appLatest;
+  bool apkFails = false;
+  int apkDownloads = 0;
   final sessionQueries = <Map<String, String>>[];
 
   /// Card edits from the app (#23): "METHOD path" with the body.
@@ -210,6 +217,12 @@ class FakeApi implements HttpClientAdapter {
       final r when r.startsWith('PUT /api/decks/1/cards/') => _editCard(r, body as Map<String, Object?>),
       final r when r.startsWith('DELETE /api/decks/1/cards/') => _deleteCard(r),
       'POST /api/me/password' => _changePassword(body as Map<String, Object?>),
+      'GET /api/app/latest' => _json({'latest': appLatest}),
+      'GET /api/app/apk' when (++apkDownloads > 0) && apkFails => _json({'code': 'notFound', 'title': 'Novou verzi aplikace teď nemáme.'}, 404),
+      'GET /api/app/apk' => ResponseBody.fromBytes(List.filled(1234, 7), 200, headers: {
+          Headers.contentTypeHeader: ['application/vnd.android.package-archive'],
+          Headers.contentLengthHeader: ['1234'],
+        }),
       'GET /api/stats' => _json(stats((statsQueries..add(options.uri.queryParameters['deckId'])).last)),
       'GET /api/shop' => _json(shop),
       'GET /api/claims' => _json({'items': claims.reversed.toList()}),
@@ -1009,6 +1022,54 @@ void main() {
     expect(api.reviewed, isEmpty);
   });
 
+  group('app updates (docs/app-updates.md)', () {
+    const latest = {'versionName': '1.0.1', 'versionCode': 58, 'size': 1234};
+
+    testWidgets('Domů offers a newer version; Aktualizovat downloads it and opens the installer', (tester) async {
+      final installer = FakeAppInstaller(installed: 41);
+      final (api, _) = await _signedIn(tester, configure: (api) => api.appLatest = latest, installer: installer);
+
+      expect(find.text(S.updateTitle), findsOneWidget);
+      expect(find.text(S.updateText('1.0.1', formatMegabytes(1234))), findsOneWidget);
+      await tester.tap(find.text(S.updateNow));
+      await _untilReal(tester, () => installer.installs.isNotEmpty);
+
+      expect(api.apkDownloads, 1);
+      expect(installer.installs, [installer.path]);
+      expect(await tester.runAsync(() => File(installer.path).length()), 1234);
+      expect(find.text(S.updateFailed), findsNothing);
+    });
+
+    testWidgets('the same or an older version shows nothing', (tester) async {
+      await _signedIn(tester, configure: (api) => api.appLatest = latest, installer: FakeAppInstaller(installed: 58));
+      expect(find.text(S.updateTitle), findsNothing);
+    });
+
+    testWidgets('Později hides the card until the app starts again', (tester) async {
+      final (api, _) = await _signedIn(tester, configure: (api) => api.appLatest = latest, installer: FakeAppInstaller(installed: 41));
+      await tester.tap(find.text(S.updateLater));
+      await settle(tester);
+      expect(find.text(S.updateTitle), findsNothing);
+
+      // A newer one than the hidden version shows again.
+      api.appLatest = {...latest, 'versionName': '1.0.2', 'versionCode': 60};
+      await tester.fling(find.byType(Scrollable).first, const Offset(0, 400), 1000);
+      await settle(tester);
+      expect(find.text(S.updateText('1.0.2', formatMegabytes(1234))), findsOneWidget);
+    });
+
+    testWidgets('a failed download says so and nothing is installed', (tester) async {
+      final installer = FakeAppInstaller(installed: 41);
+      await _signedIn(tester, configure: (api) => api
+        ..appLatest = latest
+        ..apkFails = true, installer: installer);
+      await tester.tap(find.text(S.updateNow));
+      await _untilReal(tester, () => find.text(S.updateFailed).evaluate().isNotEmpty);
+      expect(find.text(S.updateFailed), findsOneWidget);
+      expect(installer.installs, isEmpty);
+    });
+  });
+
   group('accessibility (CLAUDE.md §9.3)', () {
     // Touch targets ≥ 44 px, every tappable thing has a label, text contrast ≥ 4.5:1.
     const tapTargets = MinimumTapTargetGuideline(size: Size(44, 44), link: 'CLAUDE.md §9.3');
@@ -1042,8 +1103,14 @@ void main() {
 
     testWidgets('the tabs: Domů, Statistiky, Obchod, Nastavení', (tester) async {
       final semantics = tester.ensureSemantics();
-      await _signedIn(tester, notifications: FakeNotificationPlatform()..allowed = false);
-      await meetsAll(tester, 'Domů with the reminder question');
+      await _signedIn(
+        tester,
+        notifications: FakeNotificationPlatform()..allowed = false,
+        configure: (api) => api.appLatest = {'versionName': '1.0.1', 'versionCode': 58, 'size': 1234},
+        installer: FakeAppInstaller(installed: 41),
+      );
+      expect(find.text(S.updateTitle), findsOneWidget);
+      await meetsAll(tester, 'Domů with the update and the reminder question');
       for (final tab in ['Statistiky', 'Obchod', 'Nastavení']) {
         await tester.tap(find.text(tab).last);
         await settle(tester);
@@ -1097,6 +1164,7 @@ Future<(FakeApi, MemoryTokenStore)> _signedIn(
   WidgetTester tester, {
   void Function(FakeApi api)? configure,
   FakeNotificationPlatform? notifications,
+  FakeAppInstaller? installer,
 }) async {
   tester.view.physicalSize = const Size(1080, 2340);
   tester.view.devicePixelRatio = 2.75;
@@ -1119,6 +1187,7 @@ Future<(FakeApi, MemoryTokenStore)> _signedIn(
       outboxStoreProvider.overrideWithValue(MemoryOutboxStore()),
       connectivityProvider.overrideWith((ref) => Stream.value(true)),
       notificationsProvider.overrideWithValue(_notifications(notifications ?? FakeNotificationPlatform())),
+      appInstallerProvider.overrideWithValue(installer ?? FakeAppInstaller()),
     ],
     child: const QuizlyApp(),
   ));
@@ -1147,3 +1216,32 @@ final _deckList = find.descendant(of: find.byType(DeckScreen), matching: find.by
 
 /// The card editor's list (not a text field's own scrollable).
 final _editorList = find.descendant(of: find.byType(CardEditorScreen), matching: find.byType(Scrollable)).first;
+
+/// Lets real I/O (a file download) and the test's clock take turns until [done], at most ~5 s.
+Future<void> _untilReal(WidgetTester tester, bool Function() done) async {
+  for (var i = 0; i < 100 && !done(); i++) {
+    await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 50)));
+    await tester.pump(const Duration(milliseconds: 50));
+  }
+  await settle(tester);
+}
+
+/// Android's side of an update, without Android: a temporary file and a list of installs.
+class FakeAppInstaller implements AppInstaller {
+  FakeAppInstaller({this.installed = 1});
+
+  final int installed;
+  final installs = <String>[];
+  late final String path = '${Directory.systemTemp.createTempSync('quizly-update').path}/quizly-update.apk';
+
+  @override
+  Future<int> installedVersionCode() async => installed;
+
+  @override
+  Future<String> downloadPath() async => path;
+
+  @override
+  Future<void> install(String path) async {
+    installs.add(path);
+  }
+}

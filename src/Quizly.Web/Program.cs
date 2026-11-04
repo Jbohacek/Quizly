@@ -12,6 +12,7 @@ using Quizly.Web.Auth;
 using Quizly.Web.Components;
 using Quizly.Web.Mcp;
 using Quizly.Web.Middleware;
+using Quizly.Web.Updates;
 
 var builder = WebApplication.CreateBuilder(args);
 var config = builder.Configuration;
@@ -43,6 +44,8 @@ builder.Services.AddCascadingAuthenticationState();
 builder.Services.AddHealthChecks().AddDbContextCheck<QuizlyDbContext>();
 // Off unless Mcp__Enabled; refuses to start with a missing or short Mcp__Secret (docs/mcp.md).
 builder.Services.AddQuizlyMcp(config);
+// New APKs from GitHub's full releases, off unless Updates__Repository and Updates__GitHubToken (docs/app-updates.md).
+builder.Services.AddQuizlyAppUpdates(config);
 
 // Behind Nginx Proxy Manager: trust X-Forwarded-For/Proto from the proxy network (deploy/README-deploy.md).
 builder.Services.Configure<ForwardedHeadersOptions>(o =>
@@ -81,6 +84,7 @@ app.MapHealthChecks("/api/health", new HealthCheckOptions
 app.MapAppAuth();
 app.MapAdminAuth();
 app.MapApp();
+app.MapAppUpdates();
 app.MapAdmin();
 app.MapDocs();
 app.MapAdminDashboard();
