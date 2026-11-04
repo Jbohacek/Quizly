@@ -10,9 +10,13 @@ public interface IYamlDeckService
 {
     Task<Result<string>> ExportAsync(int deckId, CancellationToken ct);
 
-    Task<Result<YamlPreviewResponse>> PreviewAsync(int deckId, YamlRequest request, CancellationToken ct);
+    /// <summary><paramref name="missingCards"/>: what happens to existing cards missing from the file (MCP keeps them).</summary>
+    Task<Result<YamlPreviewResponse>> PreviewAsync(
+        int deckId, YamlRequest request, CancellationToken ct, MissingCards missingCards = MissingCards.Delete);
 
-    Task<Result<YamlApplyResponse>> ApplyAsync(int deckId, YamlApplyRequest request, CancellationToken ct);
+    /// <summary><paramref name="missingCards"/>: what happens to existing cards missing from the file (MCP keeps them).</summary>
+    Task<Result<YamlApplyResponse>> ApplyAsync(
+        int deckId, YamlApplyRequest request, CancellationToken ct, MissingCards missingCards = MissingCards.Delete);
 
     Task<YamlPreviewResponse> PreviewNewDeckAsync(YamlRequest request, CancellationToken ct);
 
@@ -28,7 +32,8 @@ internal sealed class YamlDeckService(IAppDbContext db, IDeckService decks, Time
         return deck is null ? DeckService.DeckNotFound : DeckYaml.Write(deck, await CardsAsync(deckId, ct));
     }
 
-    public async Task<Result<YamlPreviewResponse>> PreviewAsync(int deckId, YamlRequest request, CancellationToken ct)
+    public async Task<Result<YamlPreviewResponse>> PreviewAsync(
+        int deckId, YamlRequest request, CancellationToken ct, MissingCards missingCards = MissingCards.Delete)
     {
         var deck = await db.Decks.AsNoTracking().FirstOrDefaultAsync(d => d.Id == deckId, ct);
         if (deck is null)
@@ -37,11 +42,12 @@ internal sealed class YamlDeckService(IAppDbContext db, IDeckService decks, Time
         }
 
         var cards = await CardsAsync(deckId, ct);
-        var plan = await PlanAsync(deck, cards, request.Yaml, ct);
+        var plan = await PlanAsync(deck, cards, request.Yaml, missingCards, ct);
         return plan.Errors.Count > 0 ? Invalid(plan.Errors) : await PreviewOfAsync(deck, cards, plan, ct);
     }
 
-    public async Task<Result<YamlApplyResponse>> ApplyAsync(int deckId, YamlApplyRequest request, CancellationToken ct)
+    public async Task<Result<YamlApplyResponse>> ApplyAsync(
+        int deckId, YamlApplyRequest request, CancellationToken ct, MissingCards missingCards = MissingCards.Delete)
     {
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
 
@@ -53,7 +59,7 @@ internal sealed class YamlDeckService(IAppDbContext db, IDeckService decks, Time
         }
 
         var cards = await db.Cards.Where(c => c.DeckId == deckId).OrderBy(c => c.SortOrder).ThenBy(c => c.Id).ToListAsync(ct);
-        var plan = await PlanAsync(deck, cards, request.Yaml, ct);
+        var plan = await PlanAsync(deck, cards, request.Yaml, missingCards, ct);
         if (plan.Errors.Count > 0)
         {
             return YamlInvalid(plan.Errors);
@@ -74,6 +80,7 @@ internal sealed class YamlDeckService(IAppDbContext db, IDeckService decks, Time
         var now = time.GetUtcNow().UtcDateTime;
         var byId = cards.ToDictionary(c => c.Id);
         var counts = Counts(plan, cards.Count, plan.Deck.Cards.Count(c => c.Id is int id && IsChanged(byId[id], c)));
+        var kept = plan.Kept.Select(c => new YamlKeptCard(c.Id, c.Question)).ToList();
         deck.Name = plan.Deck.Name;
         deck.Description = plan.Deck.Description;
         deck.Color = plan.Deck.Color ?? deck.Color;
@@ -108,6 +115,12 @@ internal sealed class YamlDeckService(IAppDbContext db, IDeckService decks, Time
             }
         }
 
+        // Kept cards follow the file's cards, in their current order.
+        for (var i = 0; i < plan.Kept.Count; i++)
+        {
+            byId[plan.Kept[i].Id].SortOrder = plan.Deck.Cards.Count + i;
+        }
+
         await db.SaveChangesAsync(ct);
         if (toDelete.Count > 0)
         {
@@ -116,7 +129,7 @@ internal sealed class YamlDeckService(IAppDbContext db, IDeckService decks, Time
         }
 
         await transaction.CommitAsync(ct);
-        return new YamlApplyResponse(counts, (await ExportAsync(deckId, ct)).Value!);
+        return new YamlApplyResponse(counts, (await ExportAsync(deckId, ct)).Value!, kept);
     }
 
     public Task<YamlPreviewResponse> PreviewNewDeckAsync(YamlRequest request, CancellationToken ct)
@@ -131,6 +144,7 @@ internal sealed class YamlDeckService(IAppDbContext db, IDeckService decks, Time
                 new YamlCounts(parsed.Cards.Count, 0, 0, 0),
                 false,
                 parsed.Cards.Select(c => new YamlNewCard(c.Line, c.Question)).ToList(),
+                [],
                 [],
                 [],
                 []));
@@ -182,12 +196,12 @@ internal sealed class YamlDeckService(IAppDbContext db, IDeckService decks, Time
     }
 
     /// <summary>Parses the file and checks every id against the database.</summary>
-    private async Task<Plan> PlanAsync(Deck deck, IReadOnlyList<Card> cards, string yaml, CancellationToken ct)
+    private async Task<Plan> PlanAsync(Deck deck, IReadOnlyList<Card> cards, string yaml, MissingCards missingCards, CancellationToken ct)
     {
         var (parsed, errors) = DeckYaml.Parse(yaml);
         if (parsed is null)
         {
-            return new Plan(null!, [], errors);
+            return new Plan(null!, [], [], errors);
         }
 
         var own = cards.Select(c => c.Id).ToHashSet();
@@ -208,11 +222,14 @@ internal sealed class YamlDeckService(IAppDbContext db, IDeckService decks, Time
 
         if (idErrors.Count > 0)
         {
-            return new Plan(null!, [], idErrors);
+            return new Plan(null!, [], [], idErrors);
         }
 
-        var kept = parsed.Cards.Where(c => c.Id is not null).Select(c => c.Id!.Value).ToHashSet();
-        return new Plan(parsed, cards.Where(c => !kept.Contains(c.Id)).ToList(), []);
+        var inFile = parsed.Cards.Where(c => c.Id is not null).Select(c => c.Id!.Value).ToHashSet();
+        var missing = cards.Where(c => !inFile.Contains(c.Id)).ToList();
+        return missingCards == MissingCards.Keep
+            ? new Plan(parsed, [], missing, [])
+            : new Plan(parsed, missing, [], []);
     }
 
     private async Task<YamlPreviewResponse> PreviewOfAsync(Deck deck, List<Card> cards, Plan plan, CancellationToken ct)
@@ -246,9 +263,10 @@ internal sealed class YamlDeckService(IAppDbContext db, IDeckService decks, Time
             .Select(g => new { CardId = g.Key, Users = g.Count() })
             .ToDictionaryAsync(x => x.CardId, x => x.Users, ct);
 
-        // Order of the existing cards that stay: file order vs. current order.
-        var fileOrder = plan.Deck.Cards.Where(c => c.Id is not null).Select(c => c.Id!.Value).ToList();
-        var currentOrder = cards.Select(c => c.Id).Where(fileOrder.Contains).ToList();
+        // Order of the existing cards that stay: file order (kept cards after it) vs. current order.
+        var newOrder = plan.Deck.Cards.Where(c => c.Id is not null).Select(c => c.Id!.Value)
+            .Concat(plan.Kept.Select(c => c.Id)).ToList();
+        var currentOrder = cards.Select(c => c.Id).Where(newOrder.Contains).ToList();
 
         return new YamlPreviewResponse(
             true,
@@ -258,11 +276,12 @@ internal sealed class YamlDeckService(IAppDbContext db, IDeckService decks, Time
                 deck.Description != plan.Deck.Description,
                 plan.Deck.Color is not null && plan.Deck.Color != deck.Color),
             Counts(plan, cards.Count, changed.Count),
-            !fileOrder.SequenceEqual(currentOrder),
+            !newOrder.SequenceEqual(currentOrder),
             plan.Deck.Cards.Where(c => c.Id is null).Select(c => new YamlNewCard(c.Line, c.Question)).ToList(),
             changed,
             plan.Deleted.Select(c => new YamlDeletedCard(c.Id, c.Question, progress.GetValueOrDefault(c.Id))).ToList(),
-            []);
+            [],
+            plan.Kept.Select(c => new YamlKeptCard(c.Id, c.Question)).ToList());
     }
 
     /// <summary>Stored text is already normalized, so a plain comparison finds real changes only (docs/yaml-format.md §4).</summary>
@@ -271,19 +290,20 @@ internal sealed class YamlDeckService(IAppDbContext db, IDeckService decks, Time
 
     private static YamlCounts Counts(Plan plan, int existing, int changed)
     {
-        var kept = existing - plan.Deleted.Count;
-        return new YamlCounts(plan.Deck.Cards.Count(c => c.Id is null), changed, plan.Deleted.Count, kept - changed);
+        var inFile = existing - plan.Deleted.Count - plan.Kept.Count;
+        return new YamlCounts(plan.Deck.Cards.Count(c => c.Id is null), changed, plan.Deleted.Count, inFile - changed, plan.Kept.Count);
     }
 
     private async Task<List<Card>> CardsAsync(int deckId, CancellationToken ct) =>
         await db.Cards.AsNoTracking().Where(c => c.DeckId == deckId).OrderBy(c => c.SortOrder).ThenBy(c => c.Id).ToListAsync(ct);
 
     private static YamlPreviewResponse Invalid(IReadOnlyList<YamlIssue> errors) =>
-        new(false, null, null, new YamlCounts(0, 0, 0, 0), false, [], [], [], errors);
+        new(false, null, null, new YamlCounts(0, 0, 0, 0), false, [], [], [], errors, []);
 
     private static AppError YamlInvalid(IReadOnlyList<YamlIssue> errors) =>
         new("yamlInvalid", 422, "YAML obsahuje chyby. Oprav je a zkus to znovu.",
             Extensions: new Dictionary<string, object?> { ["yamlErrors"] = errors });
 
-    private sealed record Plan(ParsedDeck Deck, IReadOnlyList<Card> Deleted, IReadOnlyList<YamlIssue> Errors);
+    /// <summary>The parsed file; existing cards missing from it are either <c>Deleted</c> or <c>Kept</c>.</summary>
+    private sealed record Plan(ParsedDeck Deck, IReadOnlyList<Card> Deleted, IReadOnlyList<Card> Kept, IReadOnlyList<YamlIssue> Errors);
 }
