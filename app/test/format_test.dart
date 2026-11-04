@@ -23,6 +23,11 @@ void main() {
     expect(percentOf(0, 0), 0);
   });
 
+  test('APK size in megabytes', () {
+    expect(formatMegabytes(23456789), '23,5${nbsp}MB');
+    expect(formatMegabytes(1234), '0,0${nbsp}MB');
+  });
+
   test('Czech plurals', () {
     expect(cards(1), '1${nbsp}karta');
     expect(cards(3), '3${nbsp}karty');

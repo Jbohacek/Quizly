@@ -26,6 +26,9 @@ String formatMultiplier(num value) => '${value.toStringAsFixed(1).replaceAll('.'
 /// `83` → `83 %`.
 String formatPercent(int value) => '$value$_nbsp%';
 
+/// An APK size: `12,3 MB` (decimal comma, CLAUDE.md §2.12).
+String formatMegabytes(int bytes) => '${(bytes / 1000000).toStringAsFixed(1).replaceAll('.', ',')}${_nbsp}MB';
+
 /// Whole percent of [part] in [total], rounded half up; 0 when [total] is 0.
 int percentOf(int part, int total) => total == 0 ? 0 : ((part * 100) / total).round();
 

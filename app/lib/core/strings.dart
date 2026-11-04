@@ -314,6 +314,16 @@ abstract final class S {
   static const askText = 'Ráno ti napíšu, kolik karet tě čeká. Večer připomenu denní cíl, jen když ještě není splněný.';
   static const allow = 'Povolit';
   static const notNow = 'Teď ne';
+
+  // App updates (docs/app-updates.md)
+  static const updateTitle = 'Je dostupná nová verze';
+  static String updateText(String version, String size) =>
+      'Verze $version je připravená ($size). Po stažení potvrď instalaci v Androidu, přihlášení zůstane.';
+  static const updateNow = 'Aktualizovat';
+  static const updateLater = 'Později';
+  static String updateDownloading(String percent) => 'Stahuji… $percent';
+  static const updateFailed = 'Stažení se nepovedlo. Zkus to prosím znovu.';
+  static const updateInstallFailed = 'Instalaci se nepodařilo otevřít. Zkus to prosím znovu.';
   static const notifications = 'Upozornění';
   static const sendNotifications = 'Posílat upozornění';
   static const sendNotificationsHint = 'Připomínky učení, milníky a odměny';

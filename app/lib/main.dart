@@ -15,6 +15,7 @@ import 'features/notifications/notification_platform.dart';
 import 'features/notifications/notification_store.dart';
 import 'features/notifications/notifications.dart';
 import 'features/notifications/planner.dart';
+import 'features/updates/app_update.dart';
 import 'router.dart';
 
 Future<void> main() async {
@@ -80,6 +81,8 @@ class _QuizlyAppState extends ConsumerState<QuizlyApp> {
   void _resumed() {
     ref.invalidate(notificationPermissionProvider);
     if (!ref.read(authProvider).signedIn) return;
+    // A release may have come out while the app was in the background.
+    ref.invalidate(availableUpdateProvider);
     unawaited(ref.read(notificationsProvider).refresh(ref.read(apiClientProvider), force: false));
   }
 
