@@ -207,6 +207,8 @@ Jakub (2026-11-01): polish first, then a first beta user tests the app, then the
 
 **Part 2: release**
 - [x] Jakub's issues #9–#16: extra new cards, card formatting, flip before Vím / Nevím, deck search / filter / per-card progress, deck progress bar, FSRS explainer
+- [x] #29 card tags, API part: `tags` / `card_tags`, admin and app card APIs, session and deck cards, dashboard "Tagy", deck YAML, MCP descriptions
+- [ ] #29 card tags, app part: deck name and tags on the card, tags in the card editor (`temp-handoff.md`)
 - [ ] Fixes from the beta user's testing
 - [ ] Tag `v1.0.0`, APK attached to the GitHub Release
 

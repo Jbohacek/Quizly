@@ -198,14 +198,15 @@ Ordered by deck `sortOrder`. `newAvailable` = `min(unseen cards in the deck, new
   "deck": { "id": 1, "name": "C# základy", "…": "same object as in GET /decks" },
   "cards": [
     { "id": 101, "question": "Jaký je rozdíl mezi struct a class v C#?", "answer": "struct je hodnotový typ…", "status": "mastered",
-      "masteryPercent": 100, "knowCount": 6, "dontKnowCount": 1, "nextReview": "2026-12-01T08:12:00Z" },
+      "masteryPercent": 100, "knowCount": 6, "dontKnowCount": 1, "nextReview": "2026-12-01T08:12:00Z",
+      "tags": ["ai_gen", "prednaska_01"] },
     { "id": 140, "question": "Co je record v C#?", "answer": "Typ s hodnotovou rovností…", "status": "new",
-      "masteryPercent": 0, "knowCount": 0, "dontKnowCount": 0, "nextReview": null }
+      "masteryPercent": 0, "knowCount": 0, "dontKnowCount": 0, "nextReview": null, "tags": [] }
   ]
 }
 ```
 
-Cards in deck order (`sortOrder`, then id). `status` is the mastery bucket (spec §3.5): `new` · `learning` · `mastered`. `masteryPercent` = stability ÷ 21 days (100 once mastered, at most 99 before). `knowCount` / `dontKnowCount` count my correct (Vím, Těžké, Snadné) / Nevím answers, `nextReview` is the card's due time (`null` for a new card). `404 notFound` for an unknown deck.
+Cards in deck order (`sortOrder`, then id). `status` is the mastery bucket (spec §3.5): `new` · `learning` · `mastered`. `masteryPercent` = stability ÷ 21 days (100 once mastered, at most 99 before). `knowCount` / `dontKnowCount` count my correct (Vím, Těžké, Snadné) / Nevím answers, `nextReview` is the card's due time (`null` for a new card). `tags` are the card's tags, sorted (spec §2.5.1; always present, may be empty). `404 notFound` for an unknown deck.
 
 ---
 
@@ -214,11 +215,12 @@ Cards in deck order (`sortOrder`, then id). `status` is the mastery bucket (spec
 Any user edits the cards of the decks they see (#23), with the dashboard's rules.
 
 ```json
-{ "question": "Co je record v C#?", "answer": "Typ s hodnotovou rovností." }
+{ "question": "Co je record v C#?", "answer": "Typ s hodnotovou rovností.", "tags": ["ai_gen", "prednaska_01"] }
 ```
 
-- **POST** adds the card at the end of the deck → `201` with the card (`id`, `deckId`, `question`, `answer`, `sortOrder`, `createdAt`, `updatedAt`).
+- **POST** adds the card at the end of the deck → `201` with the card (`id`, `deckId`, `question`, `answer`, `sortOrder`, `createdAt`, `updatedAt`, `tags`).
 - **PUT** changes the text → `200` with the card. Every user's progress on the card is kept.
+- **`tags`** is optional: omitted (or `null`) keeps the card's tags (none on a new card), `[]` removes them all, a list replaces them. Names are trimmed, lowercased, de-duplicated and sorted (spec §2.5.1). An invalid name or more than 10 → `400 validation` with `errors.tags`.
 - **DELETE** → `204`. The card goes with **every user's progress** on it (spec §2.14); the app asks first.
 - Text is trimmed; empty or too long (500 / 2 000) → `400 validation` with `errors.question` / `errors.answer`. A deck the user doesn't see, or a card of another deck → `404 notFound`.
 
@@ -240,14 +242,15 @@ Omit `deckId` for "Učit se vše". `extraNew` (0–50, default 0) adds that many
   "newCount": 5,
   "cards": [
     { "cardId": 101, "deckId": 1, "question": "Jaký je rozdíl mezi struct a class v C#?",
-      "answer": "struct je hodnotový typ, class je referenční typ.", "kind": "review" },
+      "answer": "struct je hodnotový typ, class je referenční typ.", "kind": "review", "tags": ["ai_gen", "prednaska_01"] },
     { "cardId": 140, "deckId": 1, "question": "Co je record v C#?",
-      "answer": "Typ s hodnotovou rovností pro neměnná data.", "kind": "new" }
+      "answer": "Typ s hodnotovou rovností pro neměnná data.", "kind": "new", "tags": [] }
   ]
 }
 ```
 
 - `kind`: `new` · `learning` · `review` · `relearning`.
+- `tags`: the card's tags, sorted (spec §2.5.1). The deck's name comes from `GET /decks` by `deckId`.
 - Order is the queue order (spec §4.1). An empty `cards` list means nothing to study.
 - `points` are the values at the current multiplier; the multiplier can rise during the session (when the goal is met), and review responses carry the new values.
 
@@ -428,8 +431,8 @@ Admin cookie (spec §9.2). Same error format. Writes with a body require `Conten
 | POST | `/admin/users/{id}/activate` · `/deactivate` | → `204` |
 | GET / POST | `/admin/decks` | `{ name, description, color, sortOrder }` → deck (with `forEveryone`, `userCount`) |
 | GET / PUT / DELETE | `/admin/decks/{id}` | PUT body as POST; DELETE → `204` (cascades, spec §2.14) |
-| GET / POST | `/admin/decks/{id}/cards` | `{ question, answer, sortOrder? }` → card |
-| PUT / DELETE | `/admin/decks/{id}/cards/{cardId}` | `{ question, answer, sortOrder }` → card |
+| GET / POST | `/admin/decks/{id}/cards` | `{ question, answer, sortOrder?, tags? }` → card (with `tags`) |
+| PUT / DELETE | `/admin/decks/{id}/cards/{cardId}` | `{ question, answer, sortOrder, tags? }` → card; omitted `tags` keep the card's tags (§4) |
 | GET | `/admin/decks/{id}/yaml` | → `text/yaml` export (yaml-format §3) |
 | GET / PUT | `/admin/decks/{id}/access` | `{ forEveryone, userIds: [..] }` → the same; who sees the deck in the app (spec §2.4). Unknown user → `400` |
 | GET | `/admin/decks/{id}/delete-impact` | → `{ cards, usersWithProgress }` for the delete confirmation |

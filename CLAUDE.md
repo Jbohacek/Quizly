@@ -83,6 +83,7 @@ Final layout and package lists: [`docs/architecture.md`](./docs/architecture.md)
 - Cards are grouped into **decks**: name, description, color, sort order.
 - A deck is **"Pro všechny"** (default; every app user sees it) or visible only to **users the admin picks** (deck Nastavení). Users pick what to study from the decks they see. Losing access hides the deck but keeps the user's progress.
 - The admin can CRUD decks and cards, and edit a whole deck as **YAML** (§8). AI-assisted deck creation inside the dashboard comes later and is **out of scope**.
+- **Tags** (#29): a card has up to 10 tags for organizing it, e.g. `ai_gen` or `prednaska_01` (lowercase letters, digits, `_`, `-`, ≤ 30 chars; N:N `tags` / `card_tags`, [`docs/spec.md`](./docs/spec.md) §2.5.1). The admin sets them in the card form ("Tagy", separated by `;`), the admin API and deck YAML (`tags: [ai_gen, prednaska_01]`); app users with the card editor; Claude through MCP. A request without `tags` keeps a card's tags. In the app a card shows **its deck's name in grey text, without a colored frame, and its tags below in smaller text** (the app part follows the API work).
 - **Any app user can add, edit and delete cards** of the decks they see (#23): a pencil on an opened card in the deck detail (right of the answer counts), a dashed **"+ Přidat kartu"** tile first in the card list (hidden while searching) for a new card, and **"✎ Upravit"** in a session. Edits keep everyone's progress; deleting a card removes everyone's progress on it, after a confirmation.
 
 ### 5.2 Study session (app)
@@ -215,6 +216,8 @@ Integer identity keys, except `ReviewLog.Id`, which is the client UUID. Timestam
 | `Deck` | Id, Name, Description, Color, SortOrder, ForEveryone, CreatedAt, UpdatedAt | |
 | `DeckAccess` | (DeckId, UserId) PK | users who see a deck that isn't for everyone |
 | `Card` | Id, DeckId, Question, Answer, SortOrder, CreatedAt, UpdatedAt | Id is the stable id used in YAML |
+| `Tag` | Id, Name (unique) | shared by all decks (#29) |
+| `CardTag` | (CardId, TagId) PK | N:N cards ↔ tags; cascades from both sides |
 | `CardState` | (UserId, CardId) PK, State, Stability, Difficulty, Due, LastReview, FirstReview, Reps, Lapses, Step | FSRS memory state; no row = new card |
 | `ReviewLog` | Id (uuid from client), UserId, CardId, Rating, StateBefore, ReviewedAt, Day, Multiplier, PointsAwarded, ElapsedDays, ScheduledDays | append-only |
 | `DailyActivity` | (UserId, Date) PK, GradedCount, CorrectCount, Points, Goal, GoalMet, GoalMetAt | updated on each review; drives streak, heatmap, charts |
@@ -291,6 +294,7 @@ cards:
 - A card **with an `id`** is updated and users' progress is kept. A card **without an `id`** becomes a new card.
 - An existing card whose `id` is **missing from the YAML is deleted together with all users' progress**. This needs an **explicit confirmation** that lists those cards ("Smazat 3 karty i s postupem uživatelů?").
 - `deck:` fields update the deck. Multiline text uses YAML block scalars (`|`). Light formatting only (`docs/yaml-format.md` §10).
+- A card may have `tags: [ai_gen, prednaska_01]` (or `tags: ai_gen ; prednaska_01`). The file is the whole truth: a card without `tags` has none. A tag-only change counts as "changed".
 - Use YamlDotNet; keep UTF-8 Czech characters intact.
 - "Importovat YAML" on the deck list creates a **new deck** from a file whose cards have no ids.
 - Workflow: copy the YAML out → let an AI agent add or edit cards (it must keep the `id`s) → paste it back → preview → save.
@@ -474,3 +478,4 @@ Jakub confirmed these defaults at the Etapa 0 gate (2026-10-31). Raise any of th
 | 2026-11-04 | #30 (Etapa 9): MCP server for Claude in the same app (`ModelContextProtocol.AspNetCore` 2.3.0, stateless Streamable HTTP) with `list_decks`, `get_deck_yaml`, `preview_deck_yaml`, `apply_deck_yaml`. The YAML import got a "keep missing cards" mode (`MissingCards.Keep`) that MCP always uses: missing cards stay, after the file's cards, listed as `missingKept`; nothing is ever deleted through MCP. The REST/dashboard YAML responses gained an always-empty `kept` list and `counts.kept`. |
 | 2026-11-04 | MCP security, phase 1: `Mcp__Enabled` (default off) + a ≥ 48-char URL-safe path secret checked in constant time by a middleware that rewrites `/mcp/<secret>` to `/mcp` before routing (so nothing after it logs the secret); everything else under `/mcp` is 404. `Microsoft.AspNetCore.Hosting.Diagnostics` is pinned at Warning, since its request line is logged before any middleware. 60 requests/min per IP. |
 | 2026-11-04 | Not in the issue, added for safety: `apply_deck_yaml` on an existing deck requires the `baseHash` from `get_deck_yaml` / `preview_deck_yaml` (the same check the dashboard does), because users can now edit cards in the app (#23). Tool results are JSON with Czech text unescaped. Tool descriptions allow the light card formatting (§5.1) rather than "plain text only". |
+| 2026-11-04 | #29 (API part, Etapa 8): card tags. Global `tags` (unique name) + N:N `card_tags`, both cascading; names trimmed, lowercased, `[\p{Ll}\p{Lo}\p{Nd}_-]{1,30}`, ≤ 10 per card, returned sorted (ordinal). Typed text splits at `;`, `,` and spaces. Card requests (admin and app) take optional `tags`: omitted keeps them (so an app without tag editing never clears them), `[]` clears. Responses of admin cards, `GET /api/decks/{id}/cards` and `GET /api/session` carry `tags`. YAML: optional `tags` (list or one text), written only when non-empty, so untagged decks keep their export and `baseHash`; the file is the whole truth. Unused tags stay in `tags` (nothing lists them; deleting them could race a writer). Jakub works on a notebook without Android tooling, so the app part is handed to another agent (`temp-handoff.md`). |

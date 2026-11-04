@@ -13,7 +13,7 @@ Quizly has a remote [MCP](https://modelcontextprotocol.io) server, so Claude (cl
 
 Not exposed: deleting cards or decks, deck visibility, users, shop items, claims, points, notification texts.
 
-The tool descriptions (English, read by Claude) explain the YAML v1 rules: keep every `id`, no `id` = new card, file order = deck order, the length limits, the light formatting of [yaml-format.md](./yaml-format.md) §10, Czech cards, and that missing cards are kept.
+The tool descriptions (English, read by Claude) explain the YAML v1 rules: keep every `id`, no `id` = new card, file order = deck order, the length limits, card `tags` (#29, [yaml-format.md](./yaml-format.md) §2), the light formatting of [yaml-format.md](./yaml-format.md) §10, Czech cards, and that missing cards are kept.
 
 ## 2. Rules
 

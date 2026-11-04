@@ -21,6 +21,7 @@ cards:
       Metoda pak vrací Task.
   - question: Co je record v C#?          # no id = new card
     answer: Typ s hodnotovou rovností pro neměnná data.
+    tags: [ai_gen, prednaska_01]
 ```
 
 ## 2. Schema
@@ -35,17 +36,19 @@ cards:
 | `cards[].id` | integer | no | positive; an existing card of **this** deck |
 | `cards[].question` | string | yes | 1–500 chars after trim |
 | `cards[].answer` | string | yes | 1–2 000 chars after trim |
+| `cards[].tags` | list of strings, or one string | no | ≤ 10 tags, each 1–30 chars of lowercase letters, digits, `_`, `-` after lowercasing ([spec](./spec.md) §2.5.1); missing = no tags |
 
 - No other keys anywhere (unknown keys are errors, which catches typos like `anwser`).
 - Exactly one YAML document; no anchors/aliases (`&`, `*`), no tags (`!!`). Max 1 MB.
 - `id` may be written as `101` or `"101"`; anything else is an error.
 - `question` / `answer` may use the light formatting of §10; it's stored as typed. Text starting with `*` or `&` must be quoted in YAML (`"*kurzíva* na začátku"`); the export does that.
+- `tags` is a list (`tags: [ai_gen, prednaska_01]` or a block list), or one string split at `;`, `,` and spaces (`tags: ai_gen ; prednaska_01`). Names are lowercased, de-duplicated and sorted. **The file is the whole truth:** an existing card written without `tags` loses its tags, as a missing `description` empties the description.
 - Numbers, booleans and dates in `question`/`answer` are taken as text exactly as written (`answer: 42` → `"42"`, `answer: yes` → `"yes"`). The YAML is parsed into the representation model so scalars keep their source text.
 
 ## 3. Export
 
 - Header comment `# Quizly balíček · formát v1`, then `deck`, then `cards` in card sort order.
-- Every card has `id`. `description` is always written, `color` quoted.
+- Every card has `id`. `description` is always written, `color` quoted. `tags` is written only when the card has some, as a sorted flow list after `answer` (`tags: [ai_gen, prednaska_01]`); a tag YAML could read as a number or that starts with `-` is quoted. A deck without tags exports exactly as before, so its `baseHash` didn't change.
 - Single-line text is a plain scalar; it is double-quoted when YAML needs it or when other tools could read it as a number, boolean or null (`"42"`, `"yes"`). Multi-line text uses a literal block `|-` (the importer accepts `|` too).
 - UTF-8 without BOM, LF line endings, 2-space indent. Czech characters are written as is (no `\u` escapes).
 - **Round trip:** exporting and re-importing without edits gives a preview with 0 changes.
@@ -76,7 +79,7 @@ Import is **always** a preview first. The preview never writes anything.
 ```
 
 - **new:** cards without `id`.
-- **changed:** cards with `id` whose question or answer differ. Users' progress stays.
+- **changed:** cards with `id` whose question, answer or tags differ. Users' progress stays. `fields` lists `question` / `answer` / `tags`; `before` / `after` carry only those (tags as sorted lists).
 - **deleted:** existing cards of the deck whose `id` is not in the YAML. They're deleted **together with all users' progress**.
 - **unchanged:** everything else.
 - **orderChanged:** card order differs; applying it updates `sort_order` (not counted as "changed").
@@ -103,6 +106,8 @@ Every error has a 1-based `line` (and `column` where known) and a Czech message.
 | `unknownId` | Karta {id} neexistuje. Smaž „id“, pokud má vzniknout nová karta. |
 | `idInNewDeck` | Při importu nového balíčku karty nesmí mít „id“. |
 | `aliasNotAllowed` | Kotvy, aliasy a tagy nejsou povolené. |
+| `invalidTag` | Tag „{name}“ není platný: jen malá písmena, číslice, _ a -, nejvýš 30 znaků. |
+| `tooManyTags` | Karta může mít nejvýš 10 tagů. |
 | `tooManyCards` | Balíček může mít nejvýš 2 000 karet. |
 | `fileTooLarge` | Soubor je větší než 1 MB. |
 
@@ -115,7 +120,7 @@ Every error has a 1-based `line` (and `column` where known) and a Czech message.
 1. Re-run the full validation and diff (the YAML is not trusted from the preview).
 2. `baseHash` must match the current export (`concurrencyConflict`).
 3. `confirmDeleteIds` must equal the set of cards that would be deleted (`deleteNotConfirmed` otherwise). The dashboard shows the confirm dialog **"Smazat 3 karty i s postupem uživatelů?"** (Czech plural: 1 kartu · 2–4 karty · 5+ karet) listing those cards, and only sends their ids after the admin confirms.
-4. In one transaction: update deck fields, update changed cards (`updated_at`), insert new cards, delete removed cards (cascades to progress), set `sort_order` = position in the file (0, 1, 2, …).
+4. In one transaction: update deck fields, update changed cards (`updated_at`, tags included), insert new cards (with their tags), delete removed cards (cascades to progress), set `sort_order` = position in the file (0, 1, 2, …).
 5. Response: counts as in the preview plus the new export.
 
 ## 8. Import as a new deck
