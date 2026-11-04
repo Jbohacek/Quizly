@@ -12,7 +12,9 @@ import 'package:quizly/core/format.dart';
 import 'package:quizly/core/providers.dart';
 import 'package:quizly/core/storage/token_store.dart';
 import 'package:quizly/core/strings.dart';
+import 'package:quizly/core/theme/tokens.dart';
 import 'package:quizly/core/widgets/widgets.dart';
+import 'package:quizly/features/cards/card_editor.dart';
 import 'package:quizly/features/home/deck_screen.dart';
 import 'package:quizly/features/notifications/notification_store.dart';
 import 'package:quizly/features/notifications/notifications.dart';
@@ -42,7 +44,7 @@ class FakeApi implements HttpClientAdapter {
 
   /// Card edits from the app (#23): "METHOD path" with the body.
   final cardRequests = <(String, Object?)>[];
-  final editedCards = <int, ({String question, String answer})>{};
+  final editedCards = <int, ({String question, String answer, List<Object?>? tags})>{};
   final deletedCards = <int>{};
   final addedCards = <Map<String, Object?>>[];
   final savedSettings = <Map<String, Object?>>[];
@@ -164,7 +166,10 @@ class FakeApi implements HttpClientAdapter {
           'newCount': 0,
           'fourRatings': settings['fourRatings'] ?? false,
           'cards': [
-            {'cardId': 101, 'deckId': 1, 'question': 'Co je struct?', 'answer': 'Hodnotový typ.', 'kind': 'review'},
+            {
+              'cardId': 101, 'deckId': 1, 'question': 'Co je struct?', 'answer': 'Hodnotový typ.', 'kind': 'review',
+              'tags': ['ai_gen', 'prednaska_01'],
+            },
             {'cardId': 102, 'deckId': 1, 'question': 'Co je class?', 'answer': 'Referenční typ.', 'kind': 'new'},
           ],
         }),
@@ -181,6 +186,7 @@ class FakeApi implements HttpClientAdapter {
               {
                 'id': 101, 'question': 'Co je struct?', 'answer': 'Hodnotový typ.', 'status': 'mastered',
                 'masteryPercent': 100, 'knowCount': 6, 'dontKnowCount': 0, 'nextReview': '2099-01-01T08:00:00Z',
+                'tags': ['ai_gen', 'prednaska_01'],
               },
               {
                 'id': 102, 'question': 'Co je class?', 'answer': '**Referenční** typ.', 'status': 'learning',
@@ -192,7 +198,11 @@ class FakeApi implements HttpClientAdapter {
               if (!deletedCards.contains(c['id']))
                 {
                   ...c,
-                  if (editedCards[c['id']] case final e?) ...{'question': e.question, 'answer': e.answer},
+                  if (editedCards[c['id']] case final e?) ...{
+                    'question': e.question,
+                    'answer': e.answer,
+                    if (e.tags != null) 'tags': e.tags,
+                  },
                 },
           ],
         }),
@@ -251,7 +261,10 @@ class FakeApi implements HttpClientAdapter {
 
   ResponseBody _addCard(Map<String, Object?> body) {
     cardRequests.add(('POST', body));
-    final card = {'id': 200 + addedCards.length, 'question': body['question'], 'answer': body['answer'], 'status': 'new'};
+    final card = {
+      'id': 200 + addedCards.length, 'question': body['question'], 'answer': body['answer'], 'status': 'new',
+      'tags': body['tags'] ?? [],
+    };
     addedCards.add(card);
     return _json({...card, 'deckId': 1, 'sortOrder': 9}, 201);
   }
@@ -259,7 +272,18 @@ class FakeApi implements HttpClientAdapter {
   ResponseBody _editCard(String route, Map<String, Object?> body) {
     cardRequests.add((route, body));
     final id = int.parse(route.split('/').last);
-    editedCards[id] = (question: body['question']! as String, answer: body['answer']! as String);
+    // The server's tag rules, roughly: a "!" breaks them (#29).
+    final tags = body['tags'] as List<Object?>?;
+    if (tags != null && tags.any((t) => '$t'.contains('!'))) {
+      return _json({
+        'code': 'validation',
+        'title': 'Některé údaje nejsou v pořádku.',
+        'errors': {
+          'tags': ['Tag smí mít jen malá písmena, číslice, _ a -.'],
+        },
+      }, 400);
+    }
+    editedCards[id] = (question: body['question']! as String, answer: body['answer']! as String, tags: tags);
     return _json({'id': id, 'deckId': 1, ...body});
   }
 
@@ -833,6 +857,13 @@ void main() {
     await tester.tap(find.text('Co je record?'));
     await settle(tester);
     expect(find.text(S.notStudiedYet), findsOneWidget);
+
+    // #29: tags show under the question, and the search finds them.
+    await tester.enterText(find.byType(TextField), 'prednaska_01');
+    await settle(tester);
+    expect(find.text('Co je struct?'), findsOneWidget);
+    expect(find.text('Co je record?'), findsNothing);
+    expect(find.text('ai_gen · prednaska_01'), findsOneWidget);
   });
 
   testWidgets('#9: with nothing left for today, Domů offers 5 more new cards', (tester) async {
@@ -875,13 +906,36 @@ void main() {
     expect(find.widgetWithText(TextField, '**Referenční** typ.'), findsOneWidget);
     expect(find.text('Referenční typ.', findRichText: true), findsOneWidget);
     await tester.enterText(find.widgetWithText(TextField, 'Co je class?'), 'Co je class v C#?');
-    await tester.scrollUntilVisible(find.text(S.saveCard), 200, scrollable: find.byType(Scrollable).last);
+    // #29: tags typed as one text; the server's error shows under the field.
+    expect(find.text(S.tagsLabel), findsOneWidget);
+    expect(find.text(S.tagsHint), findsOneWidget);
+    await tester.enterText(find.byType(TextField).at(2), 'AI_gen ; spatny!');
+    await tester.scrollUntilVisible(find.text(S.saveCard), 200, scrollable: _editorList);
+    await tester.tap(find.text(S.saveCard));
+    await settle(tester);
+    expect(api.cardRequests.single.$2, {
+      'question': 'Co je class v C#?',
+      'answer': '**Referenční** typ.',
+      'tags': ['ai_gen', 'spatny!'],
+    });
+    expect(find.text('Tag smí mít jen malá písmena, číslice, _ a -.'), findsOneWidget);
+    expect(find.byType(CardEditorScreen), findsOneWidget);
+
+    await tester.enterText(find.byType(TextField).at(2), 'AI_gen ; prednaska_02, ai_gen');
+    await tester.ensureVisible(find.text(S.saveCard));
+    await tester.pump();
     await tester.tap(find.text(S.saveCard));
     await settle(tester);
 
-    expect(api.cardRequests.single.$1, 'PUT /api/decks/1/cards/102');
-    expect(api.cardRequests.single.$2, {'question': 'Co je class v C#?', 'answer': '**Referenční** typ.'});
+    expect(api.cardRequests.last.$1, 'PUT /api/decks/1/cards/102');
+    expect(api.cardRequests.last.$2, {
+      'question': 'Co je class v C#?',
+      'answer': '**Referenční** typ.',
+      'tags': ['ai_gen', 'prednaska_02'],
+    });
     expect(find.text('Co je class v C#?'), findsOneWidget);
+    expect(find.text('ai_gen · prednaska_02'), findsOneWidget);
+    api.cardRequests.clear();
 
     // "+ Přidat kartu" is the first tile; it hides while searching.
     await tester.enterText(find.byType(TextField), 'class');
@@ -894,17 +948,17 @@ void main() {
     await tester.tap(find.bySemanticsLabel(S.addCard));
     await settle(tester);
     expect(find.text(S.newCard), findsOneWidget);
-    await tester.scrollUntilVisible(find.text(S.addCard), 200, scrollable: find.byType(Scrollable).last);
+    await tester.scrollUntilVisible(find.text(S.addCard), 200, scrollable: _editorList);
     await tester.tap(find.text(S.addCard));
     await settle(tester);
     expect(find.text(S.fillQuestion), findsOneWidget);
-    expect(api.cardRequests, hasLength(1));
+    expect(api.cardRequests, isEmpty);
     await tester.enterText(find.byType(TextField).at(0), 'Co je interface?');
     await tester.enterText(find.byType(TextField).at(1), 'Smlouva, kterou třída splní.');
     await tester.tap(find.text(S.addCard));
     await settle(tester);
     expect(api.cardRequests.last.$1, 'POST');
-    expect(api.cardRequests.last.$2, {'question': 'Co je interface?', 'answer': 'Smlouva, kterou třída splní.'});
+    expect(api.cardRequests.last.$2, {'question': 'Co je interface?', 'answer': 'Smlouva, kterou třída splní.', 'tags': []});
     await tester.scrollUntilVisible(find.text('Co je interface?'), 200, scrollable: _deckList);
     expect(find.text('Co je interface?'), findsOneWidget);
   });
@@ -915,13 +969,26 @@ void main() {
     await settle(tester);
     expect(find.text(S.multiplierChip(1.1)), findsNothing);
 
+    // #29: where the card belongs: the deck name in grey (no colored chip), its tags below in smaller text.
+    expect(find.widgetWithText(Tag, 'C# základy'), findsNothing);
+    final deckName = tester.widget<Text>(find.text('C# základy'));
+    expect(deckName.style?.color, Q.textMuted);
+    final tagLine = tester.widget<Text>(find.text('ai_gen · prednaska_01'));
+    expect(tagLine.style?.color, Q.textMuted);
+    expect(tagLine.style!.fontSize!, lessThan(deckName.style!.fontSize!));
+
     await tester.tap(find.bySemanticsLabel(S.editCardTitle));
     await settle(tester);
+    expect(find.widgetWithText(TextField, 'ai_gen ; prednaska_01'), findsOneWidget);
     await tester.enterText(find.widgetWithText(TextField, 'Hodnotový typ.'), 'Hodnotový typ na zásobníku.');
-    await tester.scrollUntilVisible(find.text(S.saveCard), 200, scrollable: find.byType(Scrollable).last);
+    await tester.enterText(find.widgetWithText(TextField, 'ai_gen ; prednaska_01'), 'prednaska_03');
+    await tester.scrollUntilVisible(find.text(S.saveCard), 200, scrollable: _editorList);
     await tester.tap(find.text(S.saveCard));
     await settle(tester);
     expect(api.cardRequests.single.$1, 'PUT /api/decks/1/cards/101');
+    expect((api.cardRequests.single.$2! as Map)['tags'], ['prednaska_03']);
+    expect(find.text('prednaska_03'), findsOneWidget);
+    expect(find.text('ai_gen · prednaska_01'), findsNothing);
     await tester.tap(find.byType(SwipeCard));
     await settle(tester);
     expect(find.text('Hodnotový typ na zásobníku.', findRichText: true), findsOneWidget);
@@ -938,6 +1005,7 @@ void main() {
     // The next card, and the deleted one no longer counts.
     expect(find.text('Co je class?'), findsOneWidget);
     expect(find.text(S.cardOf(1, 1)), findsOneWidget);
+    expect(find.text('prednaska_03'), findsNothing);
     expect(api.reviewed, isEmpty);
   });
 
@@ -1076,3 +1144,6 @@ Future<void> _answer(WidgetTester tester, String label) async {
 
 /// The deck detail's list (not the search field's own scrollable).
 final _deckList = find.descendant(of: find.byType(DeckScreen), matching: find.byType(Scrollable)).first;
+
+/// The card editor's list (not a text field's own scrollable).
+final _editorList = find.descendant(of: find.byType(CardEditorScreen), matching: find.byType(Scrollable)).first;

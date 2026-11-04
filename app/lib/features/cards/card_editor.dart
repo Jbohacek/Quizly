@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/api/api_exception.dart';
 import '../../core/providers.dart';
 import '../../core/strings.dart';
+import '../../core/tags.dart';
 import '../../core/theme/theme.dart';
 import '../../core/theme/tokens.dart';
 import '../../core/widgets/card_text.dart';
@@ -11,16 +12,21 @@ import '../../core/widgets/widgets.dart';
 
 /// What the editor did: the card as saved, or [deleted].
 class CardEdit {
-  const CardEdit.saved({required this.cardId, required this.question, required this.answer}) : deleted = false;
+  const CardEdit.saved({required this.cardId, required this.question, required this.answer, this.tags = const []})
+      : deleted = false;
 
   const CardEdit.deleted(this.cardId)
       : question = '',
         answer = '',
+        tags = const [],
         deleted = true;
 
   final int cardId;
   final String question;
   final String answer;
+
+  /// The tags as the server keeps them: lowercased and sorted (#29).
+  final List<String> tags;
   final bool deleted;
 }
 
@@ -31,17 +37,25 @@ Future<CardEdit?> editCard(
   int? cardId,
   String question = '',
   String answer = '',
+  List<String> tags = const [],
 }) =>
     Navigator.of(context, rootNavigator: true).push<CardEdit>(
       MaterialPageRoute(
-        builder: (_) => CardEditorScreen(deckId: deckId, cardId: cardId, question: question, answer: answer),
+        builder: (_) => CardEditorScreen(deckId: deckId, cardId: cardId, question: question, answer: answer, tags: tags),
       ),
     );
 
 /// Add, edit or delete a card from the phone (#23). Anyone may; the change is shared with everyone.
 /// No snackbar afterwards: the changed list or card shows it.
 class CardEditorScreen extends ConsumerStatefulWidget {
-  const CardEditorScreen({super.key, required this.deckId, this.cardId, this.question = '', this.answer = ''});
+  const CardEditorScreen({
+    super.key,
+    required this.deckId,
+    this.cardId,
+    this.question = '',
+    this.answer = '',
+    this.tags = const [],
+  });
 
   /// Same limits as the server (CLAUDE.md §5.1).
   static const questionMax = 500;
@@ -51,6 +65,7 @@ class CardEditorScreen extends ConsumerStatefulWidget {
   final int? cardId;
   final String question;
   final String answer;
+  final List<String> tags;
 
   @override
   ConsumerState<CardEditorScreen> createState() => _CardEditorScreenState();
@@ -59,13 +74,18 @@ class CardEditorScreen extends ConsumerStatefulWidget {
 class _CardEditorScreenState extends ConsumerState<CardEditorScreen> {
   late final _question = TextEditingController(text: widget.question);
   late final _answer = TextEditingController(text: widget.answer);
+  late final _tags = TextEditingController(text: tagsAsText(widget.tags));
   bool _busy = false;
   String? _questionError;
   String? _answerError;
+  String? _tagsError;
   String? _error;
 
   bool get _isNew => widget.cardId == null;
-  bool get _changed => _question.text != widget.question || _answer.text != widget.answer;
+  bool get _changed =>
+      _question.text != widget.question ||
+      _answer.text != widget.answer ||
+      !sameTags(splitTags(_tags.text), widget.tags);
 
   @override
   void initState() {
@@ -79,6 +99,7 @@ class _CardEditorScreenState extends ConsumerState<CardEditorScreen> {
   void dispose() {
     _question.dispose();
     _answer.dispose();
+    _tags.dispose();
     super.dispose();
   }
 
@@ -86,9 +107,12 @@ class _CardEditorScreenState extends ConsumerState<CardEditorScreen> {
     if (_busy) return;
     final question = _question.text.trim();
     final answer = _answer.text.trim();
+    // Always sent: clearing the field removes the card's tags (#29).
+    final tags = splitTags(_tags.text);
     setState(() {
       _questionError = question.isEmpty ? S.fillQuestion : null;
       _answerError = answer.isEmpty ? S.fillAnswer : null;
+      _tagsError = null;
       _error = null;
     });
     if (_questionError != null || _answerError != null) return;
@@ -98,16 +122,17 @@ class _CardEditorScreenState extends ConsumerState<CardEditorScreen> {
     final client = ref.read(apiClientProvider);
     try {
       final id = widget.cardId ??
-          await client.createCard(widget.deckId, question: question, answer: answer);
-      if (!_isNew) await client.updateCard(widget.deckId, id, question: question, answer: answer);
+          await client.createCard(widget.deckId, question: question, answer: answer, tags: tags);
+      if (!_isNew) await client.updateCard(widget.deckId, id, question: question, answer: answer, tags: tags);
       if (!mounted) return;
-      Navigator.of(context).pop(CardEdit.saved(cardId: id, question: question, answer: answer));
+      Navigator.of(context).pop(CardEdit.saved(cardId: id, question: question, answer: answer, tags: tags));
     } on ApiException catch (e) {
       if (!mounted) return;
       setState(() {
         _questionError = e.fieldError('question');
         _answerError = e.fieldError('answer');
-        _error = _questionError == null && _answerError == null ? e.message : null;
+        _tagsError = e.fieldError('tags');
+        _error = _questionError == null && _answerError == null && _tagsError == null ? e.message : null;
       });
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -201,6 +226,8 @@ class _CardEditorScreenState extends ConsumerState<CardEditorScreen> {
               const SizedBox(height: 8),
               Text(S.formattingHint, style: muted),
               const SizedBox(height: 20),
+              _tagsField(muted),
+              const SizedBox(height: 20),
               Text(S.preview, style: QText.body(14, weight: FontWeight.w700)),
               const SizedBox(height: 8),
               _Preview(question: _question.text, answer: _answer.text),
@@ -222,6 +249,33 @@ class _CardEditorScreenState extends ConsumerState<CardEditorScreen> {
           ),
         ),
       ),
+    );
+  }
+
+  /// Tags typed as one text (#29); the server lowercases and checks them.
+  Widget _tagsField(TextStyle muted) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: Text(S.tagsLabel, style: QText.body(14, weight: FontWeight.w700)),
+        ),
+        TextField(
+          controller: _tags,
+          autocorrect: false,
+          enableSuggestions: false,
+          textCapitalization: TextCapitalization.none,
+          style: QText.body(16, weight: FontWeight.w600, height: 1.4),
+          decoration: InputDecoration(
+            errorText: _tagsError,
+            errorMaxLines: 3,
+            errorStyle: QText.body(13, color: Q.dontKnow, weight: FontWeight.w700),
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(S.tagsHint, style: muted),
+      ],
     );
   }
 

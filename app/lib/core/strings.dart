@@ -100,6 +100,9 @@ abstract final class S {
   static const fillAnswer = 'Vyplň odpověď.';
   static const formattingHint = 'Formátování: **tučně**, *kurzíva*, <small>malé písmo</small>. '
       'Řádek začínající „- “ je odrážka, „1. “ číslovaný seznam.';
+  static const tagsLabel = 'Tagy';
+  static const tagsHint = 'Odděl středníkem, např. ai_gen ; prednaska_01';
+  static String tagsSemantics(List<String> tags) => 'Tagy: ${tags.join(', ')}';
   static const preview = 'Náhled';
   static const saveCard = 'Uložit kartu';
   static const deleteCard = 'Smazat kartu';

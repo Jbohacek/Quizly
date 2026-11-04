@@ -51,12 +51,12 @@ class SessionQueue {
     _queue.add(_queue.removeAt(0));
   }
 
-  /// The card was edited during the session (#23): every copy shows the new text.
-  void replaceText(int cardId, {required String question, required String answer}) {
+  /// The card was edited during the session (#23): every copy shows the new text and tags.
+  void replaceCard(int cardId, {required String question, required String answer, required List<String> tags}) {
     for (var i = 0; i < _queue.length; i++) {
       final entry = _queue[i];
       if (entry.card.cardId == cardId) {
-        _queue[i] = _Entry(entry.card.withText(question: question, answer: answer), requeued: entry.requeued);
+        _queue[i] = _Entry(entry.card.edited(question: question, answer: answer, tags: tags), requeued: entry.requeued);
       }
     }
   }

@@ -5,6 +5,9 @@ typedef Json = Map<String, dynamic>;
 int _int(Object? v) => (v as num).toInt();
 double _double(Object? v) => (v as num).toDouble();
 
+/// Card tags (#29); an older server doesn't send them.
+List<String> _tags(Object? v) => (v as List?)?.cast<String>() ?? const [];
+
 class AppUser {
   const AppUser({required this.id, required this.username, required this.displayName, this.shopEnabled = true});
 
@@ -252,6 +255,7 @@ class DeckCard {
     this.knowCount = 0,
     this.dontKnowCount = 0,
     this.nextReview,
+    this.tags = const [],
   });
 
   factory DeckCard.fromJson(Json j) => DeckCard(
@@ -263,6 +267,7 @@ class DeckCard {
         knowCount: _int(j['knowCount'] ?? 0),
         dontKnowCount: _int(j['dontKnowCount'] ?? 0),
         nextReview: j['nextReview'] == null ? null : DateTime.parse(j['nextReview'] as String),
+        tags: _tags(j['tags']),
       );
 
   final int id;
@@ -277,6 +282,9 @@ class DeckCard {
 
   /// When the card is due again; null for a new card.
   final DateTime? nextReview;
+
+  /// The card's tags, sorted (#29).
+  final List<String> tags;
 }
 
 /// `GET /decks/{id}/cards`: the deck with my counts and all its cards in order.
@@ -352,6 +360,7 @@ class SessionCard {
     required this.question,
     required this.answer,
     required this.kind,
+    this.tags = const [],
   });
 
   factory SessionCard.fromJson(Json j) => SessionCard(
@@ -360,6 +369,7 @@ class SessionCard {
         question: j['question'] as String,
         answer: j['answer'] as String,
         kind: CardKind.parse(j['kind'] as String),
+        tags: _tags(j['tags']),
       );
 
   final int cardId;
@@ -368,8 +378,12 @@ class SessionCard {
   final String answer;
   final CardKind kind;
 
-  SessionCard withText({required String question, required String answer}) =>
-      SessionCard(cardId: cardId, deckId: deckId, question: question, answer: answer, kind: kind);
+  /// The card's tags, sorted (#29).
+  final List<String> tags;
+
+  /// The card after an edit in the session (#23).
+  SessionCard edited({required String question, required String answer, required List<String> tags}) =>
+      SessionCard(cardId: cardId, deckId: deckId, question: question, answer: answer, kind: kind, tags: tags);
 }
 
 class SessionData {

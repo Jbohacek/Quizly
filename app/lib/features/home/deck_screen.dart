@@ -10,6 +10,7 @@ import '../../core/card_markup.dart';
 import '../../core/format.dart';
 import '../../core/providers.dart';
 import '../../core/strings.dart';
+import '../../core/tags.dart';
 import '../../core/theme/theme.dart';
 import '../../core/theme/tokens.dart';
 import '../../core/widgets/card_text.dart';
@@ -36,6 +37,7 @@ class DeckScreen extends ConsumerWidget {
       cardId: card?.id,
       question: card?.question ?? '',
       answer: card?.answer ?? '',
+      tags: card?.tags ?? const [],
     );
     if (result == null) return;
     ref.invalidate(deckCardsProvider(deckId));
@@ -129,7 +131,9 @@ class _DeckBodyState extends State<_DeckBody> {
     return [
       for (final card in widget.data.cards)
         if ((_status == null || card.status == _status) &&
-            (query.isEmpty || foldForSearch(plainCardText('${card.question}\n${card.answer}')).contains(query)))
+            (query.isEmpty ||
+                foldForSearch(plainCardText('${card.question}\n${card.answer}')).contains(query) ||
+                card.tags.any((tag) => foldForSearch(tag).contains(query))))
           card,
     ];
   }
@@ -516,10 +520,27 @@ class _CardTileState extends State<_CardTile> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Expanded(
-                        child: CardText(
-                          card.question,
-                          style: QText.body(15, weight: FontWeight.w800, height: 1.35),
-                          smallColor: Q.textMuted,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            CardText(
+                              card.question,
+                              style: QText.body(15, weight: FontWeight.w800, height: 1.35),
+                              smallColor: Q.textMuted,
+                            ),
+                            // #29: the tags in small grey text under the question.
+                            if (card.tags.isNotEmpty) ...[
+                              const SizedBox(height: 4),
+                              Semantics(
+                                label: S.tagsSemantics(card.tags),
+                                excludeSemantics: true,
+                                child: Text(
+                                  tagsLine(card.tags),
+                                  style: QText.body(12, color: Q.textMuted, weight: FontWeight.w600),
+                                ),
+                              ),
+                            ],
+                          ],
                         ),
                       ),
                       const SizedBox(width: 10),

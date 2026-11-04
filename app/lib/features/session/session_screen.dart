@@ -9,6 +9,7 @@ import '../../core/api/models.dart';
 import '../../core/format.dart';
 import '../../core/providers.dart';
 import '../../core/strings.dart';
+import '../../core/tags.dart';
 import '../../core/theme/theme.dart';
 import '../../core/theme/tokens.dart';
 import '../../core/widgets/widgets.dart';
@@ -160,7 +161,6 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
     }
     final grow = MediaQuery.disableAnimationsOf(context) ? Duration.zero : const Duration(milliseconds: 280);
     final deck = _decks[card.deckId];
-    final deckColor = deck == null ? Q.primary : parseHex(deck.color);
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
       child: Column(
@@ -174,13 +174,9 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
           const SizedBox(height: 14),
           Row(
             children: [
-              // The deck name gets all the room "Upravit" leaves (Jakub's review: no card-kind chip).
-              Expanded(
-                child: Align(
-                  alignment: Alignment.centerLeft,
-                  child: Tag(label: deck?.name ?? S.allDecks, color: deckColor),
-                ),
-              ),
+              // Where the card belongs gets all the room "Upravit" leaves (Jakub's review: no card-kind chip):
+              // the deck name in grey, no colored frame, and the card's tags under it in smaller text (#29).
+              Expanded(child: _CardPlace(deckName: deck?.name ?? S.allDecks, tags: card.tags)),
               const SizedBox(width: 8),
               // #23: the card can be fixed right here (the multiplier still shows in the points below).
               _EditChip(onPressed: () => _editCurrent(c)),
@@ -274,12 +270,13 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
       cardId: card.cardId,
       question: card.question,
       answer: card.answer,
+      tags: card.tags,
     );
     if (result == null || !mounted) return;
     if (result.deleted) {
       c.cardDeleted(card.cardId);
     } else {
-      c.cardEdited(card.cardId, question: result.question, answer: result.answer);
+      c.cardEdited(card.cardId, question: result.question, answer: result.answer, tags: result.tags);
     }
   }
 
@@ -338,6 +335,41 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
             ),
       );
 
+}
+
+/// Where the session's card belongs (#29): its deck's name in grey text, and its tags below in smaller text.
+class _CardPlace extends StatelessWidget {
+  const _CardPlace({required this.deckName, required this.tags});
+
+  final String deckName;
+  final List<String> tags;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          deckName,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: QText.body(14, color: Q.textMuted, weight: FontWeight.w700),
+        ),
+        if (tags.isNotEmpty)
+          Semantics(
+            label: S.tagsSemantics(tags),
+            excludeSemantics: true,
+            child: Text(
+              tagsLine(tags),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: QText.body(12, color: Q.textMuted, weight: FontWeight.w600),
+            ),
+          ),
+      ],
+    );
+  }
 }
 
 /// "✎ Upravit" in the chip row: plain purple text, no pill. Opens the card editor.
