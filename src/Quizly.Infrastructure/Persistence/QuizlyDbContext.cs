@@ -12,6 +12,8 @@ public sealed class QuizlyDbContext(DbContextOptions<QuizlyDbContext> options) :
     public DbSet<Deck> Decks => Set<Deck>();
     public DbSet<Card> Cards => Set<Card>();
     public DbSet<DeckAccess> DeckAccess => Set<DeckAccess>();
+    public DbSet<Tag> Tags => Set<Tag>();
+    public DbSet<CardTag> CardTags => Set<CardTag>();
     public DbSet<CardState> CardStates => Set<CardState>();
     public DbSet<ReviewLog> ReviewLogs => Set<ReviewLog>();
     public DbSet<DailyActivity> DailyActivities => Set<DailyActivity>();

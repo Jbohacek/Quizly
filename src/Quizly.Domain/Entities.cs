@@ -89,6 +89,25 @@ public class Card
     public DateTime UpdatedAt { get; set; }
 
     public Deck Deck { get; set; } = null!;
+
+    /// <summary>Tags for organizing cards (#29), N:N through <see cref="CardTag"/>.</summary>
+    public List<Tag> Tags { get; set; } = [];
+}
+
+/// <summary>A tag name shared by every deck (e.g. <c>ai_gen</c>, <c>prednaska_01</c>); see <see cref="TagNames"/>.</summary>
+public class Tag
+{
+    public int Id { get; set; }
+    public string Name { get; set; } = "";
+
+    public List<Card> Cards { get; set; } = [];
+}
+
+/// <summary>A card with a tag (the N:N join of <see cref="Card"/> and <see cref="Tag"/>).</summary>
+public class CardTag
+{
+    public int CardId { get; set; }
+    public int TagId { get; set; }
 }
 
 public class CardState

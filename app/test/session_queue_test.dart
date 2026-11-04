@@ -33,12 +33,13 @@ void main() {
       expect(q.graded, 3);
     });
 
-    test('#23: an edited card shows its new text in every copy', () {
+    test('#23: an edited card shows its new text and tags in every copy', () {
       final q = SessionQueue([card(1), card(2)]);
       q.answer(Rating.dontKnow); // card 1 waits at the end again
-      q.replaceText(1, question: 'Nová otázka', answer: 'Nová odpověď');
+      q.replaceCard(1, question: 'Nová otázka', answer: 'Nová odpověď', tags: ['ai_gen']);
       q.answer(Rating.know);
       expect((q.current!.cardId, q.current!.question, q.current!.answer), (1, 'Nová otázka', 'Nová odpověď'));
+      expect(q.current!.tags, ['ai_gen']);
     });
 
     test('#23: a deleted card leaves the queue and the total', () {

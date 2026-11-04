@@ -30,10 +30,11 @@ public enum MissingCards
 /// <summary>A card without an id: it will be created.</summary>
 public sealed record YamlNewCard(int Line, string Question);
 
-/// <summary>Question/answer text on one side of a change; unchanged fields are left out.</summary>
+/// <summary>Question/answer text and tags on one side of a change; unchanged fields are left out.</summary>
 public sealed record YamlCardText(
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Question = null,
-    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Answer = null);
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Answer = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] IReadOnlyList<string>? Tags = null);
 
 /// <summary>An existing card whose text changes; users' progress is kept.</summary>
 public sealed record YamlChangedCard(int Id, int Line, string Question, IReadOnlyList<string> Fields, YamlCardText Before, YamlCardText After);

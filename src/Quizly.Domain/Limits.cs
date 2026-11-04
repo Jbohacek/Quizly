@@ -16,6 +16,8 @@ public static class Limits
 
     public const int QuestionMax = 500;
     public const int AnswerMax = 2000;
+    public const int TagNameMax = 30;
+    public const int TagsPerCardMax = 10;
 
     public const int ShopItemNameMax = 100;
     public const int ShopItemDescriptionMax = 500;

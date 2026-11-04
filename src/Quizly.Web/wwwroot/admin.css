@@ -129,6 +129,7 @@ tr.dim td { color: var(--muted); }
 .chip.confirmed { background: var(--ok-bg); color: var(--ok-fg); }
 .chip.rejected { background: var(--bad-bg); color: var(--bad-fg); }
 .chip.neutral { background: #EEEDE8; color: var(--muted); }
+.tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
 .swatch { display: inline-block; width: 14px; height: 14px; border-radius: 4px; vertical-align: -2px; margin-right: 8px; border: 1px solid rgba(0,0,0,.08); }
 .bar { height: 6px; border-radius: 3px; background: var(--row); overflow: hidden; min-width: 80px; }
 .bar > span { display: block; height: 100%; background: var(--stripe); }

@@ -123,9 +123,9 @@ class SessionController extends ChangeNotifier {
     _notify();
   }
 
-  /// The current card was edited (#23): the session goes on with the new text.
-  void cardEdited(int cardId, {required String question, required String answer}) {
-    queue.replaceText(cardId, question: question, answer: answer);
+  /// The current card was edited (#23): the session goes on with the new text and tags.
+  void cardEdited(int cardId, {required String question, required String answer, required List<String> tags}) {
+    queue.replaceCard(cardId, question: question, answer: answer, tags: tags);
     _notify();
   }
 

@@ -111,6 +111,29 @@ Index: `(sort_order, id)`.
 
 Index: `(deck_id, sort_order, id)`.
 
+### 2.5.1 `tags` and `card_tags` (#29)
+
+Cards carry tags for organizing them, e.g. `ai_gen` (made by AI) or `prednaska_01` (from lecture 1). A tag name is shared by every deck: N:N between cards and tags.
+
+`tags`:
+
+| Column | Type | Null | Constraint |
+| --- | --- | --- | --- |
+| `id` | `integer` identity | no | PK |
+| `name` | `varchar(30)` | no | unique; see the rules below |
+
+`card_tags`:
+
+| Column | Type | Null | Constraint |
+| --- | --- | --- | --- |
+| `card_id` | `integer` FK → cards (**cascade**) | no | PK (`card_id`, `tag_id`) |
+| `tag_id` | `integer` FK → tags (**cascade**) | no | index |
+
+- **Names:** input is trimmed and lowercased; then only lowercase letters (Czech ones too), digits, `_` and `-`, 1–30 characters. At most **10 tags per card**; duplicates are dropped. Tags are always returned **sorted** (ordinal).
+- Typed as one text (dashboard field, YAML scalar), tags are split at `;`, `,` and whitespace: `ai_gen ; prednaska_01`.
+- New names are inserted with `ON CONFLICT (name) DO NOTHING`, so two writers can add the same tag at once. A tag no card uses any more stays in `tags` (nothing lists all tags).
+- Who sets them: the admin (dashboard card form, admin card API, deck YAML), app users with the card editor (`tags` in the app card API, docs/api.md §4) and Claude over MCP (deck YAML). A request without `tags` keeps the card's tags.
+
 ### 2.6 `card_states` (FSRS memory per user × card)
 
 A row exists only after the user's **first graded review** of the card. No row = **new** card.
@@ -238,7 +261,7 @@ Index: `(category)`. Seeded from `notification-texts.md` (converted to `Seed/not
 | Delete | Effect |
 | --- | --- |
 | Deck | its cards → their `card_states` and `review_logs` (progress gone). Points and `daily_activities` stay. The UI warns with counts. |
-| Card | its `card_states` and `review_logs`. Points and `daily_activities` stay. |
+| Card | its `card_states`, `review_logs` and `card_tags`. Points and `daily_activities` stay. |
 | Shop item | only when it has no claims; wishlist entries cascade. |
 | User | not supported in v1 (deactivate instead). |
 
@@ -497,6 +520,7 @@ Streak 13 through yesterday (m = 1,1×), goal 20. Today the first 19 answers are
 | Generated password | 12 chars from `abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789`, crypto RNG |
 | Deck name / description / color | 1–100 / ≤ 500 / `#RRGGBB` |
 | Card question / answer | 1–500 / 1–2 000 chars |
+| Card tags | ≤ 10 per card; each lowercased, `^[\p{Ll}\p{Lo}\p{Nd}_-]{1,30}$` (§2.5.1) |
 | Shop item name / description / price / stock | 1–100 / ≤ 500 / 1–1 000 000 / 0–10 000 |
 | Notification text | 1–300 chars; only known placeholders (`{due} {left} {done} {goal} {streak} {multiplier} {item} {points}`); braces must match |
 | Settings | goal 1–500; new cards 0–100; times `HH:mm` (minutes 0–59); `quiet_from ≠ quiet_to` |

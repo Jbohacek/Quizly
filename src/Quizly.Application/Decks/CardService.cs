@@ -29,6 +29,7 @@ internal sealed class CardService(IAppDbContext db, TimeProvider time) : ICardSe
         }
 
         var cards = await db.Cards
+            .Include(c => c.Tags)
             .Where(c => c.DeckId == deckId)
             .OrderBy(c => c.SortOrder).ThenBy(c => c.Id)
             .ToListAsync(ct);
@@ -37,7 +38,7 @@ internal sealed class CardService(IAppDbContext db, TimeProvider time) : ICardSe
 
     public async Task<Result<CardResponse>> GetAsync(int deckId, int cardId, CancellationToken ct)
     {
-        var card = await db.Cards.FirstOrDefaultAsync(c => c.Id == cardId && c.DeckId == deckId, ct);
+        var card = await db.Cards.Include(c => c.Tags).FirstOrDefaultAsync(c => c.Id == cardId && c.DeckId == deckId, ct);
         return card is null ? CardNotFound : ToResponse(card);
     }
 
@@ -50,7 +51,8 @@ internal sealed class CardService(IAppDbContext db, TimeProvider time) : ICardSe
         }
 
         var (question, answer) = (Validator.Clean(request.Question), Validator.Clean(request.Answer));
-        var v = Validate(question, answer);
+        var tagNames = TagNames.Normalize(request.Tags ?? []);
+        var v = Validate(question, answer, tagNames);
         if (!v.IsValid)
         {
             return v.ToError();
@@ -68,6 +70,7 @@ internal sealed class CardService(IAppDbContext db, TimeProvider time) : ICardSe
             CreatedAt = now,
             UpdatedAt = now,
         };
+        CardTagging.Set(card, tagNames.Names, await CardTagging.ResolveAsync(db, tagNames.Names, ct));
         db.Cards.Add(card);
         deck.UpdatedAt = now;
         await db.SaveChangesAsync(ct);
@@ -76,20 +79,27 @@ internal sealed class CardService(IAppDbContext db, TimeProvider time) : ICardSe
 
     public async Task<Result<CardResponse>> UpdateAsync(int deckId, int cardId, CardRequest request, CancellationToken ct)
     {
-        var card = await db.Cards.Include(c => c.Deck).FirstOrDefaultAsync(c => c.Id == cardId && c.DeckId == deckId, ct);
+        var card = await db.Cards.Include(c => c.Deck).Include(c => c.Tags)
+            .FirstOrDefaultAsync(c => c.Id == cardId && c.DeckId == deckId, ct);
         if (card is null)
         {
             return CardNotFound;
         }
 
         var (question, answer) = (Validator.Clean(request.Question), Validator.Clean(request.Answer));
-        var v = Validate(question, answer);
+        var tagNames = TagNames.Normalize(request.Tags ?? CardTagging.Names(card));
+        var v = Validate(question, answer, tagNames);
         if (!v.IsValid)
         {
             return v.ToError();
         }
 
         var now = time.GetUtcNow().UtcDateTime;
+        if (request.Tags is not null)
+        {
+            CardTagging.Set(card, tagNames.Names, await CardTagging.ResolveAsync(db, tagNames.Names, ct));
+        }
+
         card.Question = question;
         card.Answer = answer;
         card.SortOrder = request.SortOrder ?? card.SortOrder;
@@ -114,11 +124,13 @@ internal sealed class CardService(IAppDbContext db, TimeProvider time) : ICardSe
 
     private static AppError CardNotFound => Errors.NotFound("Karta neexistuje.");
 
-    private static Validator Validate(string question, string answer) =>
+    private static Validator Validate(
+        string question, string answer, (IReadOnlyList<string> Names, IReadOnlyList<string> Invalid, bool TooMany) tags) =>
         new Validator()
             .Text("question", question, "Otázka", Limits.QuestionMax)
-            .Text("answer", answer, "Odpověď", Limits.AnswerMax);
+            .Text("answer", answer, "Odpověď", Limits.AnswerMax)
+            .Tags("tags", tags.Invalid, tags.TooMany);
 
     private static CardResponse ToResponse(Card c) =>
-        new(c.Id, c.DeckId, c.Question, c.Answer, c.SortOrder, c.CreatedAt.ToUtcOffset(), c.UpdatedAt.ToUtcOffset());
+        new(c.Id, c.DeckId, c.Question, c.Answer, c.SortOrder, c.CreatedAt.ToUtcOffset(), c.UpdatedAt.ToUtcOffset(), CardTagging.Names(c));
 }

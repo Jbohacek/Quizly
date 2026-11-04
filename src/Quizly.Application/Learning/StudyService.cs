@@ -44,7 +44,7 @@ internal sealed class StudyService(IAppDbContext db, Progress progress, TimeProv
             .Where(s => s.UserId == userId && s.Due <= now)
             .Join(cards, s => s.CardId, c => c.Id, (s, c) => new { s.Due, s.State, Card = c })
             .OrderBy(x => x.Due).ThenBy(x => x.Card.Id)
-            .Select(x => new SessionCardResponse(x.Card.Id, x.Card.DeckId, x.Card.Question, x.Card.Answer, KindOf(x.State)))
+            .Select(x => new SessionRow(x.Card.Id, x.Card.DeckId, x.Card.Question, x.Card.Answer, KindOf(x.State), x.Card.Tags.Select(t => t.Name).ToList()))
             .ToListAsync(ct);
 
         // Extra new cards are on top of what's left today; they still count as today's new cards.
@@ -54,11 +54,14 @@ internal sealed class StudyService(IAppDbContext db, Progress progress, TimeProv
             : await Unseen(userId, cards)
                 .OrderBy(c => c.Deck.SortOrder).ThenBy(c => c.DeckId).ThenBy(c => c.SortOrder).ThenBy(c => c.Id)
                 .Take(allowance)
-                .Select(c => new SessionCardResponse(c.Id, c.DeckId, c.Question, c.Answer, "new"))
+                .Select(c => new SessionRow(c.Id, c.DeckId, c.Question, c.Answer, "new", c.Tags.Select(t => t.Name).ToList()))
                 .ToListAsync(ct);
 
         var summary = await progress.SummaryAsync(userId, ct);
-        return new SessionResponse(deckId, summary.Multiplier, Progress.PointsFor(summary), due.Count, fresh.Count, [.. due, .. fresh], settings.FourRatings);
+        var queue = due.Concat(fresh)
+            .Select(r => new SessionCardResponse(r.CardId, r.DeckId, r.Question, r.Answer, r.Kind, Sorted(r.Tags)))
+            .ToList();
+        return new SessionResponse(deckId, summary.Multiplier, Progress.PointsFor(summary), due.Count, fresh.Count, queue, settings.FourRatings);
     }
 
     public async Task<AppDeckListResponse> GetDecksAsync(int userId, CancellationToken ct)
@@ -111,6 +114,7 @@ internal sealed class StudyService(IAppDbContext db, Progress progress, TimeProv
                 c.Id,
                 c.Question,
                 c.Answer,
+                Tags = c.Tags.Select(t => t.Name).ToList(),
                 State = db.CardStates.Where(s => s.UserId == userId && s.CardId == c.Id)
                     .Select(s => new { s.State, s.Stability, s.Due })
                     .FirstOrDefault(),
@@ -131,12 +135,18 @@ internal sealed class StudyService(IAppDbContext db, Progress progress, TimeProv
                 c.State is null ? 0 : mastered ? 100 : (int)Math.Min(99, c.State.Stability * 100 / MasteredStability),
                 c.Know,
                 c.DontKnow,
-                c.State is null ? null : new DateTimeOffset(DateTime.SpecifyKind(c.State.Due, DateTimeKind.Utc)));
+                c.State is null ? null : new DateTimeOffset(DateTime.SpecifyKind(c.State.Due, DateTimeKind.Utc)),
+                Sorted(c.Tags));
         }).ToList();
         return new DeckCardsResponse(deck, items);
     }
 
     private static int Percent(int part, int total) => total == 0 ? 0 : part * 100 / total;
+
+    /// <summary>Tags in the same (ordinal) order everywhere, whatever the database collation.</summary>
+    private static List<string> Sorted(List<string> tags) => [.. tags.Order(StringComparer.Ordinal)];
+
+    private sealed record SessionRow(int CardId, int DeckId, string Question, string Answer, string Kind, List<string> Tags);
 
     internal IQueryable<Card> Unseen(int userId, IQueryable<Card> cards) =>
         cards.Where(c => !db.CardStates.Any(s => s.UserId == userId && s.CardId == c.Id));

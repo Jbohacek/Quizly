@@ -68,6 +68,11 @@
                             <div class="small muted">Odpověď byla: @ch.Before.Answer</div>
                             <div class="small">Nová odpověď: @ch.After.Answer</div>
                         }
+                        @if (ch.Before.Tags is not null)
+                        {
+                            <div class="small muted">Tagy byly: @Tags(ch.Before.Tags)</div>
+                            <div class="small">Nové tagy: @Tags(ch.After.Tags)</div>
+                        }
                     </li>
                 }
             </ul>
@@ -96,4 +101,6 @@
         if (deck.DescriptionChanged) yield return "popis";
         if (deck.ColorChanged) yield return "barva";
     }
+
+    private static string Tags(IReadOnlyList<string>? tags) => tags is { Count: > 0 } ? string.Join(" ; ", tags) : "žádné";
 }

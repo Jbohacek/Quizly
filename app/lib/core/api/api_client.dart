@@ -100,15 +100,18 @@ class ApiClient {
   Future<DeckCards> deckCards(int deckId) async =>
       DeckCards.fromJson(await _send<Json>('GET', '/decks/$deckId/cards'));
 
-  /// Adds a card at the end of a deck (#23); returns its id.
-  Future<int> createCard(int deckId, {required String question, required String answer}) async {
-    final json = await _send<Json>('POST', '/decks/$deckId/cards', data: {'question': question, 'answer': answer});
+  /// Adds a card at the end of a deck (#23); returns its id. [tags] null sends none (the card has none).
+  Future<int> createCard(int deckId, {required String question, required String answer, List<String>? tags}) async {
+    final json = await _send<Json>('POST', '/decks/$deckId/cards', data: _cardBody(question, answer, tags));
     return (json['id'] as num).toInt();
   }
 
-  /// Edits a card; everyone's progress on it stays.
-  Future<void> updateCard(int deckId, int cardId, {required String question, required String answer}) =>
-      _send<Object?>('PUT', '/decks/$deckId/cards/$cardId', data: {'question': question, 'answer': answer});
+  /// Edits a card; everyone's progress on it stays. [tags] null keeps the card's tags, `[]` removes them (#29).
+  Future<void> updateCard(int deckId, int cardId, {required String question, required String answer, List<String>? tags}) =>
+      _send<Object?>('PUT', '/decks/$deckId/cards/$cardId', data: _cardBody(question, answer, tags));
+
+  static Json _cardBody(String question, String answer, List<String>? tags) =>
+      {'question': question, 'answer': answer, 'tags': ?tags};
 
   /// Deletes a card with everyone's progress on it.
   Future<void> deleteCard(int deckId, int cardId) => _send<Object?>('DELETE', '/decks/$deckId/cards/$cardId');

@@ -132,6 +132,25 @@ namespace Quizly.Infrastructure.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Quizly.Domain.CardTag", b =>
+                {
+                    b.Property<int>("CardId")
+                        .HasColumnType("integer")
+                        .HasColumnName("card_id");
+
+                    b.Property<int>("TagId")
+                        .HasColumnType("integer")
+                        .HasColumnName("tag_id");
+
+                    b.HasKey("CardId", "TagId")
+                        .HasName("pk_card_tags");
+
+                    b.HasIndex("TagId")
+                        .HasDatabaseName("ix_card_tags_tag_id");
+
+                    b.ToTable("card_tags", (string)null);
+                });
+
             modelBuilder.Entity("Quizly.Domain.Claim", b =>
                 {
                     b.Property<int>("Id")
@@ -579,6 +598,31 @@ namespace Quizly.Infrastructure.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Quizly.Domain.Tag", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("name");
+
+                    b.HasKey("Id")
+                        .HasName("pk_tags");
+
+                    b.HasIndex("Name")
+                        .IsUnique()
+                        .HasDatabaseName("ix_tags_name");
+
+                    b.ToTable("tags", (string)null);
+                });
+
             modelBuilder.Entity("Quizly.Domain.User", b =>
                 {
                     b.Property<int>("Id")
@@ -759,6 +803,23 @@ namespace Quizly.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_card_states_users_user_id");
+                });
+
+            modelBuilder.Entity("Quizly.Domain.CardTag", b =>
+                {
+                    b.HasOne("Quizly.Domain.Card", null)
+                        .WithMany()
+                        .HasForeignKey("CardId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_card_tags_cards_card_id");
+
+                    b.HasOne("Quizly.Domain.Tag", null)
+                        .WithMany()
+                        .HasForeignKey("TagId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_card_tags_tags_tag_id");
                 });
 
             modelBuilder.Entity("Quizly.Domain.Claim", b =>

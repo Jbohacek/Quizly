@@ -49,6 +49,11 @@
                     <FieldMessage Message="@FieldError("answer")" />
                 </div>
             </div>
+            <div class="field">
+                <label for="c-t">Tagy <span class="hint">(oddělené středníkem, např. <code>ai_gen ; prednaska_01</code>)</span></label>
+                <input id="c-t" @bind="_tags" @bind:event="oninput" autocomplete="off" spellcheck="false" />
+                <FieldMessage Message="@FieldError("tags")" />
+            </div>
             <p class="hint">
                 Formátování: <code>**tučně**</code>, <code>*kurzíva*</code>, <code>&lt;small&gt;malé písmo&lt;/small&gt;</code>;
                 řádek začínající <code>- </code> je odrážka, <code>1. </code> číslovaný seznam.
@@ -81,7 +86,18 @@
                             {
                                 <tr>
                                     <td class="right muted num">@c.Id</td>
-                                    <td style="white-space: pre-line">@c.Question</td>
+                                    <td>
+                                        <div style="white-space: pre-line">@c.Question</div>
+                                        @if (c.Tags.Count > 0)
+                                        {
+                                            <div class="tags">
+                                                @foreach (var t in c.Tags)
+                                                {
+                                                    <span class="chip neutral">@t</span>
+                                                }
+                                            </div>
+                                        }
+                                    </td>
                                     <td style="white-space: pre-line" class="muted">@c.Answer</td>
                                     <td class="actions">
                                         <button class="btn small" @onclick="() => Edit(c)">Upravit</button>
@@ -224,6 +240,7 @@
     private CardResponse? _deletingCard;
     private string _question = "";
     private string _answer = "";
+    private string _tags = "";
     private string _yaml = "";
     private YamlPreviewResponse? _preview;
     private bool _confirmYamlDeletes;
@@ -278,15 +295,15 @@
     private void Edit(CardResponse card)
     {
         ClearMessages();
-        (_editing, _question, _answer) = (card, card.Question, card.Answer);
+        (_editing, _question, _answer, _tags) = (card, card.Question, card.Answer, string.Join(" ; ", card.Tags));
     }
 
-    private void CancelEdit() => (_editing, _question, _answer) = (null, "", "");
+    private void CancelEdit() => (_editing, _question, _answer, _tags) = (null, "", "", "");
 
     private async Task SaveCardAsync()
     {
         _busy = true;
-        var request = new CardRequest(_question, _answer);
+        var request = new CardRequest(_question, _answer, Tags: TagNames.Split(_tags));
         var editing = _editing;
         var result = await UseAsync<ICardService, Result<CardResponse>>(s => editing is null
             ? s.CreateAsync(Id, request, CancellationToken.None)
