@@ -43,6 +43,7 @@ Quizly is a private **Android flashcard app in Czech**. It keeps the user learni
 | --- | --- |
 | API | ASP.NET Core on **.NET 10**, REST, JSON, JWT bearer auth for the app |
 | Admin dashboard | **Blazor** (Interactive Server render mode) hosted **in the same ASP.NET Core app**, cookie auth, at `/admin` |
+| MCP server | **ModelContextProtocol.AspNetCore** (official C# SDK), Streamable HTTP, in the same app at `/mcp/<secret>`, off by default (§5.12) |
 | Database | **PostgreSQL 18** (`postgres:18` in compose) via **EF Core 10** + Npgsql, code-first migrations applied on startup |
 | Android app | **Flutter** (Dart), Android only, minimum **Android 8.0 (API 26)** |
 | Hosting | Docker Compose stack in **Portainer** on Jakub's server, behind **Nginx Proxy Manager** (handles HTTPS) |
@@ -192,6 +193,14 @@ points = round(base × min(2.0, 1.0 + 0.1 × floor(streakDays / 7)))
 - The server uses its **receive time** for the review timestamp and the day boundary.
 - On transient errors the app retries. When offline it shows "Jsi offline" and pauses the session.
 
+### 5.12 MCP server for Claude
+- A remote **MCP server** lets Claude (claude.ai connector, Claude Code) work on decks directly instead of the admin copying YAML. Full rules: [`docs/mcp.md`](./docs/mcp.md).
+- Four tools on top of the existing deck / YAML services: **`list_decks`**, **`get_deck_yaml(deckId)`**, **`preview_deck_yaml(yaml, deckId?)`**, **`apply_deck_yaml(yaml, deckId?, baseHash?)`**. Without `deckId` the YAML is a new deck. Tool descriptions are in English and explain the YAML v1 rules (§8).
+- **Nothing is deleted through MCP.** Cards missing from the YAML stay untouched (with everyone's progress), move after the file's cards, and are listed as `missingKept`. Deleting cards or decks stays dashboard-only.
+- Updating a deck needs the **`baseHash`** from `get_deck_yaml` / `preview_deck_yaml`, so edits made in the meantime (e.g. a card edited in the app) aren't overwritten.
+- Users, shop, claims, points and notification texts are **not** exposed.
+- **Security (phase 1):** `Mcp__Enabled` (default `false`) and a path secret `Mcp__Secret` (≥ 48 URL-safe chars; the app refuses to start without it when enabled). Wrong secret or MCP off → `404`. The secret is stripped from the path before routing and never logged. Rate limit 60 requests/min per IP. Every tool call is logged with its counts. OAuth sign-in for the connector is a possible later issue.
+
 ---
 
 ## 6. Data model (EF Core / PostgreSQL)
@@ -250,6 +259,7 @@ Everything is under `/api`: JSON, camelCase, errors as RFC 7807 ProblemDetails. 
 
 **Admin endpoints** (`/api/admin/*`, admin auth) mirror the dashboard: `users` (+ `reset-password`, `activate`, `deactivate`), `decks` (+ `access`), `decks/{id}/cards`, `decks/{id}/yaml` (GET export, POST preview, PUT apply), `shop-items`, `claims` (+ `confirm`, `reject`), `notification-texts`, `overview`.
 Blazor pages call the **application services directly**; the REST endpoints use the same services.
+The MCP server (§5.12) is not part of `/api`: it lives at `/mcp/<secret>` and calls the same services too.
 
 ---
 
@@ -343,7 +353,7 @@ Balíček (deck) · Karta · Vím · Nevím · Přeskočit · Série (streak) ·
 ## 10. Deployment
 
 - `deploy/docker-compose.yml`: service **`quizly`** (`ghcr.io/<owner>/quizly:<tag>`) and **`db`** (`postgres:18`), named volume for the database, internal network. `quizly` publishes one port (e.g. 8080) for Nginx Proxy Manager.
-- `deploy/.env.example`: `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `ConnectionStrings__Default`, `Jwt__SigningKey` (≥ 32 random bytes), `Jwt__Issuer`, `ADMIN_USERNAME`, `ADMIN_PASSWORD`, `PUBLIC_BASE_URL=https://quizly.jbohacek.cz`.
+- `deploy/.env.example`: `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `ConnectionStrings__Default`, `Jwt__SigningKey` (≥ 32 random bytes), `Jwt__Issuer`, `ADMIN_USERNAME`, `ADMIN_PASSWORD`, `PUBLIC_BASE_URL=https://quizly.jbohacek.cz`, `Mcp__Enabled`, `Mcp__Secret` (§5.12).
 - Behind the proxy: enable **ForwardedHeaders** (X-Forwarded-For/Proto). Persist **Data Protection keys** to a volume (Blazor circuits and cookies must survive restarts).
 - Migrations run on startup. Health check at `/api/health`.
 - **Backups:** `deploy/backup.sh` runs a nightly `pg_dump` from the server's cron and keeps the newest 14 dumps; `deploy/restore.sh` and the runbook in `deploy/README-deploy.md` restore one.
@@ -461,3 +471,6 @@ Jakub confirmed these defaults at the Etapa 0 gate (2026-10-31). Raise any of th
 | 2026-11-02 | #23: any app user adds, edits and deletes cards of the decks they see (`POST/PUT/DELETE /api/decks/{id}/cards`), the same rules as the dashboard. In a session "✎ Upravit" replaced the multiplier chip (the hint row's points include the multiplier). Deleting asks first, since everyone's progress on the card goes. The editor shows no snackbar: the changed list shows it. Jakub's review: "+ Přidat kartu" is a dashed tile first in the card list (hidden while searching), not a floating button over the cards. |
 | 2026-11-02 | #19: optional Těžké (FSRS Hard) and Snadné (FSRS Easy), setting "Těžké a Snadné" (`user_settings.four_ratings`, default off). Both are correct and worth a Vím (points never depend on which one is picked); swipes stay Vím / Nevím; in this mode there's no Přeskočit button and a swipe up skips (Jakub's review: not explained in the app); the session response says which buttons to show. Reference vectors now cover all four ratings (py-fsrs 6.3.2). An older app that saves its settings turns the option off. |
 | 2026-11-02 | Jakub: the admin can turn the shop off per user (`users.shop_enabled`, default on, dashboard "Obchod v aplikaci"), so invited users stay out of the rewards. Without it: no Obchod tab, a points pill without a link, no wishlist card or notification, and `403 shopDisabled` from the shop, claims and wishlist endpoints. The app learns it from `user.shopEnabled` in login and `/api/me`. |
+| 2026-11-04 | #30 (Etapa 9): MCP server for Claude in the same app (`ModelContextProtocol.AspNetCore` 2.3.0, stateless Streamable HTTP) with `list_decks`, `get_deck_yaml`, `preview_deck_yaml`, `apply_deck_yaml`. The YAML import got a "keep missing cards" mode (`MissingCards.Keep`) that MCP always uses: missing cards stay, after the file's cards, listed as `missingKept`; nothing is ever deleted through MCP. The REST/dashboard YAML responses gained an always-empty `kept` list and `counts.kept`. |
+| 2026-11-04 | MCP security, phase 1: `Mcp__Enabled` (default off) + a ≥ 48-char URL-safe path secret checked in constant time by a middleware that rewrites `/mcp/<secret>` to `/mcp` before routing (so nothing after it logs the secret); everything else under `/mcp` is 404. `Microsoft.AspNetCore.Hosting.Diagnostics` is pinned at Warning, since its request line is logged before any middleware. 60 requests/min per IP. |
+| 2026-11-04 | Not in the issue, added for safety: `apply_deck_yaml` on an existing deck requires the `baseHash` from `get_deck_yaml` / `preview_deck_yaml` (the same check the dashboard does), because users can now edit cards in the app (#23). Tool results are JSON with Czech text unescaped. Tool descriptions allow the light card formatting (§5.1) rather than "plain text only". |

@@ -19,6 +19,7 @@ The full brief is in [`CLAUDE.md`](./CLAUDE.md).
 | 6 | Motivation layer | `etapa-6-motivation` | Approved |
 | 7 | Notifications | `etapa-7-notifications` | Approved |
 | 8 | Release and polish | `etapa-8-release` | Part 1 waiting for review |
+| 9 | MCP server | `etapa-9-mcp` | Waiting for review |
 
 Update the **Status** column when a stage starts, waits for review, or is approved.
 
@@ -212,3 +213,26 @@ Jakub (2026-11-01): polish first, then a first beta user tests the app, then the
 **Gate**
 - [ ] The beta user uses the app for a while without blocking problems
 - [ ] Jakub calls it done 🎉
+
+---
+
+## Etapa 9: MCP server
+
+Issue #30: Claude (claude.ai and Claude Code) lists, reads, previews and saves decks itself, over MCP. Details: [`docs/mcp.md`](./docs/mcp.md).
+
+- [x] Add `ModelContextProtocol.AspNetCore` and map the endpoint behind `Mcp__Enabled` + `Mcp__Secret`
+- [x] The 4 tools on top of the existing deck / YAML services: `list_decks`, `get_deck_yaml`, `preview_deck_yaml`, `apply_deck_yaml`
+- [x] `apply_deck_yaml` never deletes; the result lists the cards missing from the YAML that were left untouched
+- [x] Secret masked in logs (stripped before routing); rate limit 60 requests/min per IP
+- [x] Tests: each tool (happy path + validation error), apply without deletes, disabled flag → 404, wrong secret → 404, short secret → no start, rate limit, no secret in the log
+- [x] `deploy/.env.example` and `docker-compose.yml`: `Mcp__Enabled`, `Mcp__Secret`
+- [x] `deploy/README-deploy.md`: generate the secret, enable MCP, check NPM, add the connector in claude.ai and Claude Code, rotate the secret
+- [x] `CLAUDE.md` §5.12 + Decisions log; `docs/mcp.md`
+- [ ] **(Jakub)** Set `Mcp__Enabled` / `Mcp__Secret` on the server and add the connector in claude.ai
+
+**Gate**
+- [ ] With the connector in claude.ai, Claude lists decks, reads one as YAML, previews a change and saves it
+- [ ] Claude creates a new deck from YAML
+- [ ] Cards missing from the YAML are never deleted through MCP
+- [ ] Without the right secret, or with `Mcp__Enabled=false`, the endpoint returns 404
+- [ ] Approved by Jakub

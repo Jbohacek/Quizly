@@ -2,7 +2,7 @@
 
 The stack is two containers: `quizly` (API + admin dashboard, image from GHCR) and `db` (PostgreSQL 18). Nginx Proxy Manager (NPM) terminates HTTPS for `quizly.jbohacek.cz` and forwards to the `quizly` port. Migrations run automatically on startup.
 
-Do the steps in order. Steps 1–7 are one-time; the runbook below covers updates, rollback, restore and secrets.
+Do the steps in order. Steps 1–7 are one-time (step 8, the MCP server for Claude, is optional); the runbook below covers updates, rollback, restore and secrets.
 
 ## 1. DNS
 
@@ -106,6 +106,33 @@ The 52 notification texts are seeded on the first start. Production starts witho
 
 Settings: `QUIZLY_BACKUP_DIR` (default `/opt/quizly/backups`), `QUIZLY_BACKUP_KEEP` (default `14` dumps).
 
+## 8. MCP server for Claude (optional)
+
+Lets Claude (claude.ai and Claude Code) list decks, read one as YAML, preview a change and save it. It never deletes cards. Details: [`docs/mcp.md`](../docs/mcp.md).
+
+1. Generate the secret (≥ 48 URL-safe characters) and keep it like a password:
+
+   ```bash
+   openssl rand -base64 48 | tr '+/' '-_' | tr -d '='
+   ```
+
+2. Portainer → stack `quizly` → **Environment variables**: `Mcp__Enabled` = `true`, `Mcp__Secret` = the value from step 1 → **Update the stack**. If the container stops with `Mcp__Secret must be at least 48 URL-safe characters`, the secret is missing or too short.
+3. NPM needs no change: the existing proxy host forwards `/mcp/…` like everything else, over HTTPS. The app sends `X-Accel-Buffering: no`, so Nginx doesn't buffer the streamed responses. Check it from your PC (`<secret>` = the value from step 1). The answer is a `200` with `content-type: text/event-stream` and a `data: {"result":…}` line that comes at once:
+
+   ```bash
+   curl -sS -i -N https://quizly.jbohacek.cz/mcp/<secret> -H 'Content-Type: application/json' -H 'Accept: application/json, text/event-stream' -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"curl","version":"1"}}}'
+   ```
+
+   A wrong secret gives `404`.
+4. **claude.ai:** Settings → Connectors → **Add custom connector**: name `Quizly`, URL `https://quizly.jbohacek.cz/mcp/<secret>`, no authentication. Then ask e.g. *"Jaké balíčky mám v Quizly?"*
+5. **Claude Code:**
+
+   ```bash
+   claude mcp add --transport http quizly https://quizly.jbohacek.cz/mcp/<secret>
+   ```
+
+The full URL ends up in NPM's access log on the server, so treat that log like the `.env`. To turn MCP off, set `Mcp__Enabled` = `false` and update the stack.
+
 ## Runbook
 
 ### Update
@@ -151,6 +178,7 @@ Change the value in the stack's environment variables in Portainer, then **Updat
 | `POSTGRES_PASSWORD` | The `db` container sets the password only when the volume is created, so change it in the database first: `docker exec -it quizly-db-1 psql -U quizly -d quizly -c "ALTER USER quizly PASSWORD '<new>'"`. Then put `<new>` in **both** `POSTGRES_PASSWORD` and `ConnectionStrings__Default` and update the stack. |
 | `Jwt__SigningKey` | Access tokens signed with the old key stop working; phones get a new one with their refresh token automatically, so nobody is signed out. |
 | Sign every phone out | Delete the refresh tokens: `docker exec quizly-db-1 psql -U quizly -d quizly -c "DELETE FROM refresh_tokens"`. Each user logs in again with their password. For one user, use **Reset hesla** on the dashboard instead. |
+| `Mcp__Secret` | Generate a new one (§8), put it in the stack and **Update the stack**. The old URL answers `404` at once; change the URL in the claude.ai connector and in Claude Code (`claude mcp remove quizly`, then add it again). |
 | GHCR token (Portainer registry) | Create a new `read:packages` token, put it in Portainer → Registries → `ghcr`, delete the old one on GitHub. |
 | Android signing key | **Never rotate.** A new key can't install over the old app; every phone would have to uninstall (and log in again). Keep a copy of the keystore and its passwords outside GitHub. |
 
@@ -164,4 +192,6 @@ Change the value in the stack's environment variables in Portainer, then **Updat
 | Logged out of the dashboard after every redeploy | the `keys` volume is missing or not writable |
 | Image pull fails | registry `ghcr` missing or token without `read:packages` |
 | `/api/health` → 503 | database not reachable: check `ConnectionStrings__Default` and the `db` container |
+| Container exits with `Mcp__Secret must be at least 48 URL-safe characters` | `Mcp__Enabled=true` but the secret is missing, short, or has characters like `+` `/` `=` (§8) |
+| Claude says the Quizly connector can't connect | `Mcp__Enabled` is off, or the URL's secret differs from `Mcp__Secret` (both give `404`), or too many requests (`429`, 60 per minute) |
 | First start logs one failed `SELECT … FROM "__EFMigrationsHistory"` | normal: EF checks the history table before the first migration creates it |

@@ -26,6 +26,7 @@ Final layout for v1. Versions are pinned to the latest stable release when each 
 │  └─ Quizly.Web/                   ASP.NET Core host
 │     ├─ Api/                       minimal API endpoint groups per feature, ProblemDetails mapping
 │     ├─ Auth/                      JWT (app), cookie (admin), rate-limit policies
+│     ├─ Mcp/                       MCP server for Claude: secret path, deck tools (docs/mcp.md)
 │     ├─ Components/                Blazor: App/Routes, Layout/ (AdminLayout), Pages/ (Login, Overview, Decks, DeckDetail, Shop, Users, NotificationTexts), Shared/, AdminPage (one DI scope per operation)
 │     ├─ wwwroot/                   admin CSS (tokens from CLAUDE.md §9.2), bundled fonts
 │     └─ Program.cs
@@ -54,11 +55,13 @@ Dependencies point inward: `Web → Application → Domain`, `Infrastructure →
 | `Microsoft.AspNetCore.Authentication.JwtBearer` | Web | app auth |
 | `Microsoft.AspNetCore.OpenApi` | Web | built-in OpenAPI document |
 | `Microsoft.Extensions.Diagnostics.HealthChecks.EntityFrameworkCore` | Web | `/api/health` DB check |
+| `ModelContextProtocol.AspNetCore` | Web | MCP server (Streamable HTTP) for Claude's deck tools (docs/mcp.md) |
 | `YamlDotNet` | Application | deck YAML (representation model for line numbers) |
 | `xunit.v3` | Tests | test framework, runs on Microsoft.Testing.Platform (`global.json` → `test.runner`) |
 | `Microsoft.AspNetCore.Mvc.Testing` | Tests | in-memory API host |
 | `Testcontainers.PostgreSql` | Tests | real PostgreSQL in tests (needs Docker; available on GitHub runners) |
 | `Microsoft.Extensions.TimeProvider.Testing` | Tests | `FakeTimeProvider` |
+| `ModelContextProtocol` | Tests | MCP client for the MCP server tests |
 
 Built into the framework, no package needed: rate limiting, ProblemDetails, Data Protection, forwarded headers, `PasswordHasher<T>`, `TimeProvider`, Blazor.
 Swagger UI is a small page at `/api/docs` that loads `swagger-ui-dist` from jsDelivr and reads the built-in OpenAPI document (no Swashbuckle, which has known issues on .NET 9+).

@@ -444,6 +444,12 @@ Admin cookie (spec §9.2). Same error format. Writes with a body require `Conten
 | PUT / DELETE | `/admin/notification-texts/{id}` | |
 | POST | `/admin/notification-texts/preview` | `{ text }` → `{ rendered }` with sample values (§13) |
 
+The YAML preview and apply responses also carry `kept` (and `counts.kept`), always empty / 0 here; the MCP server uses them ([mcp.md](./mcp.md)).
+
 ## 13. Preview sample values
 
 `{due}` 23 · `{left}` 7 · `{done}` 13 · `{goal}` 20 · `{streak}` 14 · `{multiplier}` 1,2× · `{item}` Jít na pizzu · `{points}` 1 457
+
+## 14. MCP server
+
+Not part of the REST API: Claude's deck tools at `/mcp/<secret>` (Streamable HTTP, off by default). See [mcp.md](./mcp.md).
