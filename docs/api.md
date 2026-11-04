@@ -456,3 +456,19 @@ The YAML preview and apply responses also carry `kept` (and `counts.kept`), alwa
 ## 14. MCP server
 
 Not part of the REST API: Claude's deck tools at `/mcp/<secret>` (Streamable HTTP, off by default). See [mcp.md](./mcp.md).
+
+## 15. App updates
+
+How it fits together, setup and releasing: [app-updates.md](./app-updates.md). Both endpoints need the app access token.
+
+### GET `/app/latest`
+
+```json
+{ "latest": { "versionName": "1.0.1", "versionCode": 58, "size": 23456789 } }
+```
+
+The newest APK the server has, from the newest **full** GitHub release (pre-releases are never offered). `latest` is `null` when there's nothing (updates off, or no full release yet). The app offers the update when `versionCode` is higher than its own. `size` is in bytes.
+
+### GET `/app/apk`
+
+The APK itself: `200` with `Content-Type: application/vnd.android.package-archive` and `Content-Disposition: attachment; filename=quizly-1.0.1-58.apk`. Supports `Range` (`206`) to resume. `404 notFound` when there's no APK.

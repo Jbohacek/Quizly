@@ -70,7 +70,7 @@ Final layout and package lists: [`docs/architecture.md`](./docs/architecture.md)
 │  └─ Quizly.Tests/          xUnit
 ├─ app/                      Flutter project
 ├─ deploy/                   docker-compose.yml, .env.example, backup.sh, README-deploy.md
-├─ docs/                     spec, api, yaml-format, notifications, notification-texts, architecture, design/, fsrs/
+├─ docs/                     spec, api, yaml-format, notifications, notification-texts, architecture, mcp, app-updates, design/, fsrs/
 └─ .github/workflows/        api.yml, app.yml
 ```
 
@@ -202,6 +202,13 @@ points = round(base × min(2.0, 1.0 + 0.1 × floor(streakDays / 7)))
 - Users, shop, claims, points and notification texts are **not** exposed.
 - **Security (phase 1):** `Mcp__Enabled` (default `false`) and a path secret `Mcp__Secret` (≥ 48 URL-safe chars; the app refuses to start without it when enabled). Wrong secret or MCP off → `404`. The secret is stripped from the path before routing and never logged. Rate limit 60 requests/min per IP. Every tool call is logged with its counts. OAuth sign-in for the connector is a possible later issue.
 
+### 5.13 App updates
+- From `v1.0.0` on, **Domů tells the user when a new version is out**: "Je dostupná nová verze" with the version and size, **Později** (hides it until the app starts again) / **Aktualizovat**. Full rules: [`docs/app-updates.md`](./docs/app-updates.md).
+- **Aktualizovat** downloads the APK inside the app (progress in %) and opens Android's install screen; the user confirms there (the first time Android also asks to allow installs from Quizly). The same signing key keeps the login.
+- **Only full releases** (`v1.0.0`, `v1.0.1`…) are offered; beta tags are pre-releases and are installed by hand.
+- The repository is private, so **the server fetches the APK**: every 15 min it asks GitHub's `releases/latest` with a read-only token (`Updates__GitHubToken`, never in the APK), downloads the new APK (size and SHA-256 checked) to the `apk` volume and serves it at `GET /api/app/apk` to logged-in users. The version comes from the APK name `quizly-<versionName>-<versionCode>.apk`; the app compares versionCodes.
+- Off unless `Updates__Repository` and `Updates__GitHubToken` are set.
+
 ---
 
 ## 6. Data model (EF Core / PostgreSQL)
@@ -258,6 +265,8 @@ Everything is under `/api`: JSON, camelCase, errors as RFC 7807 ProblemDetails. 
 | GET | `/api/claims` | my claims |
 | PUT / DELETE | `/api/wishlist/{itemId}` | add to / remove from wishlist |
 | GET | `/api/notification-texts` | active texts grouped by category (ETag) |
+| GET | `/api/app/latest` | the newest app version the server can hand out (or `null`) |
+| GET | `/api/app/apk` | download that APK (Range supported) |
 | GET | `/api/health` | health check (no auth) |
 
 **Admin endpoints** (`/api/admin/*`, admin auth) mirror the dashboard: `users` (+ `reset-password`, `activate`, `deactivate`), `decks` (+ `access`), `decks/{id}/cards`, `decks/{id}/yaml` (GET export, POST preview, PUT apply), `shop-items`, `claims` (+ `confirm`, `reject`), `notification-texts`, `overview`.
@@ -357,11 +366,11 @@ Balíček (deck) · Karta · Vím · Nevím · Přeskočit · Série (streak) ·
 ## 10. Deployment
 
 - `deploy/docker-compose.yml`: service **`quizly`** (`ghcr.io/<owner>/quizly:<tag>`) and **`db`** (`postgres:18`), named volume for the database, internal network. `quizly` publishes one port (e.g. 8080) for Nginx Proxy Manager.
-- `deploy/.env.example`: `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `ConnectionStrings__Default`, `Jwt__SigningKey` (≥ 32 random bytes), `Jwt__Issuer`, `ADMIN_USERNAME`, `ADMIN_PASSWORD`, `PUBLIC_BASE_URL=https://quizly.jbohacek.cz`, `Mcp__Enabled`, `Mcp__Secret` (§5.12).
-- Behind the proxy: enable **ForwardedHeaders** (X-Forwarded-For/Proto). Persist **Data Protection keys** to a volume (Blazor circuits and cookies must survive restarts).
+- `deploy/.env.example`: `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `ConnectionStrings__Default`, `Jwt__SigningKey` (≥ 32 random bytes), `Jwt__Issuer`, `ADMIN_USERNAME`, `ADMIN_PASSWORD`, `PUBLIC_BASE_URL=https://quizly.jbohacek.cz`, `Mcp__Enabled`, `Mcp__Secret` (§5.12), `Updates__Repository`, `Updates__GitHubToken` (§5.13).
+- Behind the proxy: enable **ForwardedHeaders** (X-Forwarded-For/Proto). Persist **Data Protection keys** to a volume (Blazor circuits and cookies must survive restarts), and the newest APK to the `apk` volume (§5.13).
 - Migrations run on startup. Health check at `/api/health`.
 - **Backups:** `deploy/backup.sh` runs a nightly `pg_dump` from the server's cron and keeps the newest 14 dumps; `deploy/restore.sh` and the runbook in `deploy/README-deploy.md` restore one.
-- **Updates:** a new image tag → Jakub pulls and redeploys the stack in Portainer.
+- **Updates:** a new image tag → Jakub pulls and redeploys the stack in Portainer. A new app version is a `v*` tag; phones get it through §5.13.
 - Nginx Proxy Manager forwards `quizly.jbohacek.cz` (HTTPS, Let's Encrypt) to the `quizly` port, with websockets enabled (Blazor Server needs them).
 
 ---
@@ -371,6 +380,7 @@ Balíček (deck) · Karta · Vím · Nevím · Přeskočit · Série (streak) ·
 - **`api.yml`:** on PR → restore, build, test. On push to `main` → build and push the Docker image to GHCR (tags: commit SHA + `latest`).
 - **`app.yml`:** on PR → `flutter analyze` + `flutter test`. On push to `main` or a tag → build a **release APK signed with a fixed keystore** from GitHub Secrets (`ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`, `ANDROID_KEY_PASSWORD`), upload it as an artifact, and attach it to the GitHub Release on tags.
   The **same key on every build**, so a new APK installs over the old one without losing the login.
+  The APK is named `quizly-<versionName>-<run number>.apk`; the server reads the version from that name (§5.13). A tag with a `-` (`v1.0.1-beta.1`) is a pre-release, which phones are never offered.
 - The API base URL is passed at build time: `--dart-define=API_BASE_URL=https://quizly.jbohacek.cz`.
 
 ---
@@ -480,3 +490,4 @@ Jakub confirmed these defaults at the Etapa 0 gate (2026-10-31). Raise any of th
 | 2026-11-04 | Not in the issue, added for safety: `apply_deck_yaml` on an existing deck requires the `baseHash` from `get_deck_yaml` / `preview_deck_yaml` (the same check the dashboard does), because users can now edit cards in the app (#23). Tool results are JSON with Czech text unescaped. Tool descriptions allow the light card formatting (§5.1) rather than "plain text only". |
 | 2026-11-04 | #29 (API part, Etapa 8): card tags. Global `tags` (unique name) + N:N `card_tags`, both cascading; names trimmed, lowercased, `[\p{Ll}\p{Lo}\p{Nd}_-]{1,30}`, ≤ 10 per card, returned sorted (ordinal). Typed text splits at `;`, `,` and spaces. Card requests (admin and app) take optional `tags`: omitted keeps them (so an app without tag editing never clears them), `[]` clears. Responses of admin cards, `GET /api/decks/{id}/cards` and `GET /api/session` carry `tags`. YAML: optional `tags` (list or one text), written only when non-empty, so untagged decks keep their export and `baseHash`; the file is the whole truth. Unused tags stay in `tags` (nothing lists them; deleting them could race a writer). Jakub works on a notebook without Android tooling, so the app part is handed to another agent (`temp-handoff.md`). |
 | 2026-11-04 | #29 (app part, same PR as the API): the session's deck chip became the deck name as plain text in the deck's color (Jakub's review: colored, not grey), with the card's tags under it in smaller grey text (`ai_gen · prednaska_01`; no tags → no line). Deck detail shows tags under each question and its search matches them. The card editor has a "Tagy" field (`ai_gen ; prednaska_01`), split like the server and always sent, so clearing it removes the tags; `errors.tags` shows under it. No tag filter (an idea for later). |
+| 2026-11-04 | App updates (Jakub: in-app download, only full releases, betas by hand). The repository stays private, so the server fetches the newest **full** release from GitHub (`releases/latest`, read-only fine-grained token in `Updates__GitHubToken`, checked every 15 min, APK on the `apk` volume, size + SHA-256 checked) and serves it at `GET /api/app/latest` / `GET /api/app/apk` (app login). No upload step and no CI deploy: the server pulls. The app compares versionCodes (from the APK name) and shows a card on Domů; "Později" hides it until the next start. Install through Android's screen via a FileProvider and `REQUEST_INSTALL_PACKAGES`, no extra package. The app becomes `1.0.0` for the first release. |

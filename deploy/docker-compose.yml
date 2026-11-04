@@ -36,8 +36,13 @@ services:
       PUBLIC_BASE_URL: ${PUBLIC_BASE_URL}
       Mcp__Enabled: ${Mcp__Enabled:-false}
       Mcp__Secret: ${Mcp__Secret:-}
+      # App updates (docs/app-updates.md): off unless both are set.
+      Updates__Repository: ${Updates__Repository:-}
+      Updates__GitHubToken: ${Updates__GitHubToken:-}
     volumes:
       - keys:/data/keys
+      # The newest APK from GitHub, served to the app.
+      - apk:/data/apk
     ports:
       # Only Nginx Proxy Manager should reach this port.
       - "${QUIZLY_PORT:-8080}:8080"
@@ -53,3 +58,4 @@ networks:
 volumes:
   pgdata:
   keys:
+  apk:
