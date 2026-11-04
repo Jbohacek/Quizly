@@ -161,6 +161,7 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
     }
     final grow = MediaQuery.disableAnimationsOf(context) ? Duration.zero : const Duration(milliseconds: 280);
     final deck = _decks[card.deckId];
+    final deckColor = deck == null ? Q.primary : parseHex(deck.color);
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
       child: Column(
@@ -175,8 +176,8 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
           Row(
             children: [
               // Where the card belongs gets all the room "Upravit" leaves (Jakub's review: no card-kind chip):
-              // the deck name in grey, no colored frame, and the card's tags under it in smaller text (#29).
-              Expanded(child: _CardPlace(deckName: deck?.name ?? S.allDecks, tags: card.tags)),
+              // the deck name in its color without a frame, and the card's tags under it in smaller grey text (#29).
+              Expanded(child: _CardPlace(deckName: deck?.name ?? S.allDecks, deckColor: deckColor, tags: card.tags)),
               const SizedBox(width: 8),
               // #23: the card can be fixed right here (the multiplier still shows in the points below).
               _EditChip(onPressed: () => _editCurrent(c)),
@@ -337,11 +338,13 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
 
 }
 
-/// Where the session's card belongs (#29): its deck's name in grey text, and its tags below in smaller text.
+/// Where the session's card belongs (#29): its deck's name in the deck's color (no frame), and its tags below
+/// in smaller grey text.
 class _CardPlace extends StatelessWidget {
-  const _CardPlace({required this.deckName, required this.tags});
+  const _CardPlace({required this.deckName, required this.deckColor, required this.tags});
 
   final String deckName;
+  final Color deckColor;
   final List<String> tags;
 
   @override
@@ -354,7 +357,7 @@ class _CardPlace extends StatelessWidget {
           deckName,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: QText.body(14, color: Q.textMuted, weight: FontWeight.w700),
+          style: QText.body(14, color: deckColor, weight: FontWeight.w700),
         ),
         if (tags.isNotEmpty)
           Semantics(

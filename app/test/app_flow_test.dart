@@ -969,10 +969,10 @@ void main() {
     await settle(tester);
     expect(find.text(S.multiplierChip(1.1)), findsNothing);
 
-    // #29: where the card belongs: the deck name in grey (no colored chip), its tags below in smaller text.
+    // #29: where the card belongs: the deck name in the deck's color (no chip), its tags below in smaller grey text.
     expect(find.widgetWithText(Tag, 'C# základy'), findsNothing);
     final deckName = tester.widget<Text>(find.text('C# základy'));
-    expect(deckName.style?.color, Q.textMuted);
+    expect(deckName.style?.color, parseHex('#BAD69B'));
     final tagLine = tester.widget<Text>(find.text('ai_gen · prednaska_01'));
     expect(tagLine.style?.color, Q.textMuted);
     expect(tagLine.style!.fontSize!, lessThan(deckName.style!.fontSize!));
