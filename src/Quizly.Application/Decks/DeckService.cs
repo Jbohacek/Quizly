@@ -25,6 +25,15 @@ public interface IDeckService
 
     /// <summary>Counts shown in the delete confirmation.</summary>
     Task<Result<DeckDeleteImpact>> GetDeleteImpactAsync(int id, CancellationToken ct);
+
+    /// <summary>
+    /// Hides the deck from every app user (#28); cards, access and progress stay. Archiving an archived deck keeps
+    /// its original date.
+    /// </summary>
+    Task<Result<DeckResponse>> ArchiveAsync(int id, CancellationToken ct);
+
+    /// <summary>Brings an archived deck back to the app, with everyone's progress (#28).</summary>
+    Task<Result<DeckResponse>> RestoreAsync(int id, CancellationToken ct);
 }
 
 internal sealed class DeckService(IAppDbContext db, TimeProvider time) : IDeckService
@@ -138,6 +147,26 @@ internal sealed class DeckService(IAppDbContext db, TimeProvider time) : IDeckSe
         return new DeckDeleteImpact(cards, users);
     }
 
+    // UpdatedAt stays: "Upraveno" in the dashboard means the deck's content or settings changed.
+    public Task<Result<DeckResponse>> ArchiveAsync(int id, CancellationToken ct) =>
+        SetArchivedAsync(id, archive: true, ct);
+
+    public Task<Result<DeckResponse>> RestoreAsync(int id, CancellationToken ct) =>
+        SetArchivedAsync(id, archive: false, ct);
+
+    private async Task<Result<DeckResponse>> SetArchivedAsync(int id, bool archive, CancellationToken ct)
+    {
+        var deck = await db.Decks.FirstOrDefaultAsync(d => d.Id == id, ct);
+        if (deck is null)
+        {
+            return DeckNotFound;
+        }
+
+        deck.ArchivedAt = archive ? deck.ArchivedAt ?? time.GetUtcNow().UtcDateTime : null;
+        await db.SaveChangesAsync(ct);
+        return await GetAsync(id, ct);
+    }
+
     internal static AppError DeckNotFound => Errors.NotFound("Balíček neexistuje.");
 
     private static (string Name, string Description, string Color) Clean(DeckRequest request) =>
@@ -162,5 +191,6 @@ internal sealed class DeckService(IAppDbContext db, TimeProvider time) : IDeckSe
             DateTime.SpecifyKind(d.CreatedAt, DateTimeKind.Utc),
             DateTime.SpecifyKind(d.UpdatedAt, DateTimeKind.Utc),
             d.ForEveryone,
-            d.Access.Count));
+            d.Access.Count,
+            d.ArchivedAt == null ? null : DateTime.SpecifyKind(d.ArchivedAt.Value, DateTimeKind.Utc)));
 }

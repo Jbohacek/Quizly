@@ -102,6 +102,20 @@ public sealed class McpTests(McpFactory factory) : IClassFixture<McpFactory>
 
         var deck = decks.AsArray().Single(d => (int)d!["id"]! == deckId)!;
         Assert.Equal((name, "", 3), ((string?)deck["name"], (string?)deck["description"], (int)deck["cardCount"]!));
+        Assert.False((bool)deck["archived"]!);
+    }
+
+    [Fact]
+    public async Task List_decks_flags_archived_decks()
+    {
+        var (deckId, _) = await factory.CreateDeckAsync("A" + Guid.NewGuid().ToString("N")[..6], 1);
+        await factory.WithDbAsync(async db =>
+            await db.Decks.Where(d => d.Id == deckId).ExecuteUpdateAsync(s => s.SetProperty(d => d.ArchivedAt, DateTime.UtcNow), Ct));
+        await using var client = await factory.McpClientAsync();
+
+        var decks = await CallAsync(client, "list_decks", []);
+
+        Assert.True((bool)decks.AsArray().Single(d => (int)d!["id"]! == deckId)!["archived"]!);
     }
 
     [Fact]

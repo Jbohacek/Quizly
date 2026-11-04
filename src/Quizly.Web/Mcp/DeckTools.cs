@@ -34,10 +34,10 @@ internal sealed class DeckTools(IDeckService decks, IYamlDeckService yamlDecks, 
         KeptNote + " New cards now have ids: call get_deck_yaml before editing this deck again, or cards without ids are added twice.";
 
     [McpServerTool(Name = "list_decks", Title = "List decks", ReadOnly = true, Idempotent = true, OpenWorld = false)]
-    [Description("Lists all Quizly flashcard decks with id, name, description and card count. Call this first to find an existing deck instead of creating a duplicate.")]
+    [Description("Lists all Quizly flashcard decks with id, name, description, card count and whether the deck is archived. Call this first to find an existing deck instead of creating a duplicate. Archived decks are hidden from app users (archiving and restoring is dashboard-only); edit them only when asked to.")]
     public async Task<IReadOnlyList<McpDeck>> ListDecks(CancellationToken ct)
     {
-        var list = (await decks.ListAsync(ct)).Select(d => new McpDeck(d.Id, d.Name, d.Description, d.CardCount)).ToList();
+        var list = (await decks.ListAsync(ct)).Select(d => new McpDeck(d.Id, d.Name, d.Description, d.CardCount, d.ArchivedAt is not null)).ToList();
         logger.LogInformation("MCP list_decks: {Count} decks", list.Count);
         return list;
     }
@@ -173,8 +173,8 @@ internal sealed class DeckTools(IDeckService decks, IYamlDeckService yamlDecks, 
         new($"Deck {deckId} does not exist. Call list_decks to see the decks.");
 }
 
-/// <summary>A deck in <c>list_decks</c>.</summary>
-internal sealed record McpDeck(int Id, string Name, string Description, int CardCount);
+/// <summary>A deck in <c>list_decks</c>; <c>Archived</c> decks are hidden from app users (#28).</summary>
+internal sealed record McpDeck(int Id, string Name, string Description, int CardCount, bool Archived);
 
 /// <summary>A deck's YAML export and the hash to send back when saving it.</summary>
 internal sealed record McpDeckYaml(int DeckId, string BaseHash, string Yaml);

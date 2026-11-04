@@ -20,7 +20,18 @@
     <div>
         <a class="eyebrow" href="/admin/balicky">← Balíčky</a>
         <h1><span class="swatch" style="background:@_deck.Color; width:22px; height:22px; border-radius:7px"></span>@_deck.Name</h1>
-        <span class="muted">@Cz.Cards(_deck.CardCount) · vidí: @Cz.DeckAudience(_deck.ForEveryone, _deck.UserCount)@(_deck.Description.Length > 0 ? $" · {_deck.Description}" : "")</span>
+        <span class="muted">
+            @if (_deck.ArchivedAt is { } archivedAt)
+            {
+                <span class="chip pending">Archivováno @Cz.DateTime(archivedAt)</span>
+                @($" {Cz.Cards(_deck.CardCount)} · v aplikaci skrytý")
+            }
+            else
+            {
+                @($"{Cz.Cards(_deck.CardCount)} · vidí: {Cz.DeckAudience(_deck.ForEveryone, _deck.UserCount)}")
+            }
+            @(_deck.Description.Length > 0 ? $" · {_deck.Description}" : "")
+        </span>
     </div>
 </header>
 
@@ -197,6 +208,20 @@
             </div>
         </section>
 
+        <section class="card" aria-labelledby="archive-title">
+            <h2 id="archive-title">Archivace</h2>
+            @if (_deck.ArchivedAt is null)
+            {
+                <p class="muted">Balíček zmizí všem uživatelům z aplikace. Karty ani postup se nesmažou a balíček můžeš kdykoli obnovit.</p>
+                <div><button class="btn" @onclick="() => _confirmArchive = true" disabled="@_busy">Archivovat balíček</button></div>
+            }
+            else
+            {
+                <p class="muted">Balíček je archivovaný: uživatelé ho v aplikaci nevidí. Po obnovení se vrátí i s jejich postupem.</p>
+                <div><button class="btn primary" @onclick="RestoreDeckAsync" disabled="@_busy">Obnovit balíček</button></div>
+            }
+        </section>
+
         <section class="card" aria-labelledby="danger-title">
             <h2 id="danger-title">Smazání balíčku</h2>
             <p class="muted">Smaže balíček, všechny jeho karty a postup všech uživatelů v nich. Body ani historie dnů se nemění.</p>
@@ -218,6 +243,11 @@
             <li>#@d.Id @d.Question <span class="muted">(@d.UsersWithProgress @Cz.Plural(d.UsersWithProgress, "uživatel", "uživatelé", "uživatelů"))</span></li>
         }
     </ul>
+</ConfirmDialog>
+
+<ConfirmDialog Open="_confirmArchive" Title="@($"Archivovat „{_deck.Name}“?")" ConfirmText="Archivovat" Busy="_busy"
+               OnConfirm="ArchiveDeckAsync" OnCancel="() => _confirmArchive = false">
+    <p>Balíček zmizí všem uživatelům z aplikace. Karty i postup zůstanou a balíček můžeš kdykoli obnovit v seznamu Balíčky → Archivované.</p>
 </ConfirmDialog>
 
 <ConfirmDialog Open="_deleteImpact is not null" Title="Smazat celý balíček?" ConfirmText="Smazat balíček" Danger="true" Busy="_busy"
@@ -249,6 +279,7 @@
     private string _color = Limits.DefaultDeckColor;
     private int _sortOrder;
     private DeckDeleteImpact? _deleteImpact;
+    private bool _confirmArchive;
     private bool _forEveryone = true;
     private HashSet<int> _access = [];
     private IReadOnlyList<UserResponse>? _users;
@@ -440,6 +471,31 @@
         {
             await LoadDeckAsync();
             await LoadAccessAsync();
+        }
+
+        _busy = false;
+    }
+
+    private async Task ArchiveDeckAsync()
+    {
+        _busy = true;
+        var result = await UseAsync<IDeckService, Result<DeckResponse>>(s => s.ArchiveAsync(Id, CancellationToken.None));
+        _confirmArchive = false;
+        if (Handle(result, "Balíček archivován. Uživatelé ho v aplikaci nevidí."))
+        {
+            await LoadDeckAsync();
+        }
+
+        _busy = false;
+    }
+
+    private async Task RestoreDeckAsync()
+    {
+        _busy = true;
+        var result = await UseAsync<IDeckService, Result<DeckResponse>>(s => s.RestoreAsync(Id, CancellationToken.None));
+        if (Handle(result, "Balíček obnoven. Uživatelé ho zase vidí v aplikaci."))
+        {
+            await LoadDeckAsync();
         }
 
         _busy = false;

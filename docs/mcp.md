@@ -6,12 +6,12 @@ Quizly has a remote [MCP](https://modelcontextprotocol.io) server, so Claude (cl
 
 | Tool | Input | What it does |
 | --- | --- | --- |
-| `list_decks` | none | Every deck with `id`, `name`, `description`, `cardCount`. Read-only. |
+| `list_decks` | none | Every deck with `id`, `name`, `description`, `cardCount` and `archived` (hidden from app users, #28). Read-only. |
 | `get_deck_yaml` | `deckId` | The deck as YAML format v1 (every card with its `id`, [yaml-format.md](./yaml-format.md) §3) plus its `baseHash`. Read-only. |
 | `preview_deck_yaml` | `yaml`, `deckId?` | Dry run, saves nothing: validation errors with line numbers, or the new / changed / unchanged cards, the cards missing from the YAML (`missingKept`) and the deck's `baseHash`. Without `deckId` the YAML is checked as a new deck. |
 | `apply_deck_yaml` | `yaml`, `deckId?`, `baseHash?` | Saves the YAML. With `deckId` it updates that deck (`baseHash` required); without it, it creates a new deck. **Never deletes anything.** |
 
-Not exposed: deleting cards or decks, deck visibility, users, shop items, claims, points, notification texts.
+Not exposed: deleting cards or decks, deck visibility, archiving and restoring decks, users, shop items, claims, points, notification texts. Archived decks are listed (so Claude doesn't create a duplicate) and can be read and edited like any other.
 
 The tool descriptions (English, read by Claude) explain the YAML v1 rules: keep every `id`, no `id` = new card, file order = deck order, the length limits, card `tags` (#29, [yaml-format.md](./yaml-format.md) §2), the light formatting of [yaml-format.md](./yaml-format.md) §10, Czech cards, and that missing cards are kept.
 

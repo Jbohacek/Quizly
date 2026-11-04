@@ -429,8 +429,9 @@ Admin cookie (spec §9.2). Same error format. Writes with a body require `Conten
 | PUT | `/admin/users/{id}` | `{ displayName, dailyGoal, newCardsPerDay, shopEnabled? }` → user |
 | POST | `/admin/users/{id}/reset-password` | → `{ password }` (shown once; revokes refresh tokens) |
 | POST | `/admin/users/{id}/activate` · `/deactivate` | → `204` |
-| GET / POST | `/admin/decks` | `{ name, description, color, sortOrder }` → deck (with `forEveryone`, `userCount`) |
+| GET / POST | `/admin/decks` | `{ name, description, color, sortOrder }` → deck (with `forEveryone`, `userCount`, `archivedAt`: `null` = active) |
 | GET / PUT / DELETE | `/admin/decks/{id}` | PUT body as POST; DELETE → `204` (cascades, spec §2.14) |
+| POST | `/admin/decks/{id}/archive` · `/restore` | → deck; archive hides it from every app user, restore brings it back with everyone's progress (spec §2.4, #28). Archiving again keeps `archivedAt` |
 | GET / POST | `/admin/decks/{id}/cards` | `{ question, answer, sortOrder?, tags? }` → card (with `tags`) |
 | PUT / DELETE | `/admin/decks/{id}/cards/{cardId}` | `{ question, answer, sortOrder, tags? }` → card; omitted `tags` keep the card's tags (§4) |
 | GET | `/admin/decks/{id}/yaml` | → `text/yaml` export (yaml-format §3) |
