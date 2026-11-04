@@ -90,6 +90,7 @@ Expired or revoked tokens older than 30 days are deleted by a daily cleanup on s
 | `color` | `char(7)` | no | `'#BAD69B'` | check `^#[0-9A-Fa-f]{6}$`, stored uppercase |
 | `sort_order` | `integer` | no | `0` | |
 | `for_everyone` | `boolean` | no | `true` | "Pro všechny" |
+| `archived_at` | `timestamptz` | yes | `null` | archived by the admin (#28); `null` = active |
 | `created_at` / `updated_at` | `timestamptz` | no | | |
 
 Index: `(sort_order, id)`.
@@ -97,6 +98,8 @@ Index: `(sort_order, id)`.
 **`deck_access`** (`deck_id` FK → decks **cascade**, `user_id` FK → users **cascade**; PK both; index `user_id`): the users who see a deck that isn't `for_everyone`.
 
 **Who sees a deck (#18):** an app user sees a deck when it's `for_everyone` or they're in its `deck_access`. Every app endpoint applies this: `/decks`, `/decks/{id}/cards`, `/session` (one deck and all decks), `/me` (due now, the morning forecast), `/stats` (deck filter and deck progress) and `/reviews` (a card of a hidden deck is rejected as `cardNotFound`). Losing access keeps the user's `card_states` and `review_logs`; the deck comes back where it was left. History (streak, heatmap, daily counts, points) is never filtered. The access list is kept while a deck is `for_everyone`, so switching back restores it.
+
+**Archived decks (#28):** the admin archives a deck that's no longer used instead of deleting it. An archived deck is hidden from **every** app user, whatever its access, by the same filter on the same endpoints as above (so a review from a session started before archiving is rejected as `cardNotFound` and dropped by the app). Nothing is deleted: cards, `deck_access`, `card_states` and `review_logs` stay, and **restoring** brings the deck back exactly as it was. Archiving an archived deck keeps its `archived_at`; neither action touches `updated_at`. The dashboard, the admin API and MCP still see archived decks (MCP's `list_decks` flags them, [mcp.md](./mcp.md)), and they can be edited there.
 
 ### 2.5 `cards`
 
