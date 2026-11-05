@@ -78,10 +78,14 @@ abstract final class S {
   static const searchCards = 'Hledat v kartách';
   static const clearSearch = 'Smazat hledání';
   static const filterAll = 'Vše';
+  static const filterProblematic = 'Problémové';
+  static const statusProblematic = 'Problémová';
   static const noMatch = 'Tomu neodpovídá žádná karta.';
   static String cardsShown(int shown, int total) => '${formatInt(shown)} z ${formatInt(total)}';
   static const cardProgress = 'Cesta ke zvládnutí';
   static String cardAnswers(int know, int dontKnow) => 'Vím: ${formatInt(know)} · Nevím: ${formatInt(dontKnow)}';
+  static String cardLapses(int count) => 'Výpadky z paměti: ${formatInt(count)}';
+  static const cardFrequentMistakes = 'Časté chyby při učení';
   static String nextReview(String when) => 'Další opakování: $when';
   static const nextReviewNow = 'Další opakování: teď';
   static const notStudiedYet = 'Zatím bez odpovědi. Přijde na řadu mezi novými kartami.';

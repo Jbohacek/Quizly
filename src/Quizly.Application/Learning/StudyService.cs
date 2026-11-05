@@ -116,7 +116,7 @@ internal sealed class StudyService(IAppDbContext db, Progress progress, TimeProv
                 c.Answer,
                 Tags = c.Tags.Select(t => t.Name).ToList(),
                 State = db.CardStates.Where(s => s.UserId == userId && s.CardId == c.Id)
-                    .Select(s => new { s.State, s.Stability, s.Due })
+                    .Select(s => new { s.State, s.Stability, s.Due, s.Lapses })
                     .FirstOrDefault(),
                 Know = db.ReviewLogs.Count(r => r.UserId == userId && r.CardId == c.Id && r.Rating != Rating.Again),
                 DontKnow = db.ReviewLogs.Count(r => r.UserId == userId && r.CardId == c.Id && r.Rating == Rating.Again),
@@ -136,7 +136,8 @@ internal sealed class StudyService(IAppDbContext db, Progress progress, TimeProv
                 c.Know,
                 c.DontKnow,
                 c.State is null ? null : new DateTimeOffset(DateTime.SpecifyKind(c.State.Due, DateTimeKind.Utc)),
-                Sorted(c.Tags));
+                Sorted(c.Tags),
+                c.State?.Lapses ?? 0);
         }).ToList();
         return new DeckCardsResponse(deck, items);
     }

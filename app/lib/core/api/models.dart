@@ -256,6 +256,7 @@ class DeckCard {
     this.dontKnowCount = 0,
     this.nextReview,
     this.tags = const [],
+    this.lapses = 0,
   });
 
   factory DeckCard.fromJson(Json j) => DeckCard(
@@ -268,6 +269,7 @@ class DeckCard {
         dontKnowCount: _int(j['dontKnowCount'] ?? 0),
         nextReview: j['nextReview'] == null ? null : DateTime.parse(j['nextReview'] as String),
         tags: _tags(j['tags']),
+        lapses: _int(j['lapses'] ?? 0),
       );
 
   final int id;
@@ -285,6 +287,14 @@ class DeckCard {
 
   /// The card's tags, sorted (#29).
   final List<String> tags;
+
+  /// Lapses (number of times the card was forgotten during review).
+  final int lapses;
+
+  /// Whether the card is problematic (high lapses or frequent dontKnow answers).
+  bool get isProblematic =>
+      (lapses >= 2) ||
+      (dontKnowCount >= 3 && (dontKnowCount >= knowCount || masteryPercent < 50));
 }
 
 /// `GET /decks/{id}/cards`: the deck with my counts and all its cards in order.

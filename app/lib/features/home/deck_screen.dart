@@ -113,6 +113,7 @@ class _DeckBody extends StatefulWidget {
 class _DeckBodyState extends State<_DeckBody> {
   final _search = TextEditingController();
   CardStatus? _status;
+  bool _problematicOnly = false;
 
   @override
   void initState() {
@@ -130,7 +131,7 @@ class _DeckBodyState extends State<_DeckBody> {
     final query = foldForSearch(_search.text.trim());
     return [
       for (final card in widget.data.cards)
-        if ((_status == null || card.status == _status) &&
+        if ((_problematicOnly ? card.isProblematic : (_status == null || card.status == _status)) &&
             (query.isEmpty ||
                 foldForSearch(plainCardText('${card.question}\n${card.answer}')).contains(query) ||
                 card.tags.any((tag) => foldForSearch(tag).contains(query))))
@@ -145,7 +146,7 @@ class _DeckBodyState extends State<_DeckBody> {
     final color = parseHex(deck.color);
     final toStudy = deck.dueNow + deck.newAvailable;
     final shown = _shown;
-    final filtered = _status != null || _search.text.trim().isNotEmpty;
+    final filtered = _problematicOnly || _status != null || _search.text.trim().isNotEmpty;
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
       children: [
@@ -252,9 +253,26 @@ class _DeckBodyState extends State<_DeckBody> {
                     CardStatus.mastered => S.statusMastered,
                   },
                   count: status == null ? data.cards.length : data.cards.where((c) => c.status == status).length,
-                  selected: _status == status,
-                  onTap: () => setState(() => _status = status),
+                  selected: !_problematicOnly && _status == status,
+                  onTap: () => setState(() {
+                    _problematicOnly = false;
+                    _status = status;
+                  }),
                 ),
+              _FilterChip(
+                label: S.filterProblematic,
+                count: data.cards.where((c) => c.isProblematic).length,
+                selected: _problematicOnly,
+                color: Q.dontKnow,
+                onTap: () => setState(() {
+                  if (_problematicOnly) {
+                    _problematicOnly = false;
+                  } else {
+                    _problematicOnly = true;
+                    _status = null;
+                  }
+                }),
+              ),
             ],
           ),
           const SizedBox(height: 12),
@@ -373,20 +391,31 @@ class DeckProgressBar extends StatelessWidget {
 }
 
 class _FilterChip extends StatelessWidget {
-  const _FilterChip({required this.label, required this.count, required this.selected, required this.onTap});
+  const _FilterChip({
+    required this.label,
+    required this.count,
+    required this.selected,
+    required this.onTap,
+    this.color,
+  });
 
   final String label;
   final int count;
   final bool selected;
   final VoidCallback onTap;
+  final Color? color;
 
   @override
   Widget build(BuildContext context) {
+    final activeBg = color ?? Q.primary;
+    final activeText = color != null ? Q.cardText : Q.onPrimary;
+    final idleBg = color != null ? Q.tint(color!) : Q.surface2;
+    final idleText = color ?? Q.text;
     return Semantics(
       button: true,
       selected: selected,
       child: Material(
-        color: selected ? Q.primary : Q.surface2,
+        color: selected ? activeBg : idleBg,
         borderRadius: BorderRadius.circular(999),
         child: InkWell(
           borderRadius: BorderRadius.circular(999),
@@ -398,8 +427,8 @@ class _FilterChip extends StatelessWidget {
             child: Align(
               widthFactor: 1,
               child: Text(
-              '$label · ${formatInt(count)}',
-                style: QText.body(13, color: selected ? Q.onPrimary : Q.text, weight: FontWeight.w800),
+                '$label · ${formatInt(count)}',
+                style: QText.body(13, color: selected ? activeText : idleText, weight: FontWeight.w800),
               ),
             ),
           ),
@@ -544,6 +573,10 @@ class _CardTileState extends State<_CardTile> {
                         ),
                       ),
                       const SizedBox(width: 10),
+                      if (card.isProblematic) ...[
+                        const Tag(label: S.statusProblematic, color: Q.dontKnow),
+                        const SizedBox(width: 6),
+                      ],
                       Tag(label: label, color: color),
                       AnimatedRotation(
                         turns: _open ? 0.5 : 0,
@@ -632,6 +665,21 @@ class _CardProgress extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text(S.cardAnswers(card.knowCount, card.dontKnowCount), style: muted),
+            if (card.lapses > 0) ...[
+              const SizedBox(height: 2),
+              Text(
+                S.cardLapses(card.lapses),
+                style: card.isProblematic
+                    ? QText.body(12, color: Q.dontKnow, weight: FontWeight.w700)
+                    : muted,
+              ),
+            ] else if (card.isProblematic) ...[
+              const SizedBox(height: 2),
+              Text(
+                S.cardFrequentMistakes,
+                style: QText.body(12, color: Q.dontKnow, weight: FontWeight.w700),
+              ),
+            ],
             if (next != null) ...[
               const SizedBox(height: 2),
               Text(next.isAfter(now) ? S.nextReview(formatWhen(next, now)) : S.nextReviewNow, style: muted),

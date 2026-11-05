@@ -114,7 +114,8 @@ public sealed record DeckCardResponse(
     int KnowCount,
     int DontKnowCount,
     DateTimeOffset? NextReview,
-    IReadOnlyList<string> Tags);
+    IReadOnlyList<string> Tags,
+    int Lapses = 0);
 
 /// <summary>A deck (with the user's counts) and all its cards in sort order.</summary>
 public sealed record DeckCardsResponse(AppDeckResponse Deck, IReadOnlyList<DeckCardResponse> Cards);

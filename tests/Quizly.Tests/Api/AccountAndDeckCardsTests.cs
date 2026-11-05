@@ -94,6 +94,7 @@ public sealed class AccountAndDeckCardsTests(QuizlyFactory factory) : IClassFixt
                 LastReview = factory.Time.GetUtcNow().UtcDateTime,
                 FirstReview = factory.Time.GetUtcNow().UtcDateTime,
                 Reps = 3,
+                Lapses = 2,
             });
             await db.SaveChangesAsync(Ct);
         });
@@ -112,6 +113,7 @@ public sealed class AccountAndDeckCardsTests(QuizlyFactory factory) : IClassFixt
         // Progress per card: stability out of 21 days (Vím once = 2.3065 days → 10 %), answers, next review.
         Assert.Equal([10, 100, 0], items.Select(c => (int)c!["masteryPercent"]!));
         Assert.Equal([(1, 0), (0, 0), (0, 0)], items.Select(c => ((int)c!["knowCount"]!, (int)c!["dontKnowCount"]!)));
+        Assert.Equal([0, 2, 0], items.Select(c => (int)c!["lapses"]!));
         Assert.NotNull((string?)items[0]!["nextReview"]);
         Assert.Null(items[2]!["nextReview"]);
 
