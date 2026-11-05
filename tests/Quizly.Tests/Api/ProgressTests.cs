@@ -92,7 +92,8 @@ public sealed class ProgressTests(QuizlyFactory factory) : IClassFixture<QuizlyF
 
         // 03:00:01 Prague is the new study day.
         factory.AdvanceToPrague(new TimeOnly(3, 0, 1));
-        var afterRollover = await ReviewAsync(app, (cards[0], "know"));
+        using var nextDay = await factory.AppClientAsync(user); // the 3-hour jump outlives the 60-min access token
+        var afterRollover = await ReviewAsync(nextDay, (cards[0], "know"));
         Assert.Equal(day1.AddDays(1).ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture), (string?)afterRollover["summary"]!["today"]!["date"]);
         Assert.Equal((1, false), ((int)afterRollover["summary"]!["today"]!["graded"]!, (bool)afterRollover["summary"]!["today"]!["goalMet"]!));
         Assert.Empty(afterRollover["events"]!.AsArray());
