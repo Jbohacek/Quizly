@@ -15,6 +15,7 @@ import 'features/notifications/notification_platform.dart';
 import 'features/notifications/notification_store.dart';
 import 'features/notifications/notifications.dart';
 import 'features/notifications/planner.dart';
+import 'features/onboarding/onboarding_store.dart';
 import 'features/updates/app_update.dart';
 import 'router.dart';
 
@@ -23,7 +24,10 @@ Future<void> main() async {
   await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
   final client = ApiClient(baseUrl: apiBaseUrl, store: SecureTokenStore());
   await client.restore();
-  final notifications = Notifications(platform: AndroidNotificationPlatform(), store: PrefsKeyValueStore());
+  final store = PrefsKeyValueStore();
+  final onboarding = OnboardingStore(store);
+  await onboarding.init(alreadySignedIn: client.user != null);
+  final notifications = Notifications(platform: AndroidNotificationPlatform(), store: store);
   await notifications.init();
   runApp(
     ProviderScope(
@@ -31,6 +35,7 @@ Future<void> main() async {
       retry: (retryCount, error) => null,
       overrides: [
         apiClientProvider.overrideWithValue(client),
+        onboardingStoreProvider.overrideWithValue(onboarding),
         notificationsProvider.overrideWithValue(notifications),
       ],
       child: const QuizlyApp(),
@@ -69,7 +74,7 @@ class _QuizlyAppState extends ConsumerState<QuizlyApp> {
 
   /// A tapped notification: wishlist → Obchod, the rest → Domů (docs/notifications.md §1).
   void _open(NotificationTarget target) {
-    if (!ref.read(authProvider).signedIn) return;
+    if (!ref.read(authProvider).signedIn || ref.read(onboardingProvider)) return;
     // The screen may still show what it loaded before the notification came.
     final shop = target == NotificationTarget.shop;
     ref

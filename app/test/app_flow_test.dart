@@ -20,6 +20,8 @@ import 'package:quizly/features/home/deck_screen.dart';
 import 'package:quizly/features/notifications/notification_store.dart';
 import 'package:quizly/features/notifications/notifications.dart';
 import 'package:quizly/features/notifications/planner.dart';
+import 'package:quizly/features/onboarding/onboarding_screen.dart';
+import 'package:quizly/features/onboarding/onboarding_store.dart';
 import 'package:quizly/features/session/review_sync.dart';
 import 'package:quizly/features/session/swipe_card.dart';
 import 'package:quizly/features/updates/app_update.dart';
@@ -389,6 +391,16 @@ void main() {
     await tester.enterText(find.byType(TextField).at(0), 'Kuba');
     await tester.enterText(find.byType(TextField).at(1), 'tajneheslo');
     await tester.tap(find.text('Přihlásit se'));
+    await settle(tester);
+
+    // Onboarding (#41): 5 steps + "Přeji hezkou zábavu!"
+    expect(find.byType(OnboardingScreen), findsOneWidget);
+    for (var i = 0; i < 5; i++) {
+      await tester.tap(find.text(S.next));
+      await settle(tester);
+    }
+    expect(find.text(S.onboardingWelcomeTitle), findsOneWidget);
+    await tester.tap(find.text(S.onboardingStart));
     await settle(tester);
 
     // Domů
@@ -1070,6 +1082,133 @@ void main() {
     });
   });
 
+  group('onboarding (#41)', () {
+    testWidgets('runs once after login, saves ratings, daily goal and new cards, and never repeats on re-login or update', (tester) async {
+      tester.view.physicalSize = const Size(1080, 2340);
+      tester.view.devicePixelRatio = 2.75;
+      addTearDown(tester.view.reset);
+
+      final api = FakeApi();
+      final kv = MemoryKeyValueStore();
+      final onboarding = OnboardingStore(kv);
+      final tokenStore = MemoryTokenStore();
+      final client = ApiClient(baseUrl: 'https://quizly.test', store: tokenStore, dio: Dio()..httpClientAdapter = api);
+      await onboarding.init(alreadySignedIn: false);
+
+      await tester.pumpWidget(ProviderScope(
+        retry: (retryCount, error) => null,
+        overrides: [
+          apiClientProvider.overrideWithValue(client),
+          onboardingStoreProvider.overrideWithValue(onboarding),
+          outboxStoreProvider.overrideWithValue(MemoryOutboxStore()),
+          connectivityProvider.overrideWith((ref) => Stream.value(true)),
+          notificationsProvider.overrideWithValue(_notifications(FakeNotificationPlatform())),
+        ],
+        child: const QuizlyApp(),
+      ));
+      await settle(tester);
+
+      // Login
+      await tester.enterText(find.byType(TextField).at(0), 'kuba');
+      await tester.enterText(find.byType(TextField).at(1), 'tajneheslo');
+      await tester.tap(find.text(S.signIn));
+      await settle(tester);
+
+      // 1) About Quizly
+      expect(find.text(S.onboardingAboutTitle), findsOneWidget);
+      expect(find.text(S.onboardingAboutCardsTitle), findsOneWidget);
+      expect(find.text(S.onboardingAboutStreakTitle), findsOneWidget);
+      expect(find.text(S.onboardingAboutPointsTitle), findsOneWidget);
+      await tester.tap(find.text(S.next));
+      await settle(tester);
+
+      // 2) FSRS algorithm
+      expect(find.text(S.onboardingFsrsTitle), findsOneWidget);
+      expect(find.text(S.onboardingFsrsTimingTitle), findsOneWidget);
+      expect(find.text(S.onboardingFsrsKnowTitle), findsOneWidget);
+      expect(find.text(S.onboardingFsrsDontKnowTitle), findsOneWidget);
+      await tester.tap(find.text(S.next));
+      await settle(tester);
+
+      // 3) Vím / Nevím vs Nevím, Těžké, Vím, Snadné
+      expect(find.text(S.onboardingRatingsTitle), findsOneWidget);
+      await tester.tap(find.text(S.onboardingFourRatingsTitle));
+      await settle(tester);
+      await tester.tap(find.text(S.next));
+      await settle(tester);
+
+      // 4) Daily goal: 3 presets (Snadné, Střední, Těžké) + adjust at the bottom
+      expect(find.text(S.onboardingGoalTitle), findsOneWidget);
+      expect(find.text(S.presetEasy), findsOneWidget);
+      expect(find.text(S.presetMedium), findsOneWidget);
+      expect(find.text(S.presetHard), findsOneWidget);
+      await tester.tap(find.text(S.presetHard));
+      await settle(tester);
+      expect(find.text('40'), findsOneWidget);
+      await tester.tap(find.bySemanticsLabel(S.increaseGoal));
+      await tester.pump();
+      await tester.tap(find.bySemanticsLabel(S.increaseGoal));
+      await settle(tester);
+      expect(find.text('42'), findsOneWidget);
+      await tester.tap(find.text(S.next));
+      await settle(tester);
+
+      // 5) New cards per day: 3 presets (Snadné, Střední, Těžké) + adjust at the bottom
+      expect(find.text(S.onboardingNewTitle), findsOneWidget);
+      await tester.tap(find.text(S.presetHard));
+      await settle(tester);
+      expect(find.text('10'), findsOneWidget);
+      await tester.tap(find.bySemanticsLabel(S.fewerNew));
+      await tester.pump();
+      await tester.tap(find.bySemanticsLabel(S.fewerNew));
+      await settle(tester);
+      expect(find.text('8'), findsOneWidget);
+      await tester.tap(find.text(S.next));
+      await settle(tester);
+
+      // 6) Welcome screen with "Přeji hezkou zábavu!"
+      expect(find.text(S.onboardingWelcomeTitle), findsOneWidget);
+      expect(find.text(S.onboardingFourRatingsTitle), findsOneWidget);
+      expect(find.text(cards(42)), findsOneWidget);
+      expect(find.text(cards(8)), findsOneWidget);
+      await tester.tap(find.text(S.onboardingStart));
+      await settle(tester);
+
+      expect(find.text('Ahoj, Kuba!'), findsOneWidget);
+      expect(api.savedSettings.last['fourRatings'], true);
+      expect(api.savedSettings.last['dailyGoal'], 42);
+      expect(api.savedSettings.last['newCardsPerDay'], 8);
+      expect(onboarding.isDone, isTrue);
+
+      // Sign out and sign back in: the intro must not run a second time.
+      await tester.tap(find.text(S.navSettings).last);
+      await settle(tester);
+      await tester.scrollUntilVisible(find.text(S.signOut), 200, scrollable: find.byType(Scrollable).last);
+      await tester.tap(find.text(S.signOut));
+      await settle(tester);
+      await tester.tap(find.text(S.signOut).last);
+      await settle(tester);
+      expect(find.text(S.signIn), findsOneWidget);
+
+      await tester.enterText(find.byType(TextField).at(0), 'kuba');
+      await tester.enterText(find.byType(TextField).at(1), 'tajneheslo');
+      await tester.tap(find.text(S.signIn));
+      await settle(tester);
+      expect(find.byType(OnboardingScreen), findsNothing);
+      expect(find.text('Ahoj, Kuba!'), findsOneWidget);
+    });
+
+    testWidgets('an app update with an existing login marks onboarding done and never shows it', (tester) async {
+      final kv = MemoryKeyValueStore();
+      final onboarding = OnboardingStore(kv);
+      await onboarding.init(alreadySignedIn: true);
+
+      expect(onboarding.isDone, isTrue);
+      expect(onboarding.isPending, isFalse);
+      expect(await onboarding.onLogin(), isFalse);
+    });
+  });
+
   group('accessibility (CLAUDE.md §9.3)', () {
     // Touch targets ≥ 44 px, every tappable thing has a label, text contrast ≥ 4.5:1.
     const tapTargets = MinimumTapTargetGuideline(size: Size(44, 44), link: 'CLAUDE.md §9.3');
@@ -1098,6 +1237,18 @@ void main() {
       ));
       await settle(tester);
       await meetsAll(tester, 'Přihlášení');
+
+      await tester.enterText(find.byType(TextField).at(0), 'kuba');
+      await tester.enterText(find.byType(TextField).at(1), 'tajneheslo');
+      await tester.tap(find.text(S.signIn));
+      await settle(tester);
+      for (var step = 1; step <= 6; step++) {
+        await meetsAll(tester, 'Onboarding step $step');
+        if (step < 6) {
+          await tester.tap(find.text(S.next));
+          await settle(tester);
+        }
+      }
       semantics.dispose();
     });
 

@@ -4,7 +4,9 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../features/home/week.dart';
+import '../features/notifications/notification_store.dart';
 import '../features/notifications/notifications.dart';
+import '../features/onboarding/onboarding_store.dart';
 import '../features/session/review_sync.dart';
 import 'api/api_client.dart';
 import 'api/api_exception.dart';
@@ -16,8 +18,33 @@ final apiClientProvider = Provider<ApiClient>((ref) => throw UnimplementedError(
 /// Scheduled reminders, created in `main` (tests use a fake platform).
 final notificationsProvider = Provider<Notifications>((ref) => throw UnimplementedError('Overridden in main'));
 
+/// Where the one-time onboarding state is stored (overridden in `main` and tests).
+final onboardingStoreProvider = Provider<OnboardingStore>((ref) => OnboardingStore(MemoryKeyValueStore()));
+
 /// Where the review outbox is stored (overridden in tests).
 final outboxStoreProvider = Provider<OutboxStore>((ref) => PrefsOutboxStore());
+
+/// Whether the signed-in user should see the one-time onboarding flow (#41).
+class OnboardingController extends Notifier<bool> {
+  @override
+  bool build() {
+    final store = ref.watch(onboardingStoreProvider);
+    final signedIn = ref.read(apiClientProvider).user != null;
+    store.ensureInitialized(alreadySignedIn: signedIn);
+    return signedIn && store.isPending;
+  }
+
+  Future<void> onLogin() async {
+    state = await ref.read(onboardingStoreProvider).onLogin();
+  }
+
+  Future<void> complete() async {
+    await ref.read(onboardingStoreProvider).complete();
+    state = false;
+  }
+}
+
+final onboardingProvider = NotifierProvider<OnboardingController, bool>(OnboardingController.new);
 
 /// Reports whether the OS has any network (overridden in tests).
 final connectivityProvider = StreamProvider<bool>((ref) async* {
@@ -49,6 +76,7 @@ class AuthController extends Notifier<AuthState> {
 
   Future<void> login(String username, String password) async {
     final user = await ref.read(apiClientProvider).login(username.trim().toLowerCase(), password);
+    await ref.read(onboardingProvider.notifier).onLogin();
     state = AuthState(user: user);
   }
 
