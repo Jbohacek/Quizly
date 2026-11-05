@@ -304,6 +304,24 @@ abstract final class S {
   static const legendNew = 'Nové';
   static const noProgress = 'Zatím tu nejsou žádné balíčky.';
 
+  // Žebříček (#34)
+  static const myStats = 'Moje statistiky';
+  static const leaderboard = 'Žebříček';
+  static const periodWeek = 'Tento týden';
+  static const periodAllTime = 'Celkově';
+  static const metricPoints = 'Body';
+  static const metricStreak = 'Série';
+  static const emptyLeaderboard = 'V žebříčku zatím nikdo není.';
+  static const hiddenFromLeaderboard = 'V žebříčku tě ostatní nevidí. Zapnout to jde v Nastavení.';
+  static String rankPosition(int rank) => '$rank.';
+  static String rankLabel(int rank) => '$rank. místo';
+  static String yourRankBadge(int rank) => 'Jsi na $rank. místě';
+  static const youBadge = 'Ty';
+  static String leaderboardPointsLine(int streak, int count) => 'Série: ${days(streak)} · ${cards(count)}';
+  static String leaderboardStreakLine(int earned, int count) => '${points(earned)} · ${cards(count)}';
+  static const showInLeaderboard = 'Zobrazit mě v žebříčku';
+  static const showInLeaderboardHint = 'Ostatní uvidí tvé body a sérii ve Statistikách.';
+
   // Notifications (docs/notifications.md)
   static const channelReminders = 'Připomínky';
   static const channelRemindersHint = 'Ranní a večerní připomínka a poslední výzva';

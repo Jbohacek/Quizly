@@ -38,6 +38,9 @@ public class UserSettings
     /// <summary>"Těžké a Snadné": four answer buttons instead of Vím / Nevím (#19).</summary>
     public bool FourRatings { get; set; }
 
+    /// <summary>"Zobrazit mě v žebříčku": other users see this user in Žebříček (#34). Off hides the user there.</summary>
+    public bool ShowInLeaderboard { get; set; } = true;
+
     public User User { get; set; } = null!;
 }
 
