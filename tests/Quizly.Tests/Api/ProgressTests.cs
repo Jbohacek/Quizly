@@ -75,21 +75,27 @@ public sealed class ProgressTests(QuizlyFactory factory) : IClassFixture<QuizlyF
     }
 
     [Fact]
-    public async Task Answers_after_prague_midnight_count_for_the_new_day()
+    public async Task Answers_after_midnight_still_count_for_today_until_3_am()
     {
         var user = await factory.CreateUserAsync(dailyGoal: 2);
         var (_, cards) = await factory.CreateDeckAsync("P" + Guid.NewGuid().ToString("N")[..6], 1);
         factory.AdvanceToPrague(new TimeOnly(23, 59, 59));
         using var app = await factory.AppClientAsync(user);
-        var before = await ReviewAsync(app, (cards[0], "know"));
+        var beforeMidnight = await ReviewAsync(app, (cards[0], "know"));
+        var day1 = DateOnly.Parse((string)beforeMidnight["summary"]!["today"]!["date"]!, System.Globalization.CultureInfo.InvariantCulture);
 
+        // 00:00:01 Prague is still day1 (rollover is at 03:00, #40): the 2nd answer completes day1's goal.
         factory.Time.Advance(TimeSpan.FromSeconds(2));
-        var after = await ReviewAsync(app, (cards[0], "know"));
+        var afterMidnight = await ReviewAsync(app, (cards[0], "know"));
+        Assert.Equal(day1.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture), (string?)afterMidnight["summary"]!["today"]!["date"]);
+        Assert.Equal((2, true), ((int)afterMidnight["summary"]!["today"]!["graded"]!, (bool)afterMidnight["summary"]!["today"]!["goalMet"]!));
 
-        var day1 = DateOnly.Parse((string)before["summary"]!["today"]!["date"]!, System.Globalization.CultureInfo.InvariantCulture);
-        Assert.Equal(day1.AddDays(1).ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture), (string?)after["summary"]!["today"]!["date"]);
-        Assert.Equal((1, false), ((int)after["summary"]!["today"]!["graded"]!, (bool)after["summary"]!["today"]!["goalMet"]!));
-        Assert.Empty(after["events"]!.AsArray());
+        // 03:00:01 Prague is the new study day.
+        factory.AdvanceToPrague(new TimeOnly(3, 0, 1));
+        var afterRollover = await ReviewAsync(app, (cards[0], "know"));
+        Assert.Equal(day1.AddDays(1).ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture), (string?)afterRollover["summary"]!["today"]!["date"]);
+        Assert.Equal((1, false), ((int)afterRollover["summary"]!["today"]!["graded"]!, (bool)afterRollover["summary"]!["today"]!["goalMet"]!));
+        Assert.Empty(afterRollover["events"]!.AsArray());
     }
 
     [Fact]

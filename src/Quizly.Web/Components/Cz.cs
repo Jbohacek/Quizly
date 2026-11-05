@@ -66,12 +66,12 @@ public static class Cz
         }
 
         var local = TimeZoneInfo.ConvertTime(instant.Value, PragueCalendar.Zone);
-        var day = DateOnly.FromDateTime(local.DateTime);
+        var day = PragueCalendar.DayOf(instant.Value.UtcDateTime);
         var today = PragueCalendar.Today(time);
         var clock = local.ToString("HH:mm", CultureInfo.InvariantCulture);
         return day == today ? $"dnes {clock}"
             : day == today.AddDays(-1) ? $"včera {clock}"
-            : Date(day);
+            : Date(DateOnly.FromDateTime(local.DateTime));
     }
 
     public static string DateTime(DateTimeOffset instant)
