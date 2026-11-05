@@ -299,6 +299,18 @@ abstract final class S {
   static const legendNew = 'Nové';
   static const noProgress = 'Zatím tu nejsou žádné balíčky.';
 
+  // Leaderboard (#34)
+  static const myStats = 'Moje statistiky';
+  static const leaderboard = 'Žebříček';
+  static const periodWeek = 'Tento týden';
+  static const periodAllTime = 'Celkově';
+  static const metricPoints = 'Body';
+  static const metricStreak = 'Série';
+  static const emptyLeaderboard = 'V žebříčku zatím nikdo není.';
+  static String rankPosition(int rank) => '$rank.';
+  static String yourRankBadge(int rank) => 'Jsi na $rank. místě';
+  static const youBadge = 'Ty';
+
   // Notifications (docs/notifications.md)
   static const channelReminders = 'Připomínky';
   static const channelRemindersHint = 'Ranní a večerní připomínka a poslední výzva';

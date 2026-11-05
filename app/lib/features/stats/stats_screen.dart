@@ -14,6 +14,8 @@ import '../../core/theme/tokens.dart';
 import '../../core/widgets/widgets.dart';
 import 'stats_logic.dart';
 
+enum StatsTab { myStats, leaderboard }
+
 /// Statistiky (design screen 6, CLAUDE.md §5.9): all decks or one deck.
 class StatsScreen extends ConsumerStatefulWidget {
   const StatsScreen({super.key});
@@ -23,7 +25,10 @@ class StatsScreen extends ConsumerStatefulWidget {
 }
 
 class _StatsScreenState extends ConsumerState<StatsScreen> {
+  StatsTab _currentTab = StatsTab.myStats;
   int? _deckId;
+  String _period = 'week';
+  String _metric = 'points';
 
   Future<void> _pickDeck() async {
     final decks = ref.read(homeProvider).value?.decks.items ?? const <Deck>[];
@@ -58,24 +63,38 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final stats = ref.watch(statsProvider(_deckId));
+    final stats = _currentTab == StatsTab.myStats ? ref.watch(statsProvider(_deckId)) : null;
+    final leaderboard = _currentTab == StatsTab.leaderboard
+        ? ref.watch(leaderboardProvider((period: _period, metric: _metric)))
+        : null;
     final decks = ref.watch(homeProvider).value?.decks.items ?? const <Deck>[];
     final deckName = decks.where((d) => d.id == _deckId).firstOrNull?.name;
+    final currentUserId = ref.watch(authProvider).user?.id;
+
     return SafeArea(
       bottom: false,
       child: RefreshIndicator(
         color: Q.primary,
         backgroundColor: Q.surface,
-        onRefresh: () => ref.refresh(statsProvider(_deckId).future),
+        onRefresh: () => _currentTab == StatsTab.myStats
+            ? ref.refresh(statsProvider(_deckId).future)
+            : ref.refresh(leaderboardProvider((period: _period, metric: _metric)).future),
         child: ListView(
           padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
           children: [
             ScreenHeader(
               title: S.navStats,
-              trailing: _FilterButton(label: _deckId == null ? S.allDecksFilter : deckName ?? S.allDecksFilter, onTap: _pickDeck),
+              trailing: _currentTab == StatsTab.myStats
+                  ? _FilterButton(label: _deckId == null ? S.allDecksFilter : deckName ?? S.allDecksFilter, onTap: _pickDeck)
+                  : null,
             ),
             const SizedBox(height: 14),
-            ...switch (stats) {
+            _TabSwitch(
+              current: _currentTab,
+              onSelect: (tab) => setState(() => _currentTab = tab),
+            ),
+            const SizedBox(height: 16),
+            if (_currentTab == StatsTab.myStats) ...switch (stats!) {
               AsyncValue(:final value?) => _sections(value),
               AsyncValue(:final error?) => [
                   SizedBox(
@@ -87,11 +106,85 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
                   ),
                 ],
               _ => const [SizedBox(height: 320, child: Center(child: CircularProgressIndicator()))],
-            },
+            } else ...[
+              _LeaderboardControls(
+                period: _period,
+                metric: _metric,
+                onPeriodChanged: (p) => setState(() => _period = p),
+                onMetricChanged: (m) => setState(() => _metric = m),
+              ),
+              const SizedBox(height: 16),
+              ...switch (leaderboard!) {
+                AsyncValue(:final value?) => _leaderboardView(value, currentUserId),
+                AsyncValue(:final error?) => [
+                    SizedBox(
+                      height: 420,
+                      child: ErrorView(
+                        message: error is ApiException ? error.message : S.loadFailed,
+                        onRetry: () => ref.invalidate(leaderboardProvider((period: _period, metric: _metric))),
+                      ),
+                    ),
+                  ],
+                _ => const [SizedBox(height: 320, child: Center(child: CircularProgressIndicator()))],
+              },
+            ],
           ],
         ),
       ),
     );
+  }
+
+  List<Widget> _leaderboardView(Leaderboard lb, int? currentUserId) {
+    if (lb.entries.isEmpty) {
+      return [
+        Container(
+          padding: const EdgeInsets.all(28),
+          decoration: BoxDecoration(
+            color: Q.surface,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: Q.border),
+          ),
+          child: Center(
+            child: Text(
+              S.emptyLeaderboard,
+              textAlign: TextAlign.center,
+              style: QText.body(15, color: Q.textMuted),
+            ),
+          ),
+        ),
+      ];
+    }
+
+    return [
+      if (lb.currentUserRank != null)
+        Container(
+          margin: const EdgeInsets.only(bottom: 14),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          decoration: BoxDecoration(
+            color: Q.tint(Q.primary),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: Q.primary),
+          ),
+          child: Row(
+            children: [
+              const Icon(Icons.emoji_events_rounded, color: Q.primary, size: 24),
+              const SizedBox(width: 12),
+              Text(
+                S.yourRankBadge(lb.currentUserRank!),
+                style: QText.body(15, weight: FontWeight.w700, color: Q.primaryLight),
+              ),
+            ],
+          ),
+        ),
+      for (final entry in lb.entries) ...[
+        _LeaderboardTile(
+          entry: entry,
+          isCurrentUser: entry.userId == currentUserId,
+          metric: lb.metric,
+        ),
+        const SizedBox(height: 8),
+      ],
+    ];
   }
 
   List<Widget> _sections(Stats s) => [
@@ -723,6 +816,302 @@ class _Legend extends StatelessWidget {
         const SizedBox(width: 5),
         Text(label, style: QText.body(11, color: Q.textMuted, weight: FontWeight.w700)),
       ],
+    );
+  }
+}
+
+class _TabSwitch extends StatelessWidget {
+  const _TabSwitch({required this.current, required this.onSelect});
+
+  final StatsTab current;
+  final ValueChanged<StatsTab> onSelect;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Q.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Q.border),
+      ),
+      padding: const EdgeInsets.all(4),
+      child: Row(
+        children: [
+          Expanded(
+            child: _TabButton(
+              label: S.myStats,
+              selected: current == StatsTab.myStats,
+              onTap: () => onSelect(StatsTab.myStats),
+            ),
+          ),
+          const SizedBox(width: 4),
+          Expanded(
+            child: _TabButton(
+              label: S.leaderboard,
+              selected: current == StatsTab.leaderboard,
+              onTap: () => onSelect(StatsTab.leaderboard),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TabButton extends StatelessWidget {
+  const _TabButton({required this.label, required this.selected, required this.onTap});
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: selected ? Q.surface2 : Colors.transparent,
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: 44),
+          child: Container(
+            alignment: Alignment.center,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            child: Text(
+              label,
+              style: QText.body(14, weight: selected ? FontWeight.w800 : FontWeight.w600, color: selected ? Q.text : Q.textMuted),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _LeaderboardControls extends StatelessWidget {
+  const _LeaderboardControls({
+    required this.period,
+    required this.metric,
+    required this.onPeriodChanged,
+    required this.onMetricChanged,
+  });
+
+  final String period;
+  final String metric;
+  final ValueChanged<String> onPeriodChanged;
+  final ValueChanged<String> onMetricChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: _PillToggle(
+            value: period,
+            leftValue: 'week',
+            leftLabel: S.periodWeek,
+            rightValue: 'allTime',
+            rightLabel: S.periodAllTime,
+            onChanged: onPeriodChanged,
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: _PillToggle(
+            value: metric,
+            leftValue: 'points',
+            leftLabel: S.metricPoints,
+            rightValue: 'streak',
+            rightLabel: S.metricStreak,
+            onChanged: onMetricChanged,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _PillToggle extends StatelessWidget {
+  const _PillToggle({
+    required this.value,
+    required this.leftValue,
+    required this.leftLabel,
+    required this.rightValue,
+    required this.rightLabel,
+    required this.onChanged,
+  });
+
+  final String value;
+  final String leftValue;
+  final String leftLabel;
+  final String rightValue;
+  final String rightLabel;
+  final ValueChanged<String> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Q.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Q.border),
+      ),
+      padding: const EdgeInsets.all(3),
+      child: Row(
+        children: [
+          Expanded(
+            child: _PillOption(
+              label: leftLabel,
+              selected: value == leftValue,
+              onTap: () => onChanged(leftValue),
+            ),
+          ),
+          const SizedBox(width: 2),
+          Expanded(
+            child: _PillOption(
+              label: rightLabel,
+              selected: value == rightValue,
+              onTap: () => onChanged(rightValue),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PillOption extends StatelessWidget {
+  const _PillOption({required this.label, required this.selected, required this.onTap});
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: selected ? Q.surface2 : Colors.transparent,
+      borderRadius: BorderRadius.circular(9),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(9),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: 44),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+            child: Center(
+              child: Text(
+                label,
+                style: QText.body(13, weight: selected ? FontWeight.w700 : FontWeight.w500, color: selected ? Q.text : Q.textMuted),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _LeaderboardTile extends StatelessWidget {
+  const _LeaderboardTile({
+    required this.entry,
+    required this.isCurrentUser,
+    required this.metric,
+  });
+
+  final LeaderboardEntry entry;
+  final bool isCurrentUser;
+  final String metric;
+
+  Widget _rankBadge(int rank) {
+    final medal = switch (rank) {
+      1 => '🥇',
+      2 => '🥈',
+      3 => '🥉',
+      _ => null,
+    };
+    if (medal != null) {
+      return Text(medal, style: const TextStyle(fontSize: 22));
+    }
+    return Text(
+      S.rankPosition(rank),
+      style: QText.body(15, weight: FontWeight.w800, color: Q.textMuted),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: isCurrentUser ? Q.tint(Q.primary) : Q.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isCurrentUser ? Q.primary : Q.border,
+          width: isCurrentUser ? 1.5 : 1,
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 32,
+            alignment: Alignment.centerLeft,
+            child: _rankBadge(entry.rank),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  children: [
+                    Flexible(
+                      child: Text(
+                        entry.displayName,
+                        overflow: TextOverflow.ellipsis,
+                        style: QText.body(15, weight: FontWeight.w700, color: isCurrentUser ? Q.primaryLight : Q.text),
+                      ),
+                    ),
+                    if (isCurrentUser) ...[
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: Q.primary,
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          S.youBadge,
+                          style: QText.body(10, weight: FontWeight.w800, color: Q.onPrimary),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  metric == 'streak'
+                      ? '${formatInt(entry.points)} bodů · ${formatInt(entry.cardsStudied)} karet'
+                      : 'Série: ${days(entry.currentStreak)} · ${formatInt(entry.cardsStudied)} karet',
+                  style: QText.body(12, color: Q.textMuted),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          Text(
+            metric == 'streak'
+                ? '${entry.currentStreak} d'
+                : '${formatInt(entry.points)} b',
+            style: QText.heading(
+              17,
+              color: metric == 'streak' ? Q.multiplier : Q.points,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

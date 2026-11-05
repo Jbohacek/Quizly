@@ -7,6 +7,7 @@ using Quizly.Application.Abstractions;
 using Quizly.Application.Auth;
 using Quizly.Application.Common;
 using Quizly.Application.Decks;
+using Quizly.Application.Leaderboards;
 using Quizly.Application.Learning;
 using Quizly.Application.NotificationTexts;
 using Quizly.Application.Profile;
@@ -74,6 +75,11 @@ internal static class AppEndpoints
         api.MapGet("/stats", async (int? deckId, ClaimsPrincipal user, IStatsService stats, CancellationToken ct) =>
                 (await stats.GetAsync(user.UserId(), deckId, ct)).OkOrProblem())
             .WithTags("Stats").WithName("GetStats").WithSummary("Tiles, heatmap, daily bars, weekdays, best time and deck progress");
+
+        api.MapGet("/leaderboard", async (string? period, string? metric, ClaimsPrincipal user, ILeaderboardService leaderboard, CancellationToken ct) =>
+                TypedResults.Ok(await leaderboard.GetLeaderboardAsync(user.UserId(), period, metric, ct)))
+            .WithTags("Leaderboard").WithName("GetLeaderboard")
+            .WithSummary("Weekly or all-time leaderboards ranked by points or streak");
 
         // Users the admin keeps out of the shop get 403 shopDisabled on all of it (shop, claims, wishlist).
         var shop = api.MapGroup("").WithTags("Shop").AddEndpointFilter(async (context, next) =>

@@ -224,6 +224,16 @@ class FakeApi implements HttpClientAdapter {
           Headers.contentLengthHeader: ['1234'],
         }),
       'GET /api/stats' => _json(stats((statsQueries..add(options.uri.queryParameters['deckId'])).last)),
+      'GET /api/leaderboard' => _json({
+          'period': options.uri.queryParameters['period'] ?? 'week',
+          'metric': options.uri.queryParameters['metric'] ?? 'points',
+          'entries': [
+            {'rank': 1, 'userId': 1, 'displayName': 'Admin', 'points': 500, 'currentStreak': 15, 'cardsStudied': 80},
+            {'rank': 2, 'userId': 2, 'displayName': 'Kuba', 'points': 350, 'currentStreak': 12, 'cardsStudied': 50},
+            {'rank': 3, 'userId': 3, 'displayName': 'Petra', 'points': 200, 'currentStreak': 8, 'cardsStudied': 30},
+          ],
+          'currentUserRank': 2,
+        }),
       'GET /api/shop' => _json(shop),
       'GET /api/claims' => _json({'items': claims.reversed.toList()}),
       final r when r.startsWith('PUT /api/wishlist/') || r.startsWith('DELETE /api/wishlist/') => _wishlist(r),
