@@ -37,17 +37,16 @@ internal sealed class MeService(IAppDbContext db, Progress progress, StudyServic
         var dueReviews = await states.CountAsync(s => s.Due <= now, ct);
         var allowanceToday = await progress.NewAllowanceLeftAsync(userId, settings.NewCardsPerDay, today, ct);
 
-        // The next morning notification: today at the morning time if still ahead, else tomorrow.
-        var morningDay = PragueCalendar.Today(time);
-        var nextMorning = AtPrague(morningDay, settings.MorningTime);
+        // The next morning notification: next occurrence of morningTime in Prague.
+        var pragueDate = DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeFromUtc(now, PragueCalendar.Zone));
+        var nextMorning = AtPrague(pragueDate, settings.MorningTime);
         if (nextMorning <= now)
         {
-            morningDay = morningDay.AddDays(1);
-            nextMorning = AtPrague(morningDay, settings.MorningTime);
+            nextMorning = AtPrague(pragueDate.AddDays(1), settings.MorningTime);
         }
 
         var dueByMorning = await states.CountAsync(s => s.Due <= nextMorning, ct);
-        var allowanceThen = morningDay == today ? allowanceToday : settings.NewCardsPerDay;
+        var allowanceThen = PragueCalendar.DayOf(nextMorning) == today ? allowanceToday : settings.NewCardsPerDay;
 
         var since = now.AddDays(-14);
         var recent = await db.ReviewLogs.Where(r => r.UserId == userId && r.ReviewedAt >= since).Select(r => r.ReviewedAt).ToListAsync(ct);

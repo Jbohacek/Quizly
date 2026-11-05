@@ -63,7 +63,7 @@ class _HomeBody extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
       children: [
-        _Header(name: me.user.displayName, balance: me.summary.balance),
+        _Header(name: me.user.displayName, balance: me.summary.balance, date: me.summary.today.date),
         const SizedBox(height: 16),
         const UpdateCard(),
         const NotificationAskCard(),
@@ -113,21 +113,21 @@ class _HomeBody extends StatelessWidget {
 }
 
 class _Header extends ConsumerWidget {
-  const _Header({required this.name, required this.balance});
+  const _Header({required this.name, required this.balance, required this.date});
 
   final String name;
   final int balance;
+  final DateTime date;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final now = DateTime.now();
     return Row(
       children: [
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(formatLongDate(now), style: QText.body(13, color: Q.textMuted)),
+              Text(formatLongDate(date), style: QText.body(13, color: Q.textMuted)),
               const SizedBox(height: 2),
               Text(S.greeting(name), style: QText.heading(26), maxLines: 2, overflow: TextOverflow.ellipsis),
             ],

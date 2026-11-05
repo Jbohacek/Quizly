@@ -330,7 +330,7 @@ Definitions: spec §10. `successRate` values are whole percent or `null`.
 
 ### GET `/leaderboard?period=week&metric=points`
 
-Žebříček (#34). `period`: `week` (default, this Prague calendar week from Monday) or `allTime`; `metric`: `points` (default) or `streak`. A streak isn't counted per week, so with `metric=streak` the period is ignored and the response says `allTime`.
+Žebříček (#34). `period`: `week` (default, this Prague study week from Monday 03:00) or `allTime`; `metric`: `points` (default) or `streak`. A streak isn't counted per week, so with `metric=streak` the period is ignored and the response says `allTime`.
 
 ```json
 {
@@ -426,7 +426,7 @@ Active texts only. Strong `ETag` = `version` (hash of ids + texts). `If-None-Mat
 7. **Offline:** after 2 failed attempts in a row, or when the OS reports no connectivity, the session shows **"Jsi offline"** and pauses (no new answers). It resumes after the next successful request.
 8. **Auth:** on `401 unauthorized` the dio interceptor calls `/auth/refresh` once (other requests wait for it) and repeats the request. If refresh fails with `refreshTokenInvalid` or `accountDisabled`, the phone goes to the login screen. The outbox stays for that user.
 9. **Idempotency:** a UUID is processed at most once; resending is always safe.
-10. **Time:** the server receive time is the review time (spec §4.2). Answers made right before midnight but received after it count for the new day.
+10. **Time:** the server receive time is the review time (spec §4.2). Answers made right before the 03:00 rollover (#40) but received after it count for the new day.
 11. **Edits during a session:** the phone keeps showing its copy of a card. A deleted card's review comes back `rejected / cardNotFound` and is dropped silently.
 12. **Skip** sends nothing.
 
