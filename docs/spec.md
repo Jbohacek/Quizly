@@ -322,6 +322,15 @@ Index: `(category)`. Seeded from `notification-texts.md` (converted to `Seed/not
 
 "% mastered" = Zvládnuto ÷ all cards in the deck(s), rounded down to a whole percent.
 
+### 3.6 Problematic cards ("Problémové", #27)
+
+Per user × card, from the user's **last 10** `review_logs` of the card (newest `reviewed_at` first):
+
+- `recentAnswers` = how many there are (0–10), `recentDontKnow` = how many of them are Nevím (`rating = Again`).
+- A card is **problematic** when it isn't Zvládnuto (§3.5), `recentDontKnow ≥ 2` and `recentDontKnow ≥ 30 %` of `recentAnswers`.
+
+Only the newest answers count, so a card stops being problematic once it's learned; one bad day (Nevím, then the same session's repeat) is not a pattern. The rule is `Quizly.Domain.ProblemCards`. The deck detail's **Problémové** filter shows these cards worst first: most `recentDontKnow`, then fewer `recentAnswers` (a bigger share), then deck order.
+
 ---
 
 ## 4. Study session

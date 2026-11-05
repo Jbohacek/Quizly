@@ -84,8 +84,9 @@ abstract final class S {
   static String cardsShown(int shown, int total) => '${formatInt(shown)} z ${formatInt(total)}';
   static const cardProgress = 'Cesta ke zvládnutí';
   static String cardAnswers(int know, int dontKnow) => 'Vím: ${formatInt(know)} · Nevím: ${formatInt(dontKnow)}';
-  static String cardLapses(int count) => 'Výpadky z paměti: ${formatInt(count)}';
-  static const cardFrequentMistakes = 'Časté chyby při učení';
+  // Problematic cards always have at least 2 recent answers, so "odpovědí" (genitive plural) fits.
+  static String recentDontKnow(int dontKnow, int answers) =>
+      'Z posledních ${formatInt(answers)} odpovědí: Nevím ${formatInt(dontKnow)}×';
   static String nextReview(String when) => 'Další opakování: $when';
   static const nextReviewNow = 'Další opakování: teď';
   static const notStudiedYet = 'Zatím bez odpovědi. Přijde na řadu mezi novými kartami.';

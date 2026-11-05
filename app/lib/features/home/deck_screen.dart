@@ -129,14 +129,26 @@ class _DeckBodyState extends State<_DeckBody> {
 
   List<DeckCard> get _shown {
     final query = foldForSearch(_search.text.trim());
-    return [
+    final shown = [
       for (final card in widget.data.cards)
-        if ((_problematicOnly ? card.isProblematic : (_status == null || card.status == _status)) &&
+        if ((_problematicOnly ? card.problematic : (_status == null || card.status == _status)) &&
             (query.isEmpty ||
                 foldForSearch(plainCardText('${card.question}\n${card.answer}')).contains(query) ||
                 card.tags.any((tag) => foldForSearch(tag).contains(query))))
           card,
     ];
+    if (_problematicOnly) {
+      // #27: the worst first: most Nevím lately, then the bigger share of them, then deck order.
+      final order = {for (final (i, card) in widget.data.cards.indexed) card.id: i};
+      shown.sort((a, b) {
+        final byDontKnow = b.recentDontKnow.compareTo(a.recentDontKnow);
+        if (byDontKnow != 0) return byDontKnow;
+        final byAnswers = a.recentAnswers.compareTo(b.recentAnswers);
+        if (byAnswers != 0) return byAnswers;
+        return order[a.id]!.compareTo(order[b.id]!);
+      });
+    }
+    return shown;
   }
 
   @override
@@ -261,7 +273,7 @@ class _DeckBodyState extends State<_DeckBody> {
                 ),
               _FilterChip(
                 label: S.filterProblematic,
-                count: data.cards.where((c) => c.isProblematic).length,
+                count: data.cards.where((c) => c.problematic).length,
                 selected: _problematicOnly,
                 color: Q.dontKnow,
                 onTap: () => setState(() {
@@ -557,6 +569,14 @@ class _CardTileState extends State<_CardTile> {
                               style: QText.body(15, weight: FontWeight.w800, height: 1.35),
                               smallColor: Q.textMuted,
                             ),
+                            // #27: under the question, not beside the status chip (no room for both at 360 dp).
+                            if (card.problematic) ...[
+                              const SizedBox(height: 4),
+                              Text(
+                                S.statusProblematic,
+                                style: QText.body(12, color: Q.dontKnow, weight: FontWeight.w800),
+                              ),
+                            ],
                             // #29: the tags in small grey text under the question.
                             if (card.tags.isNotEmpty) ...[
                               const SizedBox(height: 4),
@@ -573,10 +593,6 @@ class _CardTileState extends State<_CardTile> {
                         ),
                       ),
                       const SizedBox(width: 10),
-                      if (card.isProblematic) ...[
-                        const Tag(label: S.statusProblematic, color: Q.dontKnow),
-                        const SizedBox(width: 6),
-                      ],
                       Tag(label: label, color: color),
                       AnimatedRotation(
                         turns: _open ? 0.5 : 0,
@@ -665,18 +681,10 @@ class _CardProgress extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text(S.cardAnswers(card.knowCount, card.dontKnowCount), style: muted),
-            if (card.lapses > 0) ...[
+            if (card.problematic) ...[
               const SizedBox(height: 2),
               Text(
-                S.cardLapses(card.lapses),
-                style: card.isProblematic
-                    ? QText.body(12, color: Q.dontKnow, weight: FontWeight.w700)
-                    : muted,
-              ),
-            ] else if (card.isProblematic) ...[
-              const SizedBox(height: 2),
-              Text(
-                S.cardFrequentMistakes,
+                S.recentDontKnow(card.recentDontKnow, card.recentAnswers),
                 style: QText.body(12, color: Q.dontKnow, weight: FontWeight.w700),
               ),
             ],

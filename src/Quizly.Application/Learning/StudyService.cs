@@ -116,10 +116,15 @@ internal sealed class StudyService(IAppDbContext db, Progress progress, TimeProv
                 c.Answer,
                 Tags = c.Tags.Select(t => t.Name).ToList(),
                 State = db.CardStates.Where(s => s.UserId == userId && s.CardId == c.Id)
-                    .Select(s => new { s.State, s.Stability, s.Due, s.Lapses })
+                    .Select(s => new { s.State, s.Stability, s.Due })
                     .FirstOrDefault(),
                 Know = db.ReviewLogs.Count(r => r.UserId == userId && r.CardId == c.Id && r.Rating != Rating.Again),
                 DontKnow = db.ReviewLogs.Count(r => r.UserId == userId && r.CardId == c.Id && r.Rating == Rating.Again),
+                // #27: only the newest answers say whether the card is a problem now.
+                RecentAnswers = db.ReviewLogs.Where(r => r.UserId == userId && r.CardId == c.Id)
+                    .OrderByDescending(r => r.ReviewedAt).Take(ProblemCards.RecentWindow).Count(),
+                RecentDontKnow = db.ReviewLogs.Where(r => r.UserId == userId && r.CardId == c.Id)
+                    .OrderByDescending(r => r.ReviewedAt).Take(ProblemCards.RecentWindow).Count(r => r.Rating == Rating.Again),
             })
             .ToListAsync(ct);
 
@@ -137,7 +142,9 @@ internal sealed class StudyService(IAppDbContext db, Progress progress, TimeProv
                 c.DontKnow,
                 c.State is null ? null : new DateTimeOffset(DateTime.SpecifyKind(c.State.Due, DateTimeKind.Utc)),
                 Sorted(c.Tags),
-                c.State?.Lapses ?? 0);
+                c.RecentDontKnow,
+                c.RecentAnswers,
+                ProblemCards.IsProblematic(c.RecentDontKnow, c.RecentAnswers, mastered));
         }).ToList();
         return new DeckCardsResponse(deck, items);
     }

@@ -2,7 +2,6 @@ using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Time.Testing;
 using Quizly.Application.Auth;
 using Quizly.Application.Common;
-using Quizly.Application.Learning;
 using Quizly.Application.NotificationTexts;
 using Quizly.Domain;
 
@@ -144,19 +143,17 @@ public sealed class ValidationTests
         Assert.Equal(name, NotificationTextService.CategoryName(category));
 }
 
-public sealed class DeckCardResponseTests
+public sealed class ProblemCardsTests
 {
-    [Fact]
-    public void DeckCardResponse_defaults_lapses_to_zero()
-    {
-        var card = new DeckCardResponse(1, "Q", "A", "new", 0, 0, 0, null, []);
-        Assert.Equal(0, card.Lapses);
-    }
-
-    [Fact]
-    public void DeckCardResponse_retains_assigned_lapses()
-    {
-        var card = new DeckCardResponse(1, "Q", "A", "learning", 40, 2, 3, DateTimeOffset.UtcNow, ["tag1"], 4);
-        Assert.Equal(4, card.Lapses);
-    }
+    [Theory]
+    [InlineData(2, 2, false, true)]   // two Nevím out of two
+    [InlineData(2, 6, false, true)]   // 33 %
+    [InlineData(3, 10, false, true)]  // 30 %, the edge
+    [InlineData(2, 7, false, false)]  // 28 %
+    [InlineData(1, 1, false, false)]  // one Nevím is not a pattern
+    [InlineData(0, 0, false, false)]  // never answered
+    [InlineData(5, 10, true, false)]  // mastered wins
+    public void Problematic_needs_two_recent_dont_knows_making_30_percent_of_a_card_not_mastered(
+        int recentDontKnow, int recentAnswers, bool mastered, bool expected) =>
+        Assert.Equal(expected, ProblemCards.IsProblematic(recentDontKnow, recentAnswers, mastered));
 }
