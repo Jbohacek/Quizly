@@ -284,6 +284,16 @@ void main() {
       final h = const TextHistory().use(NotificationCategory.lastCall, 4, slot: 202611023);
       expect(TextHistory.fromJson(h.toJson()).toJson(), h.toJson());
     });
+
+    test('study day rolls over at 03:00 in Prague (#40)', () {
+      expect(pragueDay(prg(11, 3, 2, 59)), DateTime.utc(2026, 11, 2));
+      expect(pragueDay(prg(11, 3, 3, 0)), DateTime.utc(2026, 11, 3));
+
+      // At 01:00 on Nov 3 the study day is still Nov 2; its morning/evening/last_call are in the past,
+      // so only Nov 3's slots are planned.
+      final p = plan(now: prg(11, 3, 1, 0), snapshot: snap(day: 2, done: 5, met: false, streak: 4));
+      expect(slots(p), ['3. comeback 08:00', '3. evening 18:30']);
+    });
   });
 
   group('immediate notifications (§3.5)', () {

@@ -369,18 +369,19 @@ The app computes it from the review responses it got during the session:
 
 ### 5.1 Day
 
-The Prague day of a review is `PragueDate(reviewed_at)`. Days are 23, 24 or 25 hours long (DST). Example boundaries:
+The Prague study day of a review is `PragueDate(reviewed_at)`, where each day runs from **03:00 to 03:00 local time** (#40). Days are 23, 24 or 25 hours long (DST). Example boundaries:
 
 | UTC instant | Prague local | Prague day |
 | --- | --- | --- |
 | `2026-10-24T21:59:59Z` | 23:59:59 CEST | 2026-10-24 |
-| `2026-10-24T22:00:00Z` | 00:00:00 CEST | 2026-10-25 |
-| `2026-10-25T00:59:59Z` | 02:59:59 CEST | 2026-10-25 |
-| `2026-10-25T01:00:00Z` | 02:00:00 CET (clocks back) | 2026-10-25 |
-| `2026-10-25T22:59:59Z` | 23:59:59 CET | 2026-10-25 (a 25-hour day) |
-| `2027-03-27T23:00:00Z` | 00:00:00 CET | 2027-03-28 |
+| `2026-10-24T22:00:00Z` | 00:00:00 CEST | 2026-10-24 (until 03:00 local) |
+| `2026-10-25T00:59:59Z` | 02:59:59 CEST | 2026-10-24 |
+| `2026-10-25T01:00:00Z` | 02:00:00 CET (clocks back) | 2026-10-24 |
+| `2026-10-25T01:59:59Z` | 02:59:59 CET | 2026-10-24 (a 25-hour day) |
+| `2026-10-25T02:00:00Z` | 03:00:00 CET | 2026-10-25 |
+| `2027-03-27T23:00:00Z` | 00:00:00 CET | 2027-03-27 |
+| `2027-03-28T00:59:59Z` | 01:59:59 CET | 2027-03-27 (a 23-hour day) |
 | `2027-03-28T01:00:00Z` | 03:00:00 CEST (clocks forward) | 2027-03-28 |
-| `2027-03-28T21:59:59Z` | 23:59:59 CEST | 2027-03-28 (a 23-hour day) |
 
 ### 5.2 Daily activity update (per graded review, in the review transaction)
 
@@ -421,9 +422,9 @@ displayedStreak = last_goal_met_date ∈ {today, today − 1} ? current_streak :
 
 **B. Missed day.** Last met Monday, streak 12. Tuesday: 5 reviews (not met). Wednesday morning: `last_goal_met_date = Monday = today − 2` → displayed streak **0**, `streakBroken { previousStreak: 12, brokenOn: Wednesday }`. Wednesday goal met → `current_streak = 1`.
 
-**C. Just before midnight.** Streak 3 through yesterday. Today 19 reviews by 23:58 Prague. Review 20 arrives at 23:59:59.900 → today met, streak 4. If it arrives at 00:00:00.100, it counts for the new day: the old day ends unmet, streak displayed as 0 (yesterday unmet, today not met), the new day has 1 review.
+**C. Just before rollover (03:00, #40).** Streak 3 through yesterday. Today 19 reviews by 02:58 Prague. Review 20 arrives at 02:59:59.900 → today met, streak 4. If it arrives at 03:00:00.100, it counts for the new day: the old day ends unmet, streak displayed as 0 (yesterday unmet, today not met), the new day has 1 review.
 
-**D. DST day.** 2026-10-25 has 25 hours; the goal and the streak work the same, one day is one day.
+**D. DST day.** 2026-10-24 (03:00 CEST to 03:00 CET on 2026-10-25) has 25 hours; the goal and the streak work the same, one day is one day.
 
 **E. Goal lowered.** Goal 20, 15 reviews today, not met. The user sets the goal to 15 → today met immediately, streak +1, events returned by `PUT /api/me/settings`.
 
