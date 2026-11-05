@@ -43,4 +43,17 @@ public sealed class CzechFormatTests
         Assert.Equal("včera 18:10", Cz.LastActive(new DateTimeOffset(2026, 11, 1, 17, 10, 0, TimeSpan.Zero), time));
         Assert.Equal($"30.{Nbsp}10.", Cz.LastActive(new DateTimeOffset(2026, 10, 30, 12, 0, 0, TimeSpan.Zero), time));
     }
+
+    [Fact]
+    public void Last_active_follows_the_calendar_not_the_3_am_study_day()
+    {
+        // 10:00 in Prague: 01:30 this morning is today, even though it belongs to yesterday's study day (#40).
+        var morning = new FakeTimeProvider(new DateTimeOffset(2026, 11, 5, 9, 0, 0, TimeSpan.Zero));
+        Assert.Equal("dnes 01:30", Cz.LastActive(new DateTimeOffset(2026, 11, 5, 0, 30, 0, TimeSpan.Zero), morning));
+        Assert.Equal("včera 01:30", Cz.LastActive(new DateTimeOffset(2026, 11, 4, 0, 30, 0, TimeSpan.Zero), morning));
+
+        // 01:00 in Prague: 23:30 last night is yesterday, even though it's still the same study day.
+        var night = new FakeTimeProvider(new DateTimeOffset(2026, 11, 5, 0, 0, 0, TimeSpan.Zero));
+        Assert.Equal("včera 23:30", Cz.LastActive(new DateTimeOffset(2026, 11, 4, 22, 30, 0, TimeSpan.Zero), night));
+    }
 }
