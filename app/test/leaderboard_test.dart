@@ -23,7 +23,6 @@ class _FakeLeaderboardApiClient extends Fake implements ApiClient {
   }
 
   @override
-  @override
   Future<Stats> stats({int? deckId}) async {
     return Stats(
       deckId: null,
@@ -174,53 +173,86 @@ void main() {
       );
     }
 
-    testWidgets('Tapping Žebříček displays podium medals, rankings, and highlights current user', (tester) async {
+    testWidgets('Žebříček ranks everyone, highlights me and words the numbers in Czech', (tester) async {
       final client = _FakeLeaderboardApiClient(user: testUser, leaderboardData: testLeaderboard);
 
       await tester.pumpWidget(createTestApp(client: client));
       await tester.pumpAndSettle();
-
-      // Initially on Moje statistiky
       expect(find.text(S.myStats), findsOneWidget);
-      expect(find.text(S.leaderboard), findsOneWidget);
 
-      // Switch to Žebříček
       await tester.tap(find.text(S.leaderboard));
       await tester.pumpAndSettle();
 
-      // Controls visible
-      expect(find.text(S.periodWeek), findsOneWidget);
-      expect(find.text(S.periodAllTime), findsOneWidget);
-      expect(find.text(S.metricPoints), findsOneWidget);
-      expect(find.text(S.metricStreak), findsOneWidget);
-
-      // Rank badge
+      for (final label in [S.metricPoints, S.metricStreak, S.periodWeek, S.periodAllTime]) {
+        expect(find.text(label), findsOneWidget);
+      }
       expect(find.text(S.yourRankBadge(2)), findsOneWidget);
-
-      // Top 3 medals
-      expect(find.text('🥇'), findsOneWidget);
-      expect(find.text('🥈'), findsOneWidget);
-      expect(find.text('🥉'), findsOneWidget);
-      expect(find.text(S.rankPosition(4)), findsOneWidget);
-
-      // User names
-      expect(find.text('Admin'), findsOneWidget);
-      expect(find.text('Kuba'), findsOneWidget);
-      expect(find.text('Petra'), findsOneWidget);
-      expect(find.text('Honza'), findsOneWidget);
-
-      // Current user highlight badge
+      // Ranks are numbers (CLAUDE.md §9.3: no emoji as UI icons).
+      for (final rank in [1, 2, 3, 4]) {
+        expect(find.text(S.rankPosition(rank)), findsOneWidget);
+      }
+      for (final name in ['Admin', 'Kuba', 'Petra', 'Honza']) {
+        expect(find.text(name), findsOneWidget);
+      }
       expect(find.text(S.youBadge), findsOneWidget);
+      // Czech plurals and number formatting.
+      expect(find.text('500 bodů'), findsOneWidget);
+      expect(find.text('Série: 2 dny · 10 karet'), findsOneWidget);
 
-      // Switch period to Celkově
       await tester.tap(find.text(S.periodAllTime));
       await tester.pumpAndSettle();
-      expect(client.lastQuery?.period, 'allTime');
+      expect(client.lastQuery, (period: 'allTime', metric: 'points'));
+    });
 
-      // Switch metric to Série
+    testWidgets('Série has no period: a streak is not counted per week', (tester) async {
+      final client = _FakeLeaderboardApiClient(
+        user: testUser,
+        leaderboardData: const Leaderboard(
+          period: 'allTime',
+          metric: 'streak',
+          entries: [
+            LeaderboardEntry(rank: 1, userId: 1, displayName: 'Admin', points: 1, currentStreak: 1, cardsStudied: 1),
+            LeaderboardEntry(rank: 1, userId: 2, displayName: 'Kuba', points: 1457, currentStreak: 1, cardsStudied: 3),
+          ],
+          currentUserRank: 1,
+        ),
+      );
+
+      await tester.pumpWidget(createTestApp(client: client));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(S.leaderboard));
+      await tester.pumpAndSettle();
       await tester.tap(find.text(S.metricStreak));
       await tester.pumpAndSettle();
+
       expect(client.lastQuery?.metric, 'streak');
+      expect(find.text(S.periodWeek), findsNothing);
+      expect(find.text(S.periodAllTime), findsNothing);
+      // A tie shares the rank.
+      expect(find.text(S.rankPosition(1)), findsNWidgets(2));
+      expect(find.text('1 den'), findsNWidgets(2));
+      expect(find.text('1 bod · 1 karta'), findsOneWidget);
+      expect(find.text('1 457 bodů · 3 karty'), findsOneWidget);
+    });
+
+    testWidgets('A hidden user is told how to show up again', (tester) async {
+      final client = _FakeLeaderboardApiClient(
+        user: testUser,
+        leaderboardData: Leaderboard(
+          period: 'week',
+          metric: 'points',
+          entries: [for (final e in testLeaderboard.entries) if (e.userId != testUser.id) e],
+          currentUserRank: null,
+        ),
+      );
+
+      await tester.pumpWidget(createTestApp(client: client));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(S.leaderboard));
+      await tester.pumpAndSettle();
+
+      expect(find.text(S.hiddenFromLeaderboard), findsOneWidget);
+      expect(find.text(S.youBadge), findsNothing);
     });
 
     testWidgets('Empty leaderboard shows empty state message', (tester) async {

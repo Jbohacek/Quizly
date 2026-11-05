@@ -513,6 +513,7 @@ class UserSettings {
     required this.quietTo,
     required this.smartTimes,
     this.fourRatings = false,
+    this.showInLeaderboard = true,
   });
 
   factory UserSettings.fromJson(Json j) => UserSettings(
@@ -526,6 +527,7 @@ class UserSettings {
         quietTo: j['quietTo'] as String,
         smartTimes: j['smartTimes'] as bool,
         fourRatings: j['fourRatings'] as bool? ?? false,
+        showInLeaderboard: j['showInLeaderboard'] as bool? ?? true,
       );
 
   static const minGoal = 1;
@@ -546,6 +548,9 @@ class UserSettings {
   /// "Těžké a Snadné": four answer buttons instead of Vím / Nevím (#19).
   final bool fourRatings;
 
+  /// "Zobrazit mě v žebříčku": other users see me in Žebříček (#34).
+  final bool showInLeaderboard;
+
   UserSettings copyWith({
     int? dailyGoal,
     int? newCardsPerDay,
@@ -557,6 +562,7 @@ class UserSettings {
     String? quietTo,
     bool? smartTimes,
     bool? fourRatings,
+    bool? showInLeaderboard,
   }) =>
       UserSettings(
         dailyGoal: dailyGoal ?? this.dailyGoal,
@@ -569,6 +575,7 @@ class UserSettings {
         quietTo: quietTo ?? this.quietTo,
         smartTimes: smartTimes ?? this.smartTimes,
         fourRatings: fourRatings ?? this.fourRatings,
+        showInLeaderboard: showInLeaderboard ?? this.showInLeaderboard,
       );
 
   Json toJson() => {
@@ -582,6 +589,7 @@ class UserSettings {
         'quietTo': quietTo,
         'smartTimes': smartTimes,
         'fourRatings': fourRatings,
+        'showInLeaderboard': showInLeaderboard,
       };
 }
 

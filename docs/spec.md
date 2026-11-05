@@ -63,6 +63,7 @@ Users are never deleted in v1; the admin deactivates them.
 | `quiet_to` | `time` | `07:00` | `quiet_from ≠ quiet_to` |
 | `smart_times` | `boolean` | `true` | |
 | `four_ratings` | `boolean` | `false` | "Těžké a Snadné" (#19) |
+| `show_in_leaderboard` | `boolean` | `true` | "Zobrazit mě v žebříčku" (#34); off hides the user from Žebříček (§10.1) |
 
 The admin sets `daily_goal` and `new_cards_per_day` when creating a user. The row is created together with the user.
 
@@ -580,6 +581,17 @@ All days are Prague days; "today" included. `deckId` filters everything except t
 | Deck progress | counts of Zvládnuto / Učím se / Nové (§3.5), per deck and total |
 
 Unfiltered numbers come from `daily_activities`; filtered numbers are computed from `review_logs` (indexed by `user_id, day`).
+
+### 10.1 Žebříček (`GET /api/leaderboard`, #34)
+
+Users compare themselves in Statistiky → Žebříček. Rules (pure part: `Quizly.Domain.Gamification.LeaderboardRanking`):
+
+- **Who:** active users with `show_in_leaderboard` on. A user who turned it off is on nobody's list, their own included (`currentUserRank: null`). Users without the shop are listed too: their points are earned the same way.
+- **Points** = the sum of `daily_activities.points` (reviews + milestone bonuses; claims and refunds don't count, so buying a reward doesn't drop a user down). **Cards** = the sum of `graded_count`.
+- **Period** (points only): `week` = the current Prague calendar week, Monday to today; `allTime` = everything. The current streak isn't counted per week, so a `streak` ranking ignores `period` and uses all-time points and cards.
+- **Streak** = the displayed streak (§5.5): 0 once a full day was missed.
+- **Order:** the ranked value, then the other one (streak for points, points for streak), then cards, then the display name (case-insensitive), then the user id.
+- **Rank:** users with the same ranked value share a rank, the next one skips (1, 1, 3). At the start of a week everyone with 0 points is 1st.
 
 ---
 

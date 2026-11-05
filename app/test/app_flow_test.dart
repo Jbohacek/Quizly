@@ -740,6 +740,16 @@ void main() {
     expect(platform.scheduled, isEmpty);
   });
 
+  testWidgets('#34: Zobrazit mě v žebříčku is saved with the settings', (tester) async {
+    final (api, _) = await _signedIn(tester);
+    await tester.tap(find.text('Nastavení'));
+    await settle(tester);
+    await tester.scrollUntilVisible(find.text(S.showInLeaderboard), 200, scrollable: find.byType(Scrollable).last);
+    await tester.tap(find.text(S.showInLeaderboard));
+    await settle(tester);
+    expect(api.savedSettings.last['showInLeaderboard'], false);
+  });
+
   testWidgets('#19: with Těžké a Snadné on, the session offers four answers', (tester) async {
     final semantics = tester.ensureSemantics();
     final (api, _) = await _signedIn(tester);
@@ -1125,6 +1135,11 @@ void main() {
         await tester.tap(find.text(tab).last);
         await settle(tester);
         await meetsAll(tester, tab);
+        if (tab == 'Statistiky') {
+          await tester.tap(find.text(S.leaderboard));
+          await settle(tester);
+          await meetsAll(tester, S.leaderboard);
+        }
       }
       semantics.dispose();
     });

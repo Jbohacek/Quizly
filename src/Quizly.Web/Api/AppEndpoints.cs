@@ -77,9 +77,9 @@ internal static class AppEndpoints
             .WithTags("Stats").WithName("GetStats").WithSummary("Tiles, heatmap, daily bars, weekdays, best time and deck progress");
 
         api.MapGet("/leaderboard", async (string? period, string? metric, ClaimsPrincipal user, ILeaderboardService leaderboard, CancellationToken ct) =>
-                TypedResults.Ok(await leaderboard.GetLeaderboardAsync(user.UserId(), period, metric, ct)))
+                (await leaderboard.GetLeaderboardAsync(user.UserId(), period, metric, ct)).OkOrProblem())
             .WithTags("Leaderboard").WithName("GetLeaderboard")
-            .WithSummary("Weekly or all-time leaderboards ranked by points or streak");
+            .WithSummary("Žebříček: this week's or all-time points, or current streaks, of users who show themselves");
 
         // Users the admin keeps out of the shop get 403 shopDisabled on all of it (shop, claims, wishlist).
         var shop = api.MapGroup("").WithTags("Shop").AddEndpointFilter(async (context, next) =>

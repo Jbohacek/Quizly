@@ -301,6 +301,13 @@ class _SettingsBodyState extends ConsumerState<_SettingsBody> {
                 value: _settings.fourRatings,
                 onChanged: (v) => _change(_settings.copyWith(fourRatings: v)),
               ),
+              const Divider(height: 1, color: Q.border),
+              _Toggle(
+                title: S.showInLeaderboard,
+                hint: S.showInLeaderboardHint,
+                value: _settings.showInLeaderboard,
+                onChanged: (v) => _change(_settings.copyWith(showInLeaderboard: v)),
+              ),
             ],
           ),
         ),

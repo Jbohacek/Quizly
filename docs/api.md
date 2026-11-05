@@ -144,7 +144,8 @@ Errors: `validation`, `invalidCredentials`, `accountDisabled`, `rateLimited`. `d
   "morningTime": "08:00", "eveningTime": "18:30", "lastCallTime": "21:00",
   "quietFrom": "22:00", "quietTo": "07:00",
   "smartTimes": true,
-  "fourRatings": false
+  "fourRatings": false,
+  "showInLeaderboard": true
 }
 ```
 
@@ -157,6 +158,8 @@ Body: the full settings object. `200`:
 ```
 
 Lowering the goal can complete today (spec §5.3), so the response carries a summary and events. Errors: `validation`.
+
+`showInLeaderboard` (#34) may be left out: the stored value stays, so an older app never shows a user who hid themselves.
 
 ---
 
@@ -324,6 +327,25 @@ Omit `deckId` for "Učit se vše". `extraNew` (0–50, default 0) adds that many
 ```
 
 Definitions: spec §10. `successRate` values are whole percent or `null`.
+
+### GET `/leaderboard?period=week&metric=points`
+
+Žebříček (#34). `period`: `week` (default, this Prague calendar week from Monday) or `allTime`; `metric`: `points` (default) or `streak`. A streak isn't counted per week, so with `metric=streak` the period is ignored and the response says `allTime`.
+
+```json
+{
+  "period": "week",
+  "metric": "points",
+  "entries": [
+    { "rank": 1, "userId": 3, "displayName": "Petra", "points": 420, "currentStreak": 9, "cardsStudied": 41 },
+    { "rank": 2, "userId": 7, "displayName": "Kuba", "points": 310, "currentStreak": 12, "cardsStudied": 30 },
+    { "rank": 2, "userId": 8, "displayName": "Tom", "points": 310, "currentStreak": 4, "cardsStudied": 33 }
+  ],
+  "currentUserRank": 2
+}
+```
+
+Every active user with `showInLeaderboard` on, best first; equal values share a rank (1, 2, 2, 4). `points` and `cardsStudied` are for the period; `currentStreak` is the displayed streak. `currentUserRank` is `null` when the caller hid themselves (they aren't in `entries` either). Rules: spec §10.1. Errors: `validation` (unknown `period` or `metric`).
 
 ---
 

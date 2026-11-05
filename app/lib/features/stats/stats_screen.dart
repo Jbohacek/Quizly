@@ -30,6 +30,11 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
   String _period = 'week';
   String _metric = 'points';
 
+  /// Both tabs stay loaded once opened, so switching back and forth doesn't reload them.
+  bool _leaderboardOpened = false;
+
+  LeaderboardQuery get _leaderboardQuery => (period: _period, metric: _metric);
+
   Future<void> _pickDeck() async {
     final decks = ref.read(homeProvider).value?.decks.items ?? const <Deck>[];
     final picked = await showModalBottomSheet<({int? id})>(
@@ -63,10 +68,8 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final stats = _currentTab == StatsTab.myStats ? ref.watch(statsProvider(_deckId)) : null;
-    final leaderboard = _currentTab == StatsTab.leaderboard
-        ? ref.watch(leaderboardProvider((period: _period, metric: _metric)))
-        : null;
+    final stats = ref.watch(statsProvider(_deckId));
+    final leaderboard = _leaderboardOpened ? ref.watch(leaderboardProvider(_leaderboardQuery)) : null;
     final decks = ref.watch(homeProvider).value?.decks.items ?? const <Deck>[];
     final deckName = decks.where((d) => d.id == _deckId).firstOrNull?.name;
     final currentUserId = ref.watch(authProvider).user?.id;
@@ -78,7 +81,7 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
         backgroundColor: Q.surface,
         onRefresh: () => _currentTab == StatsTab.myStats
             ? ref.refresh(statsProvider(_deckId).future)
-            : ref.refresh(leaderboardProvider((period: _period, metric: _metric)).future),
+            : ref.refresh(leaderboardProvider(_leaderboardQuery).future),
         child: ListView(
           padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
           children: [
@@ -91,10 +94,13 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
             const SizedBox(height: 14),
             _TabSwitch(
               current: _currentTab,
-              onSelect: (tab) => setState(() => _currentTab = tab),
+              onSelect: (tab) => setState(() {
+                _currentTab = tab;
+                _leaderboardOpened |= tab == StatsTab.leaderboard;
+              }),
             ),
             const SizedBox(height: 16),
-            if (_currentTab == StatsTab.myStats) ...switch (stats!) {
+            if (_currentTab == StatsTab.myStats) ...switch (stats) {
               AsyncValue(:final value?) => _sections(value),
               AsyncValue(:final error?) => [
                   SizedBox(
@@ -121,7 +127,7 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
                       height: 420,
                       child: ErrorView(
                         message: error is ApiException ? error.message : S.loadFailed,
-                        onRetry: () => ref.invalidate(leaderboardProvider((period: _period, metric: _metric))),
+                        onRetry: () => ref.invalidate(leaderboardProvider(_leaderboardQuery)),
                       ),
                     ),
                   ],
@@ -134,58 +140,24 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
     );
   }
 
-  List<Widget> _leaderboardView(Leaderboard lb, int? currentUserId) {
-    if (lb.entries.isEmpty) {
-      return [
-        Container(
-          padding: const EdgeInsets.all(28),
-          decoration: BoxDecoration(
-            color: Q.surface,
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: Q.border),
-          ),
-          child: Center(
-            child: Text(
-              S.emptyLeaderboard,
-              textAlign: TextAlign.center,
-              style: QText.body(15, color: Q.textMuted),
-            ),
-          ),
-        ),
+  List<Widget> _leaderboardView(Leaderboard lb, int? currentUserId) => [
+        // Without a rank the user hid themselves in Nastavení (docs/api.md GET /leaderboard).
+        if (lb.currentUserRank case final rank?)
+          _Banner(icon: Icons.emoji_events_rounded, text: S.yourRankBadge(rank), highlighted: true)
+        else
+          const _Banner(icon: Icons.visibility_off_rounded, text: S.hiddenFromLeaderboard),
+        const SizedBox(height: 14),
+        if (lb.entries.isEmpty)
+          Panel(
+            padding: const EdgeInsets.all(28),
+            child: Text(S.emptyLeaderboard, textAlign: TextAlign.center, style: QText.body(15, color: Q.textMuted)),
+          )
+        else
+          for (final entry in lb.entries) ...[
+            _LeaderboardTile(entry: entry, isCurrentUser: entry.userId == currentUserId, metric: lb.metric),
+            const SizedBox(height: 8),
+          ],
       ];
-    }
-
-    return [
-      if (lb.currentUserRank != null)
-        Container(
-          margin: const EdgeInsets.only(bottom: 14),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          decoration: BoxDecoration(
-            color: Q.tint(Q.primary),
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: Q.primary),
-          ),
-          child: Row(
-            children: [
-              const Icon(Icons.emoji_events_rounded, color: Q.primary, size: 24),
-              const SizedBox(width: 12),
-              Text(
-                S.yourRankBadge(lb.currentUserRank!),
-                style: QText.body(15, weight: FontWeight.w700, color: Q.primaryLight),
-              ),
-            ],
-          ),
-        ),
-      for (final entry in lb.entries) ...[
-        _LeaderboardTile(
-          entry: entry,
-          isCurrentUser: entry.userId == currentUserId,
-          metric: lb.metric,
-        ),
-        const SizedBox(height: 8),
-      ],
-    ];
-  }
 
   List<Widget> _sections(Stats s) => [
         _Tiles(tiles: s.tiles),
@@ -889,6 +861,7 @@ class _TabButton extends StatelessWidget {
   }
 }
 
+/// Body / Série, and for Body also Tento týden / Celkově. A streak isn't counted per week, so Série has no period.
 class _LeaderboardControls extends StatelessWidget {
   const _LeaderboardControls({
     required this.period,
@@ -908,17 +881,6 @@ class _LeaderboardControls extends StatelessWidget {
       children: [
         Expanded(
           child: _PillToggle(
-            value: period,
-            leftValue: 'week',
-            leftLabel: S.periodWeek,
-            rightValue: 'allTime',
-            rightLabel: S.periodAllTime,
-            onChanged: onPeriodChanged,
-          ),
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: _PillToggle(
             value: metric,
             leftValue: 'points',
             leftLabel: S.metricPoints,
@@ -927,6 +889,19 @@ class _LeaderboardControls extends StatelessWidget {
             onChanged: onMetricChanged,
           ),
         ),
+        if (metric == 'points') ...[
+          const SizedBox(width: 8),
+          Expanded(
+            child: _PillToggle(
+              value: period,
+              leftValue: 'week',
+              leftLabel: S.periodWeek,
+              rightValue: 'allTime',
+              rightLabel: S.periodAllTime,
+              onChanged: onPeriodChanged,
+            ),
+          ),
+        ],
       ],
     );
   }
@@ -1013,6 +988,40 @@ class _PillOption extends StatelessWidget {
   }
 }
 
+/// Your place in Žebříček, or that you're hidden from it.
+class _Banner extends StatelessWidget {
+  const _Banner({required this.icon, required this.text, this.highlighted = false});
+
+  final IconData icon;
+  final String text;
+  final bool highlighted;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: highlighted ? Q.tint(Q.primary) : Q.surface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: highlighted ? Q.primary : Q.border),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: highlighted ? Q.primary : Q.textMuted, size: 22),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              text,
+              style: QText.body(highlighted ? 15 : 13, weight: highlighted ? FontWeight.w700 : FontWeight.w500,
+                  color: highlighted ? Q.primaryLight : Q.textMuted),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _LeaderboardTile extends StatelessWidget {
   const _LeaderboardTile({
     required this.entry,
@@ -1024,42 +1033,35 @@ class _LeaderboardTile extends StatelessWidget {
   final bool isCurrentUser;
   final String metric;
 
-  Widget _rankBadge(int rank) {
-    final medal = switch (rank) {
-      1 => '🥇',
-      2 => '🥈',
-      3 => '🥉',
-      _ => null,
-    };
-    if (medal != null) {
-      return Text(medal, style: const TextStyle(fontSize: 22));
-    }
-    return Text(
-      S.rankPosition(rank),
-      style: QText.body(15, weight: FontWeight.w800, color: Q.textMuted),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
+    final byStreak = metric == 'streak';
+    final podium = entry.rank <= 3;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
         color: isCurrentUser ? Q.tint(Q.primary) : Q.surface,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: isCurrentUser ? Q.primary : Q.border,
-          width: isCurrentUser ? 1.5 : 1,
-        ),
+        border: Border.all(color: isCurrentUser ? Q.primary : Q.border, width: isCurrentUser ? 1.5 : 1),
       ),
       child: Row(
         children: [
-          Container(
-            width: 32,
-            alignment: Alignment.centerLeft,
-            child: _rankBadge(entry.rank),
+          // The top three get a round badge in the points color; shared ranks show the same number.
+          Semantics(
+            label: S.rankLabel(entry.rank),
+            excludeSemantics: true,
+            child: Container(
+              width: 32,
+              height: 32,
+              alignment: Alignment.center,
+              decoration: podium ? BoxDecoration(color: Q.tint(Q.points), shape: BoxShape.circle) : null,
+              child: Text(
+                S.rankPosition(entry.rank),
+                style: QText.heading(podium ? 15 : 14, color: podium ? Q.points : Q.textMuted),
+              ),
+            ),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1078,23 +1080,17 @@ class _LeaderboardTile extends StatelessWidget {
                       const SizedBox(width: 6),
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: Q.primary,
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Text(
-                          S.youBadge,
-                          style: QText.body(10, weight: FontWeight.w800, color: Q.onPrimary),
-                        ),
+                        decoration: BoxDecoration(color: Q.primary, borderRadius: BorderRadius.circular(6)),
+                        child: Text(S.youBadge, style: QText.body(10, weight: FontWeight.w800, color: Q.onPrimary)),
                       ),
                     ],
                   ],
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  metric == 'streak'
-                      ? '${formatInt(entry.points)} bodů · ${formatInt(entry.cardsStudied)} karet'
-                      : 'Série: ${days(entry.currentStreak)} · ${formatInt(entry.cardsStudied)} karet',
+                  byStreak
+                      ? S.leaderboardStreakLine(entry.points, entry.cardsStudied)
+                      : S.leaderboardPointsLine(entry.currentStreak, entry.cardsStudied),
                   style: QText.body(12, color: Q.textMuted),
                 ),
               ],
@@ -1102,13 +1098,8 @@ class _LeaderboardTile extends StatelessWidget {
           ),
           const SizedBox(width: 12),
           Text(
-            metric == 'streak'
-                ? '${entry.currentStreak} d'
-                : '${formatInt(entry.points)} b',
-            style: QText.heading(
-              17,
-              color: metric == 'streak' ? Q.multiplier : Q.points,
-            ),
+            byStreak ? days(entry.currentStreak) : points(entry.points),
+            style: QText.heading(17, color: byStreak ? Q.primary : Q.points),
           ),
         ],
       ),

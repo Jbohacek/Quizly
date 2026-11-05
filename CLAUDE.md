@@ -180,6 +180,7 @@ points = round(base × min(2.0, 1.0 + 0.1 × floor(streakDays / 7)))
 - **"Kdy ti to jde nejlíp":** success % per weekday, plus the best 2-hour time window (with a minimum sample size).
 - **Deck progress:** share of *Zvládnuto* (FSRS Review state with stability ≥ 21 days), *Učím se* (Learning/Relearning, or Review with stability < 21 days) and *Nové* (never reviewed).
 - **Filter:** all decks or one deck.
+- **Žebříček** (#34, second tab next to "Moje statistiky"): users compare themselves by **Body** (this week from Monday, or Celkově) or **Série** (the current streak, no period). Each row shows the rank, name, points or streak, and cards; equal values share a rank; the user's own row is highlighted. Points are earned points (reviews + milestones), not the balance. A user can hide themselves with **"Zobrazit mě v žebříčku"** in Nastavení (default on); then nobody sees them, and their Žebříček says so. Rules: [`docs/spec.md`](./docs/spec.md) §10.1.
 
 ### 5.10 Admin dashboard (`/admin`, Blazor, Czech)
 - **Přehled:** tiles (pending claims, users active today, reviews today + success, points in the last 7 days); pending claims table with **Schválit / Zamítnout**; "Uživatelé dnes" table (streak + multiplier, today's goal progress, points, last active); quick actions.
@@ -219,7 +220,7 @@ Integer identity keys, except `ReviewLog.Id`, which is the client UUID. Timestam
 | Entity | Fields | Notes |
 | --- | --- | --- |
 | `User` | Id, Username (unique), DisplayName, PasswordHash, IsActive, ShopEnabled = true, CreatedAt, LastActiveAt, CurrentStreak, BestStreak, LastGoalMetDate | streak fields are a cache derived from DailyActivity |
-| `UserSettings` | UserId (PK/FK), DailyGoal = 20, NewCardsPerDay = 5, NotificationsEnabled, MorningTime = 08:00, EveningTime = 18:30, LastCallTime = 21:00, QuietFrom = 22:00, QuietTo = 07:00, SmartTimes = true, FourRatings = false | 1:1 with User |
+| `UserSettings` | UserId (PK/FK), DailyGoal = 20, NewCardsPerDay = 5, NotificationsEnabled, MorningTime = 08:00, EveningTime = 18:30, LastCallTime = 21:00, QuietFrom = 22:00, QuietTo = 07:00, SmartTimes = true, FourRatings = false, ShowInLeaderboard = true | 1:1 with User |
 | `RefreshToken` | Id, UserId, TokenHash, ExpiresAt, CreatedAt, RevokedAt, ReplacedById | rotation |
 | `Deck` | Id, Name, Description, Color, SortOrder, ForEveryone, ArchivedAt, CreatedAt, UpdatedAt | ArchivedAt set = archived, hidden in the app (#28) |
 | `DeckAccess` | (DeckId, UserId) PK | users who see a deck that isn't for everyone |
@@ -261,6 +262,7 @@ Everything is under `/api`: JSON, camelCase, errors as RFC 7807 ProblemDetails. 
 | GET | `/api/session?deckId={id}` | session queue (omit `deckId` for all decks) |
 | POST | `/api/reviews` | batch `[{ id: uuid, cardId, rating: "know" \| "dontKnow" \| "hard" \| "easy" }]` → points per review + updated summary (balance, streak, multiplier, today, milestone events) |
 | GET | `/api/stats?deckId={id}` | tiles, heatmap, daily bars, weekday, best time, deck progress |
+| GET | `/api/leaderboard?period=week\|allTime&metric=points\|streak` | Žebříček: users who show themselves, ranked (§5.9) |
 | GET | `/api/shop` | items with stock and wishlist flags, plus balance |
 | POST | `/api/shop/{itemId}/claim` | create a claim |
 | GET | `/api/claims` | my claims |
@@ -356,7 +358,7 @@ Status chips: pending `#FFF1D6` / `#8A5300` · confirmed `#E3F4E6` / `#1F7A3A` �
 6. **Statistiky:** see §5.9.
 7. **Obchod:** balance, "Šetříš na" wishlist card, tabs **Odměny / Moje nákupy**, item grid (name, stock line, price, **Koupit** or "Chybí X" / "Vyprodáno", heart), my claims with status chips.
 8. **Potvrzení nákupu** (bottom sheet): title, description, price / balance / after purchase, info that points are deducted now and the admin approves; **Zrušit / Koupit za X**.
-9. **Nastavení:** account ("Tvůj účet"), **Změnit heslo** (current, new, new again), **Denní cíl** stepper, **Nové karty denně** stepper, **Těžké a Snadné** toggle, notifications toggle, morning / evening / last-call times, quiet hours, **Chytré časy** toggle, "Odhlásit se", version.
+9. **Nastavení:** account ("Tvůj účet"), **Změnit heslo** (current, new, new again), **Denní cíl** stepper, **Nové karty denně** stepper, **Těžké a Snadné** toggle, **Zobrazit mě v žebříčku** toggle, notifications toggle, morning / evening / last-call times, quiet hours, **Chytré časy** toggle, "Odhlásit se", version.
 10. **Upozornění:** examples of every notification category (§5.8).
 
 ### 9.5 Czech UI glossary (use these exact terms)
@@ -493,3 +495,4 @@ Jakub confirmed these defaults at the Etapa 0 gate (2026-10-31). Raise any of th
 | 2026-11-04 | #29 (app part, same PR as the API): the session's deck chip became the deck name as plain text in the deck's color (Jakub's review: colored, not grey), with the card's tags under it in smaller grey text (`ai_gen · prednaska_01`; no tags → no line). Deck detail shows tags under each question and its search matches them. The card editor has a "Tagy" field (`ai_gen ; prednaska_01`), split like the server and always sent, so clearing it removes the tags; `errors.tags` shows under it. No tag filter (an idea for later). |
 | 2026-11-04 | App updates (Jakub: in-app download, only full releases, betas by hand). The repository stays private, so the server fetches the newest **full** release from GitHub (`releases/latest`, read-only fine-grained token in `Updates__GitHubToken`, checked every 15 min, APK on the `apk` volume, size + SHA-256 checked) and serves it at `GET /api/app/latest` / `GET /api/app/apk` (app login). No upload step and no CI deploy: the server pulls. The app compares versionCodes (from the APK name) and shows a card on Domů; "Později" hides it until the next start. Install through Android's screen via a FileProvider and `REQUEST_INSTALL_PACKAGES`, no extra package. The app becomes `1.0.0` for the first release. |
 | 2026-11-04 | #28: the admin archives decks that are no longer used (`decks.archived_at`, `POST /api/admin/decks/{id}/archive` · `/restore`). `DeckVisibility` hides an archived deck from every app user on every app endpoint, access or not; nothing is deleted and restoring brings back cards, access and progress. No app change needed (a review from a running session comes back `cardNotFound` and is dropped). Archiving again keeps the date; neither action touches `updated_at`. Dashboard: archived decks in a collapsed "Archivované (N)" section under the list with Obnovit; Nastavení has Archivace (with a confirmation) / Obnovit balíček; the detail header shows "Archivováno …". MCP's `list_decks` still lists them with `archived: true` (so Claude doesn't create a duplicate); archiving stays dashboard-only. |
+| 2026-11-05 | #34: Žebříček in Statistiky (a "Moje statistiky / Žebříček" switch). `GET /api/leaderboard` ranks active users by points this week (Prague calendar week from Monday) or all time, or by the current streak; a streak isn't counted per week, so Série has no period. Points are earned points from `daily_activities` (reviews + milestones), not the balance, so buying a reward doesn't drop a user down; users without the shop are listed too. Equal values share a rank (1, 1, 3), so a fresh week doesn't rank people who have 0 points. The issue asks for an opt-out: `user_settings.show_in_leaderboard` (default on, Nastavení "Zobrazit mě v žebříčku") hides the user from everyone's list, their own included; a settings request without it keeps it, so an older app can't show a hidden user. Ranks are numbers in a round badge, not medal emoji (§9.3). Unknown `period` / `metric` → `400 validation`. |
