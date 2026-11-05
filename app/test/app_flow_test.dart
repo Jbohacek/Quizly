@@ -176,8 +176,14 @@ class FakeApi implements HttpClientAdapter {
             {
               'cardId': 101, 'deckId': 1, 'question': 'Co je struct?', 'answer': 'Hodnotový typ.', 'kind': 'review',
               'tags': ['ai_gen', 'prednaska_01'],
+              'intervals': {'dontKnow': '10m', 'hard': '2d', 'know': '4d', 'easy': '8d'},
+              'relearnIntervals': {'dontKnow': '10m', 'hard': '15m', 'know': '1d', 'easy': '3d'},
             },
-            {'cardId': 102, 'deckId': 1, 'question': 'Co je class?', 'answer': 'Referenční typ.', 'kind': 'new'},
+            {
+              'cardId': 102, 'deckId': 1, 'question': 'Co je class?', 'answer': 'Referenční typ.', 'kind': 'new',
+              'intervals': {'dontKnow': '1m', 'hard': '6m', 'know': '10m', 'easy': '8d'},
+              'relearnIntervals': {'dontKnow': '1m', 'hard': '6m', 'know': '10m', 'easy': '8d'},
+            },
           ],
         }),
       'POST /api/reviews' => _reviews(body as Map<String, Object?>),
@@ -750,6 +756,11 @@ void main() {
     for (final label in [S.dontKnow, S.hard, S.know, S.easy]) {
       expect(find.bySemanticsLabel(label), findsWidgets, reason: label);
     }
+    // #31: Review intervals are shown above buttons
+    expect(find.text('10m'), findsOneWidget);
+    expect(find.text('2d'), findsOneWidget);
+    expect(find.text('4d'), findsOneWidget);
+    expect(find.text('8d'), findsOneWidget);
     // No Přeskočit button: a swipe up skips, and nothing on screen says so.
     expect(find.bySemanticsLabel(S.skip), findsNothing);
     expect(find.textContaining('nahoru'), findsNothing);
@@ -831,6 +842,47 @@ void main() {
     expect(tester.getTopLeft(find.text(S.hintDrag)).dy, lessThan(hintBefore - 80));
     expect(find.bySemanticsLabel('Vím'), findsWidgets);
     expect(find.bySemanticsLabel('Nevím'), findsWidgets);
+    // #31: Review intervals are shown above buttons
+    expect(find.text('1m'), findsOneWidget);
+    expect(find.text('10m'), findsOneWidget);
+  });
+
+  testWidgets('#31: re-queued card switches review button intervals to relearnIntervals', (tester) async {
+    await _signedIn(tester);
+    await tester.tap(find.text(S.studyAll(2)));
+    await settle(tester);
+
+    // Turn first card ('Co je struct?': review card)
+    await tester.tap(find.byType(SwipeCard));
+    await settle(tester);
+
+    // Initial intervals: Nevim 10m, Vim 4d
+    expect(find.text('10m'), findsOneWidget);
+    expect(find.text('4d'), findsOneWidget);
+
+    // Answer Nevím -> card is re-queued to the end
+    await _answer(tester, 'Nevím');
+    expect(find.text('Karta 2 z 3'), findsOneWidget);
+
+    // Answer second card ('Co je class?') with Vím
+    await tester.tap(find.byType(SwipeCard));
+    await settle(tester);
+    expect(find.text('1m'), findsOneWidget);
+    expect(find.text('10m'), findsOneWidget);
+    await _answer(tester, 'Vím');
+
+    // First card returns as re-queued card!
+    expect(find.text('Karta 3 z 3'), findsOneWidget);
+    await tester.tap(find.byType(SwipeCard));
+    await settle(tester);
+
+    // Relearn intervals: Nevim 10m, Vim 1d (not the initial 4d!)
+    expect(find.text('10m'), findsOneWidget);
+    expect(find.text('1d'), findsOneWidget);
+    expect(find.text('4d'), findsNothing);
+
+    await _answer(tester, 'Vím');
+    expect(find.text('Hotovo!'), findsOneWidget);
   });
 
   testWidgets('#12–#15: deck filter, search, progress per card, no hint on every card', (tester) async {

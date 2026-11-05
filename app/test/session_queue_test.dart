@@ -75,6 +75,19 @@ void main() {
       expect(q.isDone, isTrue);
       expect((q.position, q.total), (1, 0));
     });
+
+    test('#31: isRelearn is true only when the front card was re-queued after dontKnow', () {
+      final q = SessionQueue([card(1), card(2)]);
+      expect(q.isRelearn, isFalse);
+      q.answer(Rating.dontKnow); // card 1 requeued to end
+      expect(q.isRelearn, isFalse); // current is card 2 (not requeued)
+      q.answer(Rating.know); // card 2 finished
+      expect(q.isRelearn, isTrue); // current is card 1 (requeued!)
+      expect(q.current!.cardId, 1);
+      q.answer(Rating.know); // card 1 finished
+      expect(q.isDone, isTrue);
+      expect(q.isRelearn, isFalse);
+    });
   });
 
   group('SessionTally', () {
@@ -134,6 +147,68 @@ void main() {
       ));
       expect(t.points, 11);
       expect(t.goalMetInSession, isFalse);
+    });
+  });
+
+  group('CardIntervals (#31)', () {
+    test('parses full JSON and maps ratings correctly', () {
+      final intervals = CardIntervals.fromJson({
+        'dontKnow': '1m',
+        'hard': '6m',
+        'know': '10m',
+        'easy': '8d',
+      });
+      expect(intervals.dontKnow, '1m');
+      expect(intervals.hard, '6m');
+      expect(intervals.know, '10m');
+      expect(intervals.easy, '8d');
+      expect(intervals.forRating(Rating.dontKnow), '1m');
+      expect(intervals.forRating(Rating.hard), '6m');
+      expect(intervals.forRating(Rating.know), '10m');
+      expect(intervals.forRating(Rating.easy), '8d');
+      expect(intervals.toJson(), {
+        'dontKnow': '1m',
+        'hard': '6m',
+        'know': '10m',
+        'easy': '8d',
+      });
+    });
+
+    test('parses partial JSON with nullable hard and easy', () {
+      final intervals = CardIntervals.fromJson({
+        'dontKnow': '10m',
+        'know': '1d',
+      });
+      expect(intervals.dontKnow, '10m');
+      expect(intervals.hard, isNull);
+      expect(intervals.know, '1d');
+      expect(intervals.easy, isNull);
+      expect(intervals.forRating(Rating.hard), isNull);
+      expect(intervals.forRating(Rating.easy), isNull);
+      expect(intervals.toJson(), {
+        'dontKnow': '10m',
+        'know': '1d',
+      });
+    });
+
+    test('SessionCard parses intervals and relearnIntervals and preserves them on edit', () {
+      final cardJson = {
+        'cardId': 42,
+        'deckId': 1,
+        'question': 'Otázka',
+        'answer': 'Odpověď',
+        'kind': 'review',
+        'tags': ['csharp'],
+        'intervals': {'dontKnow': '10m', 'hard': '1d', 'know': '3d', 'easy': '7d'},
+        'relearnIntervals': {'dontKnow': '10m', 'hard': '15m', 'know': '1d', 'easy': '3d'},
+      };
+      final sc = SessionCard.fromJson(cardJson);
+      expect(sc.intervals?.know, '3d');
+      expect(sc.relearnIntervals?.hard, '15m');
+
+      final edited = sc.edited(question: 'Nová', answer: 'Nová', tags: ['csharp']);
+      expect(edited.intervals?.know, '3d');
+      expect(edited.relearnIntervals?.hard, '15m');
     });
   });
 }

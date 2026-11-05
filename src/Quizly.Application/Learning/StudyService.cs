@@ -3,6 +3,7 @@ using Quizly.Application.Abstractions;
 using Quizly.Application.Common;
 using Quizly.Application.Decks;
 using Quizly.Domain;
+using Quizly.Domain.Scheduling;
 
 namespace Quizly.Application.Learning;
 
@@ -40,27 +41,56 @@ internal sealed class StudyService(IAppDbContext db, Progress progress, TimeProv
         var settings = await db.UserSettings.AsNoTracking().FirstAsync(s => s.UserId == userId, ct);
         var cards = db.Cards.VisibleTo(userId).Where(c => deckId == null || c.DeckId == deckId);
 
-        var due = await db.CardStates
+        var dueRows = await db.CardStates
             .Where(s => s.UserId == userId && s.Due <= now)
-            .Join(cards, s => s.CardId, c => c.Id, (s, c) => new { s.Due, s.State, Card = c })
-            .OrderBy(x => x.Due).ThenBy(x => x.Card.Id)
-            .Select(x => new SessionRow(x.Card.Id, x.Card.DeckId, x.Card.Question, x.Card.Answer, KindOf(x.State), x.Card.Tags.Select(t => t.Name).ToList()))
+            .Join(cards, s => s.CardId, c => c.Id, (s, c) => new
+            {
+                c.Id,
+                c.DeckId,
+                c.Question,
+                c.Answer,
+                Tags = c.Tags.Select(t => t.Name).ToList(),
+                s.State,
+                s.Step,
+                s.Stability,
+                s.Difficulty,
+                s.Due,
+                s.LastReview,
+            })
+            .OrderBy(x => x.Due).ThenBy(x => x.Id)
             .ToListAsync(ct);
+
+        var due = dueRows.Select(x =>
+        {
+            var fsrsCard = new FsrsCard(x.State, x.Step, x.Stability, x.Difficulty, x.Due, x.LastReview);
+            var (intervals, relearnIntervals) = CalculateCardIntervals(fsrsCard, now);
+            return new SessionCardResponse(x.Id, x.DeckId, x.Question, x.Answer, KindOf(x.State), Sorted(x.Tags), intervals, relearnIntervals);
+        }).ToList();
 
         // Extra new cards are on top of what's left today; they still count as today's new cards.
         var allowance = extraNew + await progress.NewAllowanceLeftAsync(userId, settings.NewCardsPerDay, PragueCalendar.DayOf(now), ct);
-        var fresh = allowance == 0
+        var freshCards = allowance == 0
             ? []
             : await Unseen(userId, cards)
                 .OrderBy(c => c.Deck.SortOrder).ThenBy(c => c.DeckId).ThenBy(c => c.SortOrder).ThenBy(c => c.Id)
                 .Take(allowance)
-                .Select(c => new SessionRow(c.Id, c.DeckId, c.Question, c.Answer, "new", c.Tags.Select(t => t.Name).ToList()))
+                .Select(c => new
+                {
+                    c.Id,
+                    c.DeckId,
+                    c.Question,
+                    c.Answer,
+                    Tags = c.Tags.Select(t => t.Name).ToList(),
+                })
                 .ToListAsync(ct);
 
+        var (freshIntervals, freshRelearnIntervals) = CalculateCardIntervals(FsrsCard.New(now), now);
+        var fresh = freshCards.Select(c =>
+            new SessionCardResponse(c.Id, c.DeckId, c.Question, c.Answer, "new", Sorted(c.Tags), freshIntervals, freshRelearnIntervals)
+        ).ToList();
+
         var summary = await progress.SummaryAsync(userId, ct);
-        var queue = due.Concat(fresh)
-            .Select(r => new SessionCardResponse(r.CardId, r.DeckId, r.Question, r.Answer, r.Kind, Sorted(r.Tags)))
-            .ToList();
+        var queue = due.Concat(fresh).ToList();
         return new SessionResponse(deckId, summary.Multiplier, Progress.PointsFor(summary), due.Count, fresh.Count, queue, settings.FourRatings);
     }
 
@@ -146,7 +176,28 @@ internal sealed class StudyService(IAppDbContext db, Progress progress, TimeProv
     /// <summary>Tags in the same (ordinal) order everywhere, whatever the database collation.</summary>
     private static List<string> Sorted(List<string> tags) => [.. tags.Order(StringComparer.Ordinal)];
 
-    private sealed record SessionRow(int CardId, int DeckId, string Question, string Answer, string Kind, List<string> Tags);
+    private static (CardIntervalsResponse Intervals, CardIntervalsResponse RelearnIntervals) CalculateCardIntervals(
+        FsrsCard card, DateTime now)
+    {
+        var intervals = ComputeIntervals(card, now);
+        var afterAgain = FsrsScheduler.Default.Review(card, FsrsRating.Again, now);
+        var relearnIntervals = ComputeIntervals(afterAgain, now);
+        return (intervals, relearnIntervals);
+    }
+
+    private static CardIntervalsResponse ComputeIntervals(FsrsCard card, DateTime now)
+    {
+        var again = FsrsScheduler.Default.Review(card, FsrsRating.Again, now);
+        var hard = FsrsScheduler.Default.Review(card, FsrsRating.Hard, now);
+        var good = FsrsScheduler.Default.Review(card, FsrsRating.Good, now);
+        var easy = FsrsScheduler.Default.Review(card, FsrsRating.Easy, now);
+
+        return new CardIntervalsResponse(
+            ReviewIntervalFormatter.Format(again.Due - now),
+            ReviewIntervalFormatter.Format(hard.Due - now),
+            ReviewIntervalFormatter.Format(good.Due - now),
+            ReviewIntervalFormatter.Format(easy.Due - now));
+    }
 
     internal IQueryable<Card> Unseen(int userId, IQueryable<Card> cards) =>
         cards.Where(c => !db.CardStates.Any(s => s.UserId == userId && s.CardId == c.Id));

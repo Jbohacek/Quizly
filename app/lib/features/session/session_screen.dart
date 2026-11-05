@@ -46,7 +46,7 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
   bool _revealed = false;
 
   /// Nevím / Přeskočit / Vím with their labels.
-  static const _buttonsHeight = 96.0;
+  static const _buttonsHeight = 116.0;
 
   @override
   void initState() {
@@ -286,55 +286,72 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
   Widget _answerRow(SessionController c) => c.fourRatings ? _fourRow(c) : _twoRow(c);
 
   Widget _fourRow(SessionController c) {
+    final card = c.queue.current;
+    final intervals = (c.queue.isRelearn ? card?.relearnIntervals : card?.intervals) ?? card?.intervals;
     VoidCallback? rate(Rating r) => c.canAnswer ? () => _answer(r) : null;
     // Four equal slots: the labels shrink to fit if a phone is narrow.
     return Row(
       key: const ValueKey('answer'),
       crossAxisAlignment: CrossAxisAlignment.end,
       children: [
-        for (final button in [
-          _RoundButton(label: S.dontKnow, icon: Icons.close_rounded, color: Q.dontKnow, size: 58, onPressed: rate(Rating.dontKnow)),
-          _RoundButton(label: S.hard, icon: Icons.trending_down_rounded, color: Q.points, size: 58, onPressed: rate(Rating.hard)),
-          _RoundButton(label: S.know, icon: Icons.check_rounded, color: Q.primary, size: 58, onPressed: rate(Rating.know)),
-          _RoundButton(label: S.easy, icon: Icons.bolt_rounded, color: Q.info, size: 58, onPressed: rate(Rating.easy)),
+        for (final (rating, label, icon, color) in [
+          (Rating.dontKnow, S.dontKnow, Icons.close_rounded, Q.dontKnow),
+          (Rating.hard, S.hard, Icons.trending_down_rounded, Q.points),
+          (Rating.know, S.know, Icons.check_rounded, Q.primary),
+          (Rating.easy, S.easy, Icons.bolt_rounded, Q.info),
         ])
-          Expanded(child: button),
+          Expanded(
+            child: _RoundButton(
+              label: label,
+              interval: intervals?.forRating(rating),
+              icon: icon,
+              color: color,
+              size: 58,
+              onPressed: rate(rating),
+            ),
+          ),
       ],
     );
   }
 
-  Widget _twoRow(SessionController c) => Padding(
-        key: const ValueKey('answer'),
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                _RoundButton(
-                  label: S.dontKnow,
-                  icon: Icons.close_rounded,
-                  color: Q.dontKnow,
-                  size: 68,
-                  onPressed: c.canAnswer ? () => _answer(Rating.dontKnow) : null,
-                ),
-                _RoundButton(
-                  label: S.skip,
-                  icon: Icons.redo_rounded,
-                  color: Q.textMuted,
-                  size: 52,
-                  filled: true,
-                  onPressed: c.canAnswer && c.queue.remaining > 1 ? c.skip : null,
-                ),
-                _RoundButton(
-                  label: S.know,
-                  icon: Icons.check_rounded,
-                  color: Q.primary,
-                  size: 68,
-                  onPressed: c.canAnswer ? () => _answer(Rating.know) : null,
-                ),
-              ],
-            ),
-      );
+  Widget _twoRow(SessionController c) {
+    final card = c.queue.current;
+    final intervals = (c.queue.isRelearn ? card?.relearnIntervals : card?.intervals) ?? card?.intervals;
+    return Padding(
+      key: const ValueKey('answer'),
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          _RoundButton(
+            label: S.dontKnow,
+            interval: intervals?.dontKnow,
+            icon: Icons.close_rounded,
+            color: Q.dontKnow,
+            size: 68,
+            onPressed: c.canAnswer ? () => _answer(Rating.dontKnow) : null,
+          ),
+          _RoundButton(
+            label: S.skip,
+            icon: Icons.redo_rounded,
+            color: Q.textMuted,
+            size: 52,
+            filled: true,
+            onPressed: c.canAnswer && c.queue.remaining > 1 ? c.skip : null,
+          ),
+          _RoundButton(
+            label: S.know,
+            interval: intervals?.know,
+            icon: Icons.check_rounded,
+            color: Q.primary,
+            size: 68,
+            onPressed: c.canAnswer ? () => _answer(Rating.know) : null,
+          ),
+        ],
+      ),
+    );
+  }
 
 }
 
@@ -552,6 +569,7 @@ class _RoundButton extends StatelessWidget {
     required this.color,
     required this.size,
     required this.onPressed,
+    this.interval,
     this.filled = false,
   });
 
@@ -560,19 +578,29 @@ class _RoundButton extends StatelessWidget {
   final Color color;
   final double size;
   final VoidCallback? onPressed;
+  final String? interval;
   final bool filled;
 
   @override
   Widget build(BuildContext context) {
     final enabled = onPressed != null;
     final c = enabled ? color : Q.border;
+    final intervalText = interval;
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
+        if (intervalText != null && intervalText.isNotEmpty) ...[
+          Text(
+            intervalText,
+            style: QText.body(12, color: enabled ? Q.textMuted : Q.border, weight: FontWeight.w700, height: 1.1),
+          ),
+          const SizedBox(height: 3),
+        ],
         Semantics(
           button: true,
           enabled: enabled,
           label: label,
+          value: intervalText,
           excludeSemantics: true,
           child: SizedBox.square(
             dimension: size,

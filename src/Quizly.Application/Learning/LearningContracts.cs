@@ -78,8 +78,25 @@ public sealed record ReviewBatchResponse(
     PointsValueResponse Points,
     IReadOnlyList<EventResponse> Events);
 
-/// <summary>One card in the session queue, with its tags (sorted).</summary>
-public sealed record SessionCardResponse(int CardId, int DeckId, string Question, string Answer, string Kind, IReadOnlyList<string> Tags);
+/// <summary>Next review intervals predicted for each rating button (docs/api.md §4.1, Issue #31).</summary>
+public sealed record CardIntervalsResponse(
+    string DontKnow,
+    string? Hard,
+    string Know,
+    string? Easy
+);
+
+/// <summary>One card in the session queue, with its tags (sorted) and review intervals (#31).</summary>
+public sealed record SessionCardResponse(
+    int CardId,
+    int DeckId,
+    string Question,
+    string Answer,
+    string Kind,
+    IReadOnlyList<string> Tags,
+    CardIntervalsResponse? Intervals = null,
+    CardIntervalsResponse? RelearnIntervals = null
+);
 
 /// <summary>The session queue: due cards first (most overdue first), then new cards.</summary>
 public sealed record SessionResponse(

@@ -353,6 +353,42 @@ enum CardKind {
   static CardKind parse(String value) => values.firstWhere((k) => k.json == value, orElse: () => review);
 }
 
+/// Next review interval labels per rating (#31).
+class CardIntervals {
+  const CardIntervals({
+    required this.dontKnow,
+    this.hard,
+    required this.know,
+    this.easy,
+  });
+
+  factory CardIntervals.fromJson(Json j) => CardIntervals(
+        dontKnow: (j['dontKnow'] as String?) ?? '',
+        hard: j['hard'] as String?,
+        know: (j['know'] as String?) ?? '',
+        easy: j['easy'] as String?,
+      );
+
+  final String dontKnow;
+  final String? hard;
+  final String know;
+  final String? easy;
+
+  String? forRating(Rating rating) => switch (rating) {
+        Rating.dontKnow => dontKnow,
+        Rating.hard => hard,
+        Rating.know => know,
+        Rating.easy => easy,
+      };
+
+  Json toJson() => {
+        'dontKnow': dontKnow,
+        if (hard != null) 'hard': hard,
+        'know': know,
+        if (easy != null) 'easy': easy,
+      };
+}
+
 class SessionCard {
   const SessionCard({
     required this.cardId,
@@ -361,6 +397,8 @@ class SessionCard {
     required this.answer,
     required this.kind,
     this.tags = const [],
+    this.intervals,
+    this.relearnIntervals,
   });
 
   factory SessionCard.fromJson(Json j) => SessionCard(
@@ -370,6 +408,9 @@ class SessionCard {
         answer: j['answer'] as String,
         kind: CardKind.parse(j['kind'] as String),
         tags: _tags(j['tags']),
+        intervals: j['intervals'] == null ? null : CardIntervals.fromJson(j['intervals'] as Json),
+        relearnIntervals:
+            j['relearnIntervals'] == null ? null : CardIntervals.fromJson(j['relearnIntervals'] as Json),
       );
 
   final int cardId;
@@ -381,9 +422,24 @@ class SessionCard {
   /// The card's tags, sorted (#29).
   final List<String> tags;
 
+  /// Next review intervals for initial review (#31).
+  final CardIntervals? intervals;
+
+  /// Next review intervals if re-queued in this session (#31).
+  final CardIntervals? relearnIntervals;
+
   /// The card after an edit in the session (#23).
   SessionCard edited({required String question, required String answer, required List<String> tags}) =>
-      SessionCard(cardId: cardId, deckId: deckId, question: question, answer: answer, kind: kind, tags: tags);
+      SessionCard(
+        cardId: cardId,
+        deckId: deckId,
+        question: question,
+        answer: answer,
+        kind: kind,
+        tags: tags,
+        intervals: intervals,
+        relearnIntervals: relearnIntervals,
+      );
 }
 
 class SessionData {

@@ -167,6 +167,52 @@ public sealed class StudyTests(QuizlyFactory factory) : IClassFixture<QuizlyFact
         });
     }
 
+    [Fact]
+    public async Task Session_cards_include_review_intervals_for_new_and_due_cards()
+    {
+        var user = await factory.CreateUserAsync(newCardsPerDay: 2);
+        var (_, cards) = await factory.CreateDeckAsync("IntervalDeck" + Guid.NewGuid().ToString("N")[..6], 2);
+        using var app = await factory.AppClientAsync(user);
+
+        var session = await GetSessionAsync(app);
+        var cardsJson = session["cards"]!.AsArray();
+        Assert.Equal(2, cardsJson.Count);
+
+        // Verify fresh cards have valid intervals
+        foreach (var c in cardsJson)
+        {
+            var intervals = c!["intervals"];
+            Assert.NotNull(intervals);
+            Assert.Equal("1m", (string?)intervals!["dontKnow"]);
+            Assert.Equal("6m", (string?)intervals!["hard"]);
+            Assert.Equal("10m", (string?)intervals!["know"]);
+            Assert.Equal("8d", (string?)intervals!["easy"]);
+
+            var relearn = c["relearnIntervals"];
+            Assert.NotNull(relearn);
+            Assert.Equal("1m", (string?)relearn!["dontKnow"]);
+            Assert.Equal("10m", (string?)relearn!["know"]);
+        }
+
+        // Graduate first card and advance time so it becomes due
+        await ReviewAsync(app, (cards[0], "know"), (cards[0], "know"));
+        factory.Time.Advance(TimeSpan.FromDays(5));
+
+        using var later = await factory.AppClientAsync(user);
+        var laterSession = await GetSessionAsync(later);
+        var dueCard = laterSession["cards"]!.AsArray().First(c => (int)c!["cardId"]! == cards[0]);
+
+        // Review state card: Again interval is 10m (relearning step), Relearn Good graduates with days
+        var dueIntervals = dueCard!["intervals"]!;
+        Assert.Equal("10m", (string?)dueIntervals["dontKnow"]);
+        Assert.EndsWith("d", (string?)dueIntervals["know"]!);
+
+        var dueRelearn = dueCard["relearnIntervals"]!;
+        Assert.Equal("10m", (string?)dueRelearn["dontKnow"]);
+        Assert.Equal("15m", (string?)dueRelearn["hard"]);
+        Assert.EndsWith("d", (string?)dueRelearn["know"]!);
+    }
+
     private static async Task<JsonNode> GetSessionAsync(HttpClient app, int? deckId = null)
     {
         var response = await app.GetAsync(deckId is null ? "/api/session" : $"/api/session?deckId={deckId}", Ct);
