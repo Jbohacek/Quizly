@@ -112,9 +112,49 @@ public sealed class AccountAndDeckCardsTests(QuizlyFactory factory) : IClassFixt
         // Progress per card: stability out of 21 days (Vím once = 2.3065 days → 10 %), answers, next review.
         Assert.Equal([10, 100, 0], items.Select(c => (int)c!["masteryPercent"]!));
         Assert.Equal([(1, 0), (0, 0), (0, 0)], items.Select(c => ((int)c!["knowCount"]!, (int)c!["dontKnowCount"]!)));
+        Assert.Equal([(0, 1, false), (0, 0, false), (0, 0, false)],
+            items.Select(c => ((int)c!["recentDontKnow"]!, (int)c!["recentAnswers"]!, (bool)c!["problematic"]!)));
         Assert.NotNull((string?)items[0]!["nextReview"]);
         Assert.Null(items[2]!["nextReview"]);
 
         await (await app.GetAsync("/api/decks/999999/cards", Ct)).AssertProblemAsync(HttpStatusCode.NotFound, "notFound");
+    }
+
+    [Fact]
+    public async Task Deck_cards_mark_cards_answered_nevim_lately_as_problematic()
+    {
+        var user = await factory.CreateUserAsync();
+        var (deckId, cards) = await factory.CreateDeckAsync("P" + Guid.NewGuid().ToString("N")[..6], 3);
+        using var app = await factory.AppClientAsync(user);
+        // Card 0: Nevím, Nevím, Vím → 2 of 3. Card 1: one Nevím, then Vím → not a pattern. Card 2: new.
+        await StudyTests.ReviewAsync(app, (cards[0], "dontKnow"), (cards[1], "dontKnow"));
+        factory.Time.Advance(TimeSpan.FromMinutes(1));
+        await StudyTests.ReviewAsync(app, (cards[0], "dontKnow"), (cards[1], "know"));
+        factory.Time.Advance(TimeSpan.FromMinutes(1));
+        await StudyTests.ReviewAsync(app, (cards[0], "know"));
+
+        var body = await (await app.GetAsync($"/api/decks/{deckId}/cards", Ct)).ReadNodeAsync();
+
+        Assert.Equal([(2, 3, true), (1, 2, false), (0, 0, false)], body["cards"]!.AsArray()
+            .Select(c => ((int)c!["recentDontKnow"]!, (int)c!["recentAnswers"]!, (bool)c!["problematic"]!)));
+    }
+
+    [Fact]
+    public async Task Only_the_last_ten_answers_count_toward_problematic()
+    {
+        var user = await factory.CreateUserAsync();
+        var (deckId, cards) = await factory.CreateDeckAsync("R" + Guid.NewGuid().ToString("N")[..6], 1);
+        using var app = await factory.AppClientAsync(user);
+        // Three early Nevím, then ten Vím: the Nevím answers drop out of the window.
+        foreach (var rating in Enumerable.Repeat("dontKnow", 3).Concat(Enumerable.Repeat("know", 10)))
+        {
+            await StudyTests.ReviewAsync(app, (cards[0], rating));
+            factory.Time.Advance(TimeSpan.FromMinutes(1));
+        }
+
+        var card = (await (await app.GetAsync($"/api/decks/{deckId}/cards", Ct)).ReadNodeAsync())["cards"]![0]!;
+
+        Assert.Equal((3, 10, 0, false), ((int)card["dontKnowCount"]!, (int)card["recentAnswers"]!,
+            (int)card["recentDontKnow"]!, (bool)card["problematic"]!));
     }
 }

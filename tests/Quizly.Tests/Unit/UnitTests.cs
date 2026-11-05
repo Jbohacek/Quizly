@@ -146,3 +146,18 @@ public sealed class ValidationTests
     public void Categories_use_snake_case_names(NotificationCategory category, string name) =>
         Assert.Equal(name, NotificationTextService.CategoryName(category));
 }
+
+public sealed class ProblemCardsTests
+{
+    [Theory]
+    [InlineData(2, 2, false, true)]   // two Nevím out of two
+    [InlineData(2, 6, false, true)]   // 33 %
+    [InlineData(3, 10, false, true)]  // 30 %, the edge
+    [InlineData(2, 7, false, false)]  // 28 %
+    [InlineData(1, 1, false, false)]  // one Nevím is not a pattern
+    [InlineData(0, 0, false, false)]  // never answered
+    [InlineData(5, 10, true, false)]  // mastered wins
+    public void Problematic_needs_two_recent_dont_knows_making_30_percent_of_a_card_not_mastered(
+        int recentDontKnow, int recentAnswers, bool mastered, bool expected) =>
+        Assert.Equal(expected, ProblemCards.IsProblematic(recentDontKnow, recentAnswers, mastered));
+}

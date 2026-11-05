@@ -202,14 +202,15 @@ Ordered by deck `sortOrder`. `newAvailable` = `min(unseen cards in the deck, new
   "cards": [
     { "id": 101, "question": "Jaký je rozdíl mezi struct a class v C#?", "answer": "struct je hodnotový typ…", "status": "mastered",
       "masteryPercent": 100, "knowCount": 6, "dontKnowCount": 1, "nextReview": "2026-12-01T08:12:00Z",
-      "tags": ["ai_gen", "prednaska_01"] },
+      "tags": ["ai_gen", "prednaska_01"], "recentDontKnow": 1, "recentAnswers": 7, "problematic": false },
     { "id": 140, "question": "Co je record v C#?", "answer": "Typ s hodnotovou rovností…", "status": "new",
-      "masteryPercent": 0, "knowCount": 0, "dontKnowCount": 0, "nextReview": null, "tags": [] }
+      "masteryPercent": 0, "knowCount": 0, "dontKnowCount": 0, "nextReview": null, "tags": [],
+      "recentDontKnow": 0, "recentAnswers": 0, "problematic": false }
   ]
 }
 ```
 
-Cards in deck order (`sortOrder`, then id). `status` is the mastery bucket (spec §3.5): `new` · `learning` · `mastered`. `masteryPercent` = stability ÷ 21 days (100 once mastered, at most 99 before). `knowCount` / `dontKnowCount` count my correct (Vím, Těžké, Snadné) / Nevím answers, `nextReview` is the card's due time (`null` for a new card). `tags` are the card's tags, sorted (spec §2.5.1; always present, may be empty). `404 notFound` for an unknown deck.
+Cards in deck order (`sortOrder`, then id). `status` is the mastery bucket (spec §3.5): `new` · `learning` · `mastered`. `masteryPercent` = stability ÷ 21 days (100 once mastered, at most 99 before). `knowCount` / `dontKnowCount` count my correct (Vím, Těžké, Snadné) / Nevím answers, `nextReview` is the card's due time (`null` for a new card). `tags` are the card's tags, sorted (spec §2.5.1; always present, may be empty). `recentAnswers` is how many of my last 10 answers to the card there are, `recentDontKnow` how many of them are Nevím, and `problematic` whether that makes the card "Problémová" (spec §3.6). `404 notFound` for an unknown deck.
 
 ---
 

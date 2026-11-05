@@ -256,6 +256,9 @@ class DeckCard {
     this.dontKnowCount = 0,
     this.nextReview,
     this.tags = const [],
+    this.recentDontKnow = 0,
+    this.recentAnswers = 0,
+    this.problematic = false,
   });
 
   factory DeckCard.fromJson(Json j) => DeckCard(
@@ -268,6 +271,9 @@ class DeckCard {
         dontKnowCount: _int(j['dontKnowCount'] ?? 0),
         nextReview: j['nextReview'] == null ? null : DateTime.parse(j['nextReview'] as String),
         tags: _tags(j['tags']),
+        recentDontKnow: _int(j['recentDontKnow'] ?? 0),
+        recentAnswers: _int(j['recentAnswers'] ?? 0),
+        problematic: j['problematic'] == true,
       );
 
   final int id;
@@ -285,6 +291,13 @@ class DeckCard {
 
   /// The card's tags, sorted (#29).
   final List<String> tags;
+
+  /// Nevím among my last answers to the card, and how many answers that is (at most 10; #27).
+  final int recentDontKnow;
+  final int recentAnswers;
+
+  /// "Problémová": the server's verdict on those answers (spec §3.6).
+  final bool problematic;
 }
 
 /// `GET /decks/{id}/cards`: the deck with my counts and all its cards in order.
