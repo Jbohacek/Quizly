@@ -513,6 +513,7 @@ class UserSettings {
     required this.quietTo,
     required this.smartTimes,
     this.fourRatings = false,
+    this.showInLeaderboard = true,
   });
 
   factory UserSettings.fromJson(Json j) => UserSettings(
@@ -526,6 +527,7 @@ class UserSettings {
         quietTo: j['quietTo'] as String,
         smartTimes: j['smartTimes'] as bool,
         fourRatings: j['fourRatings'] as bool? ?? false,
+        showInLeaderboard: j['showInLeaderboard'] as bool? ?? true,
       );
 
   static const minGoal = 1;
@@ -546,6 +548,9 @@ class UserSettings {
   /// "Těžké a Snadné": four answer buttons instead of Vím / Nevím (#19).
   final bool fourRatings;
 
+  /// "Zobrazit mě v žebříčku": other users see me in Žebříček (#34).
+  final bool showInLeaderboard;
+
   UserSettings copyWith({
     int? dailyGoal,
     int? newCardsPerDay,
@@ -557,6 +562,7 @@ class UserSettings {
     String? quietTo,
     bool? smartTimes,
     bool? fourRatings,
+    bool? showInLeaderboard,
   }) =>
       UserSettings(
         dailyGoal: dailyGoal ?? this.dailyGoal,
@@ -569,6 +575,7 @@ class UserSettings {
         quietTo: quietTo ?? this.quietTo,
         smartTimes: smartTimes ?? this.smartTimes,
         fourRatings: fourRatings ?? this.fourRatings,
+        showInLeaderboard: showInLeaderboard ?? this.showInLeaderboard,
       );
 
   Json toJson() => {
@@ -582,6 +589,7 @@ class UserSettings {
         'quietTo': quietTo,
         'smartTimes': smartTimes,
         'fourRatings': fourRatings,
+        'showInLeaderboard': showInLeaderboard,
       };
 }
 
@@ -916,4 +924,68 @@ class AppLatest {
 
   /// Bytes of the APK.
   final int size;
+}
+
+class LeaderboardEntry {
+  const LeaderboardEntry({
+    required this.rank,
+    required this.userId,
+    required this.displayName,
+    required this.points,
+    required this.currentStreak,
+    required this.cardsStudied,
+  });
+
+  factory LeaderboardEntry.fromJson(Json j) => LeaderboardEntry(
+        rank: _int(j['rank']),
+        userId: _int(j['userId']),
+        displayName: j['displayName'] as String,
+        points: _int(j['points']),
+        currentStreak: _int(j['currentStreak']),
+        cardsStudied: _int(j['cardsStudied']),
+      );
+
+  final int rank;
+  final int userId;
+  final String displayName;
+  final int points;
+  final int currentStreak;
+  final int cardsStudied;
+
+  Json toJson() => {
+        'rank': rank,
+        'userId': userId,
+        'displayName': displayName,
+        'points': points,
+        'currentStreak': currentStreak,
+        'cardsStudied': cardsStudied,
+      };
+}
+
+class Leaderboard {
+  const Leaderboard({
+    required this.period,
+    required this.metric,
+    required this.entries,
+    this.currentUserRank,
+  });
+
+  factory Leaderboard.fromJson(Json j) => Leaderboard(
+        period: j['period'] as String,
+        metric: j['metric'] as String,
+        entries: [for (final e in (j['entries'] as List)) LeaderboardEntry.fromJson(e as Json)],
+        currentUserRank: j['currentUserRank'] == null ? null : _int(j['currentUserRank']),
+      );
+
+  final String period;
+  final String metric;
+  final List<LeaderboardEntry> entries;
+  final int? currentUserRank;
+
+  Json toJson() => {
+        'period': period,
+        'metric': metric,
+        'entries': [for (final e in entries) e.toJson()],
+        'currentUserRank': currentUserRank,
+      };
 }

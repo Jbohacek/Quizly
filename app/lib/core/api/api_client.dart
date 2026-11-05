@@ -161,6 +161,9 @@ class ApiClient {
   Future<Stats> stats({int? deckId}) async =>
       Stats.fromJson(await _send<Json>('GET', '/stats', query: {'deckId': ?deckId}));
 
+  Future<Leaderboard> getLeaderboard({String period = 'week', String metric = 'points'}) async =>
+      Leaderboard.fromJson(await _send<Json>('GET', '/leaderboard', query: {'period': period, 'metric': metric}));
+
   Future<Shop> shop() async => Shop.fromJson(await _send<Json>('GET', '/shop'));
 
   /// Buys a reward and returns the new balance. Retrying with the same [requestId]
