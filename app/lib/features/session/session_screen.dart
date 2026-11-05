@@ -45,8 +45,8 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
   /// The current card has been turned over: Vím / Nevím are offered (and the card is bigger).
   bool _revealed = false;
 
-  /// Nevím / Přeskočit / Vím with their labels.
-  static const _buttonsHeight = 116.0;
+  /// The row of answer buttons (Nevím / Přeskočit / Vím, or the four of "Těžké a Snadné").
+  static const _buttonsHeight = _AnswerButton.height;
 
   @override
   void initState() {
@@ -285,74 +285,80 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
   /// Nevím / Těžké / Vím / Snadné (#19); there a swipe up skips the card (no hint on purpose).
   Widget _answerRow(SessionController c) => c.fourRatings ? _fourRow(c) : _twoRow(c);
 
-  Widget _fourRow(SessionController c) {
+  /// The times under the buttons (#31): a card back after a Nevím gets its second-showing times.
+  CardIntervals? _intervals(SessionController c) {
     final card = c.queue.current;
-    final intervals = (c.queue.isRelearn ? card?.relearnIntervals : card?.intervals) ?? card?.intervals;
+    return (c.queue.isRelearn ? card?.relearnIntervals : null) ?? card?.intervals;
+  }
+
+  Widget _fourRow(SessionController c) {
+    final intervals = _intervals(c);
     VoidCallback? rate(Rating r) => c.canAnswer ? () => _answer(r) : null;
     // Four equal slots: the labels shrink to fit if a phone is narrow.
     return Row(
       key: const ValueKey('answer'),
-      crossAxisAlignment: CrossAxisAlignment.end,
       children: [
-        for (final (rating, label, icon, color) in [
+        for (final (i, (rating, label, icon, color)) in [
           (Rating.dontKnow, S.dontKnow, Icons.close_rounded, Q.dontKnow),
           (Rating.hard, S.hard, Icons.trending_down_rounded, Q.points),
           (Rating.know, S.know, Icons.check_rounded, Q.primary),
           (Rating.easy, S.easy, Icons.bolt_rounded, Q.info),
-        ])
+        ].indexed) ...[
+          if (i > 0) const SizedBox(width: 8),
           Expanded(
-            child: _RoundButton(
+            child: _AnswerButton(
               label: label,
-              interval: intervals?.forRating(rating),
+              seconds: intervals?.forRating(rating),
               icon: icon,
               color: color,
-              size: 58,
               onPressed: rate(rating),
             ),
           ),
+        ],
       ],
     );
   }
 
   Widget _twoRow(SessionController c) {
-    final card = c.queue.current;
-    final intervals = (c.queue.isRelearn ? card?.relearnIntervals : card?.intervals) ?? card?.intervals;
-    return Padding(
+    final intervals = _intervals(c);
+    return Row(
       key: const ValueKey('answer'),
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          _RoundButton(
+      children: [
+        Expanded(
+          flex: 3,
+          child: _AnswerButton(
             label: S.dontKnow,
-            interval: intervals?.dontKnow,
+            seconds: intervals?.dontKnow,
             icon: Icons.close_rounded,
             color: Q.dontKnow,
-            size: 68,
             onPressed: c.canAnswer ? () => _answer(Rating.dontKnow) : null,
           ),
-          _RoundButton(
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          flex: 2,
+          child: _AnswerButton(
             label: S.skip,
             icon: Icons.redo_rounded,
             color: Q.textMuted,
-            size: 52,
             filled: true,
             onPressed: c.canAnswer && c.queue.remaining > 1 ? c.skip : null,
           ),
-          _RoundButton(
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          flex: 3,
+          child: _AnswerButton(
             label: S.know,
-            interval: intervals?.know,
+            seconds: intervals?.know,
             icon: Icons.check_rounded,
             color: Q.primary,
-            size: 68,
             onPressed: c.canAnswer ? () => _answer(Rating.know) : null,
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
-
 }
 
 /// Where the session's card belongs (#29): its deck's name in the deck's color (no frame), and its tags below
@@ -562,64 +568,76 @@ class _StackLayer extends StatelessWidget {
   }
 }
 
-class _RoundButton extends StatelessWidget {
-  const _RoundButton({
+/// An answer button (#31): a rounded rectangle with the icon, the label and under it the time to the
+/// card's next review if this answer is picked.
+class _AnswerButton extends StatelessWidget {
+  const _AnswerButton({
     required this.label,
     required this.icon,
     required this.color,
-    required this.size,
     required this.onPressed,
-    this.interval,
+    this.seconds,
     this.filled = false,
   });
+
+  static const height = 84.0;
 
   final String label;
   final IconData icon;
   final Color color;
-  final double size;
   final VoidCallback? onPressed;
-  final String? interval;
+
+  /// Seconds to the next review; null for Přeskočit (and from an older server).
+  final int? seconds;
   final bool filled;
 
   @override
   Widget build(BuildContext context) {
     final enabled = onPressed != null;
     final c = enabled ? color : Q.border;
-    final intervalText = interval;
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        if (intervalText != null && intervalText.isNotEmpty) ...[
-          Text(
-            intervalText,
-            style: QText.body(12, color: enabled ? Q.textMuted : Q.border, weight: FontWeight.w700, height: 1.1),
+    final seconds = this.seconds;
+    return Semantics(
+      button: true,
+      enabled: enabled,
+      label: label,
+      value: seconds == null ? null : formatIntervalSpoken(seconds),
+      excludeSemantics: true,
+      child: SizedBox(
+        height: height,
+        child: Material(
+          color: filled ? Q.surface2 : c.withValues(alpha: enabled ? 0.12 : 0.08),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+            side: filled ? BorderSide.none : BorderSide(color: c, width: 2),
           ),
-          const SizedBox(height: 3),
-        ],
-        Semantics(
-          button: true,
-          enabled: enabled,
-          label: label,
-          value: intervalText,
-          excludeSemantics: true,
-          child: SizedBox.square(
-            dimension: size,
-            child: IconButton(
-              onPressed: onPressed,
-              style: IconButton.styleFrom(
-                backgroundColor: filled ? Q.surface2 : c.withValues(alpha: 0.12),
-                foregroundColor: c,
-                disabledForegroundColor: c,
-                disabledBackgroundColor: filled ? Q.surface2 : c.withValues(alpha: 0.08),
-                shape: CircleBorder(side: filled ? BorderSide.none : BorderSide(color: c, width: 2)),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: onPressed,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(icon, size: 22, color: c),
+                  const SizedBox(height: 3),
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(label, style: QText.body(14, color: c, weight: FontWeight.w800, height: 1.2)),
+                  ),
+                  if (seconds != null)
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        formatInterval(seconds),
+                        style: QText.body(12, color: enabled ? Q.textMuted : Q.border, weight: FontWeight.w700, height: 1.3),
+                      ),
+                    ),
+                ],
               ),
-              icon: Icon(icon, size: size * 0.45),
             ),
           ),
         ),
-        const SizedBox(height: 6),
-        FittedBox(fit: BoxFit.scaleDown, child: Text(label, style: QText.body(13, color: c, weight: FontWeight.w800))),
-      ],
+      ),
     );
   }
 }

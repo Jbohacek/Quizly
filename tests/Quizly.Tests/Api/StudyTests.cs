@@ -178,23 +178,21 @@ public sealed class StudyTests(QuizlyFactory factory) : IClassFixture<QuizlyFact
         var cardsJson = session["cards"]!.AsArray();
         Assert.Equal(2, cardsJson.Count);
 
-        // Verify fresh cards have valid intervals
+        // New cards: seconds to the next review per answer (#31); the app formats them.
         foreach (var c in cardsJson)
         {
-            var intervals = c!["intervals"];
-            Assert.NotNull(intervals);
-            Assert.Equal("1m", (string?)intervals!["dontKnow"]);
-            Assert.Equal("6m", (string?)intervals!["hard"]);
-            Assert.Equal("10m", (string?)intervals!["know"]);
-            Assert.Equal("8d", (string?)intervals!["easy"]);
+            var intervals = c!["intervals"]!;
+            Assert.Equal(60, (long)intervals["dontKnow"]!);
+            Assert.Equal(330, (long)intervals["hard"]!);
+            Assert.Equal(600, (long)intervals["know"]!);
+            Assert.Equal(8 * 86_400, (long)intervals["easy"]!);
 
-            var relearn = c["relearnIntervals"];
-            Assert.NotNull(relearn);
-            Assert.Equal("1m", (string?)relearn!["dontKnow"]);
-            Assert.Equal("10m", (string?)relearn!["know"]);
+            var relearn = c["relearnIntervals"]!;
+            Assert.Equal(60, (long)relearn["dontKnow"]!);
+            Assert.Equal(600, (long)relearn["know"]!);
         }
 
-        // Graduate first card and advance time so it becomes due
+        // Graduate the first card and let it become due.
         await ReviewAsync(app, (cards[0], "know"), (cards[0], "know"));
         factory.Time.Advance(TimeSpan.FromDays(5));
 
@@ -202,15 +200,16 @@ public sealed class StudyTests(QuizlyFactory factory) : IClassFixture<QuizlyFact
         var laterSession = await GetSessionAsync(later);
         var dueCard = laterSession["cards"]!.AsArray().First(c => (int)c!["cardId"]! == cards[0]);
 
-        // Review state card: Again interval is 10m (relearning step), Relearn Good graduates with days
+        // A review card: Nevím goes to the 10 min relearning step, Vím moves it by whole days.
         var dueIntervals = dueCard!["intervals"]!;
-        Assert.Equal("10m", (string?)dueIntervals["dontKnow"]);
-        Assert.EndsWith("d", (string?)dueIntervals["know"]!);
+        Assert.Equal(600, (long)dueIntervals["dontKnow"]!);
+        Assert.Equal(0, (long)dueIntervals["know"]! % 86_400);
 
+        // Its second showing after a Nevím: Těžké is 1.5× the step, Vím graduates again.
         var dueRelearn = dueCard["relearnIntervals"]!;
-        Assert.Equal("10m", (string?)dueRelearn["dontKnow"]);
-        Assert.Equal("15m", (string?)dueRelearn["hard"]);
-        Assert.EndsWith("d", (string?)dueRelearn["know"]!);
+        Assert.Equal(600, (long)dueRelearn["dontKnow"]!);
+        Assert.Equal(900, (long)dueRelearn["hard"]!);
+        Assert.Equal(0, (long)dueRelearn["know"]! % 86_400);
     }
 
     private static async Task<JsonNode> GetSessionAsync(HttpClient app, int? deckId = null)

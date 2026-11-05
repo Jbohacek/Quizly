@@ -353,39 +353,27 @@ enum CardKind {
   static CardKind parse(String value) => values.firstWhere((k) => k.json == value, orElse: () => review);
 }
 
-/// Next review interval labels per rating (#31).
+/// Seconds to a card's next review for each answer (#31); the app formats them (`formatInterval`).
 class CardIntervals {
-  const CardIntervals({
-    required this.dontKnow,
-    this.hard,
-    required this.know,
-    this.easy,
-  });
+  const CardIntervals({required this.dontKnow, required this.hard, required this.know, required this.easy});
 
   factory CardIntervals.fromJson(Json j) => CardIntervals(
-        dontKnow: (j['dontKnow'] as String?) ?? '',
-        hard: j['hard'] as String?,
-        know: (j['know'] as String?) ?? '',
-        easy: j['easy'] as String?,
+        dontKnow: (j['dontKnow'] as num).toInt(),
+        hard: (j['hard'] as num).toInt(),
+        know: (j['know'] as num).toInt(),
+        easy: (j['easy'] as num).toInt(),
       );
 
-  final String dontKnow;
-  final String? hard;
-  final String know;
-  final String? easy;
+  final int dontKnow;
+  final int hard;
+  final int know;
+  final int easy;
 
-  String? forRating(Rating rating) => switch (rating) {
+  int forRating(Rating rating) => switch (rating) {
         Rating.dontKnow => dontKnow,
         Rating.hard => hard,
         Rating.know => know,
         Rating.easy => easy,
-      };
-
-  Json toJson() => {
-        'dontKnow': dontKnow,
-        if (hard != null) 'hard': hard,
-        'know': know,
-        if (easy != null) 'easy': easy,
       };
 }
 
@@ -422,10 +410,10 @@ class SessionCard {
   /// The card's tags, sorted (#29).
   final List<String> tags;
 
-  /// Next review intervals for initial review (#31).
+  /// Time to the next review per answer the first time the card is shown (#31); null from an older server.
   final CardIntervals? intervals;
 
-  /// Next review intervals if re-queued in this session (#31).
+  /// The same for its second showing, after a Nevím in this session (#31).
   final CardIntervals? relearnIntervals;
 
   /// The card after an edit in the session (#23).
