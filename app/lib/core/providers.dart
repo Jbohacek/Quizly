@@ -4,7 +4,6 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../features/home/week.dart';
-import '../features/notifications/notification_store.dart';
 import '../features/notifications/notifications.dart';
 import '../features/onboarding/onboarding_store.dart';
 import '../features/session/review_sync.dart';
@@ -18,8 +17,8 @@ final apiClientProvider = Provider<ApiClient>((ref) => throw UnimplementedError(
 /// Scheduled reminders, created in `main` (tests use a fake platform).
 final notificationsProvider = Provider<Notifications>((ref) => throw UnimplementedError('Overridden in main'));
 
-/// Where the one-time onboarding state is stored (overridden in `main` and tests).
-final onboardingStoreProvider = Provider<OnboardingStore>((ref) => OnboardingStore(MemoryKeyValueStore()));
+/// The one-time onboarding state, restored in `main` before the first frame (#41).
+final onboardingStoreProvider = Provider<OnboardingStore>((ref) => throw UnimplementedError('Overridden in main'));
 
 /// Where the review outbox is stored (overridden in tests).
 final outboxStoreProvider = Provider<OutboxStore>((ref) => PrefsOutboxStore());
@@ -29,9 +28,7 @@ class OnboardingController extends Notifier<bool> {
   @override
   bool build() {
     final store = ref.watch(onboardingStoreProvider);
-    final signedIn = ref.read(apiClientProvider).user != null;
-    store.ensureInitialized(alreadySignedIn: signedIn);
-    return signedIn && store.isPending;
+    return ref.read(apiClientProvider).user != null && store.isPending;
   }
 
   Future<void> onLogin() async {

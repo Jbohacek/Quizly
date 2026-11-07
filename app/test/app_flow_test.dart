@@ -57,6 +57,10 @@ class FakeApi implements HttpClientAdapter {
   final deletedCards = <int>{};
   final addedCards = <Map<String, Object?>>[];
   final savedSettings = <Map<String, Object?>>[];
+
+  /// `GET` / `PUT /api/me/settings` answer 503 while true (#41: onboarding without the settings).
+  bool settingsLoadFails = false;
+  bool settingsSaveFails = false;
   Map<String, Object?> settings = {
     'dailyGoal': 20, 'newCardsPerDay': 5, 'notificationsEnabled': true,
     'morningTime': '08:00', 'eveningTime': '18:30', 'lastCallTime': '21:00',
@@ -246,7 +250,9 @@ class FakeApi implements HttpClientAdapter {
       'GET /api/claims' => _json({'items': claims.reversed.toList()}),
       final r when r.startsWith('PUT /api/wishlist/') || r.startsWith('DELETE /api/wishlist/') => _wishlist(r),
       final r when r.startsWith('POST /api/shop/') => _claim(r, body as Map<String, Object?>),
+      'GET /api/me/settings' when settingsLoadFails => _unavailable(),
       'GET /api/me/settings' => _json(settings),
+      'PUT /api/me/settings' when settingsSaveFails => _unavailable(),
       'PUT /api/me/settings' => _json({
           'settings': settings = (savedSettings..add(body as Map<String, Object?>)).last,
           'summary': summary,
@@ -357,6 +363,8 @@ class FakeApi implements HttpClientAdapter {
     return _json({'results': results, 'summary': summary, 'points': {'know': 11, 'dontKnow': 2}, 'events': reviewEvents});
   }
 
+  ResponseBody _unavailable() => _json({'code': 'unavailable', 'title': 'Server teď neodpovídá.'}, 503);
+
   ResponseBody _json(Object body, [int status = 200]) => ResponseBody.fromString(
         jsonEncode(body),
         status,
@@ -394,6 +402,7 @@ void main() {
       retry: (retryCount, error) => null,
       overrides: [
         apiClientProvider.overrideWithValue(client),
+        onboardingStoreProvider.overrideWithValue(await _onboarding(signedIn: false)),
         outboxStoreProvider.overrideWithValue(MemoryOutboxStore()),
         connectivityProvider.overrideWith((ref) => Stream.value(true)),
         notificationsProvider.overrideWithValue(_notifications(FakeNotificationPlatform())),
@@ -484,6 +493,7 @@ void main() {
       retry: (retryCount, error) => null,
       overrides: [
         apiClientProvider.overrideWithValue(client),
+        onboardingStoreProvider.overrideWithValue(await _onboarding(signedIn: true)),
         outboxStoreProvider.overrideWithValue(outbox),
         connectivityProvider.overrideWith((ref) => Stream.value(true)),
         notificationsProvider.overrideWithValue(_notifications(FakeNotificationPlatform())),
@@ -1279,6 +1289,87 @@ void main() {
       expect(onboarding.isPending, isFalse);
       expect(await onboarding.onLogin(), isFalse);
     });
+
+    /// Logs in on a fresh install and taps through to "Přeji hezkou zábavu!".
+    Future<OnboardingStore> throughOnboarding(WidgetTester tester, FakeApi api) async {
+      tester.view.physicalSize = const Size(1080, 2340);
+      tester.view.devicePixelRatio = 2.75;
+      addTearDown(tester.view.reset);
+      final onboarding = await _onboarding(signedIn: false);
+      final client = ApiClient(baseUrl: 'https://quizly.test', store: MemoryTokenStore(), dio: Dio()..httpClientAdapter = api);
+      await tester.pumpWidget(ProviderScope(
+        retry: (retryCount, error) => null,
+        overrides: [
+          apiClientProvider.overrideWithValue(client),
+          onboardingStoreProvider.overrideWithValue(onboarding),
+          outboxStoreProvider.overrideWithValue(MemoryOutboxStore()),
+          connectivityProvider.overrideWith((ref) => Stream.value(true)),
+          notificationsProvider.overrideWithValue(_notifications(FakeNotificationPlatform())),
+        ],
+        child: const QuizlyApp(),
+      ));
+      await settle(tester);
+      await tester.enterText(find.byType(TextField).at(0), 'kuba');
+      await tester.enterText(find.byType(TextField).at(1), 'tajneheslo');
+      await tester.tap(find.text(S.signIn));
+      await settle(tester);
+      for (var i = 0; i < 5; i++) {
+        await tester.tap(find.text(S.next));
+        await settle(tester);
+      }
+      expect(find.text(S.onboardingWelcomeTitle), findsOneWidget);
+      return onboarding;
+    }
+
+    testWidgets('settings that did not load at the start are loaded before saving, so nothing else is reset', (tester) async {
+      // A reinstall: the user hid from Žebříček and moved the evening reminder earlier.
+      final api = FakeApi()
+        ..settingsLoadFails = true
+        ..settings = {
+          ...FakeApi().settings,
+          'eveningTime': '17:15', 'quietFrom': '21:30', 'showInLeaderboard': false, 'fourRatings': false,
+        };
+      await throughOnboarding(tester, api);
+
+      // The steps showed the defaults; by the last one the server answers again.
+      api.settingsLoadFails = false;
+      await tester.tap(find.text(S.onboardingStart));
+      await settle(tester);
+
+      expect(find.text('Ahoj, Kuba!'), findsOneWidget);
+      final saved = api.savedSettings.single;
+      expect(saved['eveningTime'], '17:15');
+      expect(saved['quietFrom'], '21:30');
+      expect(saved['showInLeaderboard'], false);
+      expect(saved['dailyGoal'], 20);
+    });
+
+    testWidgets('a failed save keeps the intro open; "Nastavím si to později" finishes without saving', (tester) async {
+      final api = FakeApi()..settingsLoadFails = true;
+      final onboarding = await throughOnboarding(tester, api);
+
+      // The settings still can't be loaded: nothing is saved with defaults.
+      await tester.tap(find.text(S.onboardingStart));
+      await settle(tester);
+      expect(find.text(S.onboardingWelcomeTitle), findsOneWidget);
+      expect(find.text(S.onboardingLater), findsOneWidget);
+      expect(api.savedSettings, isEmpty);
+
+      // Now the settings load, but the save itself fails.
+      api
+        ..settingsLoadFails = false
+        ..settingsSaveFails = true;
+      await tester.tap(find.text(S.onboardingStart));
+      await settle(tester);
+      expect(find.text(S.onboardingWelcomeTitle), findsOneWidget);
+      expect(api.savedSettings, isEmpty);
+
+      await tester.tap(find.text(S.onboardingLater));
+      await settle(tester);
+      expect(find.text('Ahoj, Kuba!'), findsOneWidget);
+      expect(onboarding.isDone, isTrue);
+      expect(api.savedSettings, isEmpty);
+    });
   });
 
   group('accessibility (CLAUDE.md §9.3)', () {
@@ -1301,6 +1392,7 @@ void main() {
         retry: (retryCount, error) => null,
         overrides: [
           apiClientProvider.overrideWithValue(client),
+          onboardingStoreProvider.overrideWithValue(await _onboarding(signedIn: false)),
           outboxStoreProvider.overrideWithValue(MemoryOutboxStore()),
           connectivityProvider.overrideWith((ref) => Stream.value(true)),
           notificationsProvider.overrideWithValue(_notifications(FakeNotificationPlatform())),
@@ -1388,6 +1480,13 @@ Notifications _notifications(FakeNotificationPlatform platform) => Notifications
       random: Random(1),
     );
 
+/// Onboarding state as `main` restores it: signed in at start = an earlier install, intro done (#41).
+Future<OnboardingStore> _onboarding({required bool signedIn}) async {
+  final store = OnboardingStore(MemoryKeyValueStore());
+  await store.init(alreadySignedIn: signedIn);
+  return store;
+}
+
 Future<(FakeApi, MemoryTokenStore)> _signedIn(
   WidgetTester tester, {
   void Function(FakeApi api)? configure,
@@ -1412,6 +1511,7 @@ Future<(FakeApi, MemoryTokenStore)> _signedIn(
     retry: (retryCount, error) => null,
     overrides: [
       apiClientProvider.overrideWithValue(client),
+      onboardingStoreProvider.overrideWithValue(await _onboarding(signedIn: true)),
       outboxStoreProvider.overrideWithValue(MemoryOutboxStore()),
       connectivityProvider.overrideWith((ref) => Stream.value(true)),
       notificationsProvider.overrideWithValue(_notifications(notifications ?? FakeNotificationPlatform())),

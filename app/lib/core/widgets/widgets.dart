@@ -344,3 +344,90 @@ class ProgressBar extends StatelessWidget {
     );
   }
 }
+
+/// A number setting with a hint and − / + buttons (Nastavení, onboarding).
+class ValueStepper extends StatelessWidget {
+  const ValueStepper({
+    super.key,
+    required this.title,
+    required this.hint,
+    required this.value,
+    required this.min,
+    required this.max,
+    required this.decreaseLabel,
+    required this.increaseLabel,
+    required this.onChanged,
+  });
+
+  final String title;
+  final String hint;
+  final int value;
+  final int min;
+  final int max;
+  final String decreaseLabel;
+  final String increaseLabel;
+  final ValueChanged<int> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 14, 12),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: QText.body(15, weight: FontWeight.w800)),
+                const SizedBox(height: 2),
+                Text(hint, style: QText.body(12, color: Q.textMuted, weight: FontWeight.w400, height: 1.35)),
+              ],
+            ),
+          ),
+          _StepperButton(label: decreaseLabel, text: '−', onPressed: value > min ? () => onChanged(value - 1) : null),
+          Semantics(
+            label: title,
+            value: '$value',
+            child: SizedBox(
+              width: 44,
+              child: Text('$value', textAlign: TextAlign.center, style: QText.heading(20).copyWith(letterSpacing: 0)),
+            ),
+          ),
+          _StepperButton(label: increaseLabel, text: '+', onPressed: value < max ? () => onChanged(value + 1) : null),
+        ],
+      ),
+    );
+  }
+}
+
+class _StepperButton extends StatelessWidget {
+  const _StepperButton({required this.label, required this.text, required this.onPressed});
+
+  final String label;
+  final String text;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: label,
+      excludeSemantics: true,
+      child: SizedBox.square(
+        dimension: 44,
+        child: TextButton(
+          onPressed: onPressed,
+          style: TextButton.styleFrom(
+            padding: EdgeInsets.zero,
+            backgroundColor: Q.surface2,
+            foregroundColor: Q.text,
+            disabledForegroundColor: Q.border,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            textStyle: QText.body(22, weight: FontWeight.w700),
+          ),
+          child: Text(text),
+        ),
+      ),
+    );
+  }
+}

@@ -52,7 +52,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
         if (!_touchedNew) _newCardsPerDay = s.newCardsPerDay;
       });
     } on Object {
-      // Defaults stay in place if the initial settings call fails.
+      // The steps show the defaults; _finish loads the settings again before saving.
     }
   }
 
@@ -82,24 +82,15 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       _saving = true;
       _error = null;
     });
-    final base = _serverSettings ??
-        const UserSettings(
-          dailyGoal: 20,
-          newCardsPerDay: 5,
-          notificationsEnabled: true,
-          morningTime: '08:00',
-          eveningTime: '18:30',
-          lastCallTime: '21:00',
-          quietFrom: '22:00',
-          quietTo: '07:00',
-          smartTimes: true,
-        );
-    final next = base.copyWith(
-      fourRatings: _fourRatings,
-      dailyGoal: _dailyGoal,
-      newCardsPerDay: _newCardsPerDay,
-    );
     try {
+      // Only the three choices change. The rest comes from the server, never from defaults: a user who
+      // reinstalls the app (or updates it signed out) sees the intro again and keeps reminders and Žebříček.
+      final base = _serverSettings ?? await ref.read(apiClientProvider).settings();
+      final next = base.copyWith(
+        fourRatings: _fourRatings,
+        dailyGoal: _dailyGoal,
+        newCardsPerDay: _newCardsPerDay,
+      );
       final update = await ref.read(apiClientProvider).saveSettings(next);
       final notifications = ref.read(notificationsProvider);
       unawaited(notifications.onSettings(update.settings));
@@ -117,6 +108,12 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
         });
       }
     }
+  }
+
+  /// After a failed save (offline, say): finish without saving; Nastavení has the same options.
+  Future<void> _later() async {
+    if (_saving) return;
+    await ref.read(onboardingProvider.notifier).complete();
   }
 
   @override
@@ -219,6 +216,14 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                       onPressed: _next,
                       busy: _saving,
                     ),
+                    if (_error != null && !_saving) ...[
+                      const SizedBox(height: 4),
+                      TextButton(
+                        onPressed: _later,
+                        style: TextButton.styleFrom(minimumSize: const Size.fromHeight(48), foregroundColor: Q.textMuted),
+                        child: Text(S.onboardingLater, style: QText.body(15, color: Q.textMuted, weight: FontWeight.w700)),
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -472,15 +477,19 @@ class _GoalStep extends StatelessWidget {
           onTap: () => onChanged(hardGoal),
         ),
         const SizedBox(height: 12),
-        _AdjustPanel(
-          title: S.onboardingAdjustGoal,
-          hint: S.onboardingAdjustGoalHint,
-          value: value,
-          min: UserSettings.minGoal,
-          max: UserSettings.maxGoal,
-          decreaseLabel: S.decreaseGoal,
-          increaseLabel: S.increaseGoal,
-          onChanged: onChanged,
+        Panel(
+          padding: EdgeInsets.zero,
+          radius: 20,
+          child: ValueStepper(
+            title: S.onboardingAdjustGoal,
+            hint: S.onboardingAdjustGoalHint,
+            value: value,
+            min: UserSettings.minGoal,
+            max: UserSettings.maxGoal,
+            decreaseLabel: S.decreaseGoal,
+            increaseLabel: S.increaseGoal,
+            onChanged: onChanged,
+          ),
         ),
       ],
     );
@@ -530,15 +539,19 @@ class _NewCardsStep extends StatelessWidget {
           onTap: () => onChanged(hardNew),
         ),
         const SizedBox(height: 12),
-        _AdjustPanel(
-          title: S.onboardingAdjustNew,
-          hint: S.onboardingAdjustNewHint,
-          value: value,
-          min: UserSettings.minNew,
-          max: UserSettings.maxNew,
-          decreaseLabel: S.fewerNew,
-          increaseLabel: S.moreNew,
-          onChanged: onChanged,
+        Panel(
+          padding: EdgeInsets.zero,
+          radius: 20,
+          child: ValueStepper(
+            title: S.onboardingAdjustNew,
+            hint: S.onboardingAdjustNewHint,
+            value: value,
+            min: UserSettings.minNew,
+            max: UserSettings.maxNew,
+            decreaseLabel: S.fewerNew,
+            increaseLabel: S.moreNew,
+            onChanged: onChanged,
+          ),
         ),
       ],
     );
@@ -770,92 +783,6 @@ class _RadioCheck extends StatelessWidget {
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         border: Border.all(color: Q.inputBorder, width: 1.5),
-      ),
-    );
-  }
-}
-
-class _AdjustPanel extends StatelessWidget {
-  const _AdjustPanel({
-    required this.title,
-    required this.hint,
-    required this.value,
-    required this.min,
-    required this.max,
-    required this.decreaseLabel,
-    required this.increaseLabel,
-    required this.onChanged,
-  });
-
-  final String title;
-  final String hint;
-  final int value;
-  final int min;
-  final int max;
-  final String decreaseLabel;
-  final String increaseLabel;
-  final ValueChanged<int> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return Panel(
-      radius: 20,
-      padding: const EdgeInsets.fromLTRB(16, 12, 14, 12),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title, style: QText.body(15, weight: FontWeight.w800)),
-                const SizedBox(height: 2),
-                Text(hint, style: QText.body(12, color: Q.textMuted, weight: FontWeight.w400, height: 1.35)),
-              ],
-            ),
-          ),
-          _StepButton(label: decreaseLabel, text: '−', onPressed: value > min ? () => onChanged(value - 1) : null),
-          Semantics(
-            label: title,
-            value: '$value',
-            child: SizedBox(
-              width: 44,
-              child: Text('$value', textAlign: TextAlign.center, style: QText.heading(20).copyWith(letterSpacing: 0)),
-            ),
-          ),
-          _StepButton(label: increaseLabel, text: '+', onPressed: value < max ? () => onChanged(value + 1) : null),
-        ],
-      ),
-    );
-  }
-}
-
-class _StepButton extends StatelessWidget {
-  const _StepButton({required this.label, required this.text, required this.onPressed});
-
-  final String label;
-  final String text;
-  final VoidCallback? onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    return Semantics(
-      button: true,
-      label: label,
-      excludeSemantics: true,
-      child: SizedBox.square(
-        dimension: 44,
-        child: TextButton(
-          onPressed: onPressed,
-          style: TextButton.styleFrom(
-            padding: EdgeInsets.zero,
-            backgroundColor: Q.surface2,
-            foregroundColor: Q.text,
-            disabledForegroundColor: Q.border,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            textStyle: QText.body(22, weight: FontWeight.w700),
-          ),
-          child: Text(text),
-        ),
       ),
     );
   }

@@ -88,6 +88,7 @@ abstract final class S {
       'Všechno je připravené podle tebe. Kdykoliv si to můžeš změnit v Nastavení.';
   static const onboardingSummaryRatings = 'Hodnocení karet';
   static const onboardingStart = 'Jdeme na to';
+  static const onboardingLater = 'Nastavím si to později';
 
   // Navigation
   static const navHome = 'Domů';

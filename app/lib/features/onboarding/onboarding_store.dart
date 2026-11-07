@@ -3,63 +3,52 @@ import '../notifications/notification_store.dart';
 /// Remembers whether the one-time intro after the first login was shown (#41).
 ///
 /// Stored in [KeyValueStore] (SharedPreferences on Android), so an app update
-/// keeps the flag and never runs the intro a second time.
+/// keeps the flag and never runs the intro a second time. Storage errors never
+/// block the app: the state is then kept in memory for this run.
 class OnboardingStore {
   OnboardingStore(this._store);
 
   static const _key = 'quizly.onboarding';
+  static const _pendingValue = 'pending';
+  static const _doneValue = 'done';
 
   final KeyValueStore _store;
-  bool _initialized = false;
   bool _done = false;
   bool _pending = false;
 
   bool get isDone => _done;
   bool get isPending => _pending;
 
-  /// Restores the state at app start.
+  /// Restores the state at app start (before the first frame).
   ///
-  /// If the user is [alreadySignedIn] when the app starts and no state was saved yet,
-  /// this installation comes from an update of an earlier version: mark the intro as done
-  /// so the update doesn't show it.
+  /// - `done`: the intro was finished.
+  /// - `pending`: the app was closed during the intro; it comes back if the user is still signed in.
+  /// - nothing saved and [alreadySignedIn]: an update of a version without the intro, so it's marked done.
+  /// - nothing saved and signed out: the intro starts after the next login.
   Future<void> init({required bool alreadySignedIn}) async {
-    _initialized = true;
-    final raw = await _store.read(_key);
-    if (raw == 'done' || _done) {
+    final raw = await _read();
+    if (raw == _doneValue) {
       _done = true;
       _pending = false;
-      return;
-    }
-    if (raw == 'pending') {
+    } else if (raw == _pendingValue) {
       _done = false;
       _pending = alreadySignedIn;
-      return;
-    }
-    if (alreadySignedIn) {
+    } else if (alreadySignedIn) {
       _done = true;
       _pending = false;
-      await _store.write(_key, 'done');
+      await _write(_doneValue);
     }
   }
 
-  /// Fallback when a test builds the app without calling [init] first.
-  void ensureInitialized({required bool alreadySignedIn}) {
-    if (_initialized) return;
-    _initialized = true;
-    if (alreadySignedIn) _done = true;
-  }
-
-  /// Called right after `POST /api/auth/login` succeeds.
-  /// Returns true when the intro should now be shown.
+  /// Called right after `POST /api/auth/login` succeeds. Returns true when the intro should now be shown.
   Future<bool> onLogin() async {
-    final raw = await _store.read(_key);
-    if (_done || raw == 'done') {
-      _done = true;
+    if (!_done && await _read() == _doneValue) _done = true;
+    if (_done) {
       _pending = false;
       return false;
     }
     _pending = true;
-    await _store.write(_key, 'pending');
+    await _write(_pendingValue);
     return true;
   }
 
@@ -67,6 +56,22 @@ class OnboardingStore {
   Future<void> complete() async {
     _done = true;
     _pending = false;
-    await _store.write(_key, 'done');
+    await _write(_doneValue);
+  }
+
+  Future<String?> _read() async {
+    try {
+      return await _store.read(_key);
+    } on Object {
+      return null;
+    }
+  }
+
+  Future<void> _write(String value) async {
+    try {
+      await _store.write(_key, value);
+    } on Object {
+      // Kept in memory for this run; the worst case is the intro once more after a restart.
+    }
   }
 }
