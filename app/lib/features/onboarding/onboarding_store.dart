@@ -2,8 +2,9 @@ import '../notifications/notification_store.dart';
 
 /// Remembers whether the one-time intro after the first login was shown (#41).
 ///
-/// Stored in [KeyValueStore] (SharedPreferences on Android), so an app update
-/// keeps the flag and never runs the intro a second time. Storage errors never
+/// Stored in [KeyValueStore] (SharedPreferences on Android). Existing users see it
+/// once after the update that brings it; later updates keep the flag and never run
+/// the intro a second time. Storage errors never
 /// block the app: the state is then kept in memory for this run.
 class OnboardingStore {
   OnboardingStore(this._store);
@@ -21,9 +22,9 @@ class OnboardingStore {
 
   /// Restores the state at app start (before the first frame).
   ///
-  /// - `done`: the intro was finished.
+  /// - `done`: the intro was finished; no later update shows it again.
   /// - `pending`: the app was closed during the intro; it comes back if the user is still signed in.
-  /// - nothing saved and [alreadySignedIn]: an update of a version without the intro, so it's marked done.
+  /// - nothing saved and [alreadySignedIn]: the update that brings the intro; existing users see it once now.
   /// - nothing saved and signed out: the intro starts after the next login.
   Future<void> init({required bool alreadySignedIn}) async {
     final raw = await _read();
@@ -34,9 +35,9 @@ class OnboardingStore {
       _done = false;
       _pending = alreadySignedIn;
     } else if (alreadySignedIn) {
-      _done = true;
-      _pending = false;
-      await _write(_doneValue);
+      _done = false;
+      _pending = true;
+      await _write(_pendingValue);
     }
   }
 

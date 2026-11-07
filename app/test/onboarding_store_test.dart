@@ -58,12 +58,16 @@ void main() {
     expect(await restarted.onLogin(), isFalse);
   });
 
-  test('an update from a version without the intro, signed in: marked done and saved', () async {
+  test('the update that brings the intro, signed in: shown once now, never on a later update', () async {
     final kv = MemoryKeyValueStore();
     final store = await start(kv, signedIn: true);
-    expect(store.isDone, isTrue);
-    expect(kv.data['quizly.onboarding'], 'done');
-    expect(await store.onLogin(), isFalse);
+    expect(store.isPending, isTrue);
+    expect(kv.data['quizly.onboarding'], 'pending');
+
+    await store.complete();
+    final nextUpdate = await start(kv, signedIn: true);
+    expect(nextUpdate.isPending, isFalse);
+    expect(nextUpdate.isDone, isTrue);
   });
 
   test('a broken storage never throws: the intro still runs once in this run', () async {

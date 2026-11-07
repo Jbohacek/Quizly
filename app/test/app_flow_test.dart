@@ -402,7 +402,7 @@ void main() {
       retry: (retryCount, error) => null,
       overrides: [
         apiClientProvider.overrideWithValue(client),
-        onboardingStoreProvider.overrideWithValue(await _onboarding(signedIn: false)),
+        onboardingStoreProvider.overrideWithValue(await _onboarding()),
         outboxStoreProvider.overrideWithValue(MemoryOutboxStore()),
         connectivityProvider.overrideWith((ref) => Stream.value(true)),
         notificationsProvider.overrideWithValue(_notifications(FakeNotificationPlatform())),
@@ -493,7 +493,7 @@ void main() {
       retry: (retryCount, error) => null,
       overrides: [
         apiClientProvider.overrideWithValue(client),
-        onboardingStoreProvider.overrideWithValue(await _onboarding(signedIn: true)),
+        onboardingStoreProvider.overrideWithValue(await _onboarding(done: true)),
         outboxStoreProvider.overrideWithValue(outbox),
         connectivityProvider.overrideWith((ref) => Stream.value(true)),
         notificationsProvider.overrideWithValue(_notifications(FakeNotificationPlatform())),
@@ -1280,14 +1280,55 @@ void main() {
       expect(find.text('Ahoj, Kuba!'), findsOneWidget);
     });
 
-    testWidgets('an app update with an existing login marks onboarding done and never shows it', (tester) async {
+    testWidgets('the update that brings the intro shows it once to a signed-in user, the next start does not', (tester) async {
+      tester.view.physicalSize = const Size(1080, 2340);
+      tester.view.devicePixelRatio = 2.75;
+      addTearDown(tester.view.reset);
       final kv = MemoryKeyValueStore();
-      final onboarding = OnboardingStore(kv);
-      await onboarding.init(alreadySignedIn: true);
 
-      expect(onboarding.isDone, isTrue);
-      expect(onboarding.isPending, isFalse);
-      expect(await onboarding.onLogin(), isFalse);
+      Future<void> startSignedIn() async {
+        final tokens = MemoryTokenStore(AuthTokens(
+          accessToken: 'A',
+          accessTokenExpiresAt: DateTime.utc(2099),
+          refreshToken: 'R',
+          refreshTokenExpiresAt: DateTime.utc(2099),
+          user: const AppUser(id: 2, username: 'kuba', displayName: 'Kuba'),
+        ));
+        final client = ApiClient(baseUrl: 'https://quizly.test', store: tokens, dio: Dio()..httpClientAdapter = FakeApi());
+        await client.restore();
+        final onboarding = OnboardingStore(kv);
+        await onboarding.init(alreadySignedIn: true);
+        await tester.pumpWidget(ProviderScope(
+          key: UniqueKey(),
+          retry: (retryCount, error) => null,
+          overrides: [
+            apiClientProvider.overrideWithValue(client),
+            onboardingStoreProvider.overrideWithValue(onboarding),
+            outboxStoreProvider.overrideWithValue(MemoryOutboxStore()),
+            connectivityProvider.overrideWith((ref) => Stream.value(true)),
+            notificationsProvider.overrideWithValue(_notifications(FakeNotificationPlatform())),
+          ],
+          child: const QuizlyApp(),
+        ));
+        await settle(tester);
+      }
+
+      // The updated app starts signed in, with nothing saved about the intro yet.
+      await startSignedIn();
+      expect(find.byType(OnboardingScreen), findsOneWidget);
+      for (var i = 0; i < 5; i++) {
+        await tester.tap(find.text(S.next));
+        await settle(tester);
+      }
+      await tester.tap(find.text(S.onboardingStart));
+      await settle(tester);
+      expect(find.text('Ahoj, Kuba!'), findsOneWidget);
+      expect(kv.data['quizly.onboarding'], 'done');
+
+      // A later update (or any restart): straight to Domů.
+      await startSignedIn();
+      expect(find.byType(OnboardingScreen), findsNothing);
+      expect(find.text('Ahoj, Kuba!'), findsOneWidget);
     });
 
     /// Logs in on a fresh install and taps through to "Přeji hezkou zábavu!".
@@ -1295,7 +1336,7 @@ void main() {
       tester.view.physicalSize = const Size(1080, 2340);
       tester.view.devicePixelRatio = 2.75;
       addTearDown(tester.view.reset);
-      final onboarding = await _onboarding(signedIn: false);
+      final onboarding = await _onboarding();
       final client = ApiClient(baseUrl: 'https://quizly.test', store: MemoryTokenStore(), dio: Dio()..httpClientAdapter = api);
       await tester.pumpWidget(ProviderScope(
         retry: (retryCount, error) => null,
@@ -1392,7 +1433,7 @@ void main() {
         retry: (retryCount, error) => null,
         overrides: [
           apiClientProvider.overrideWithValue(client),
-          onboardingStoreProvider.overrideWithValue(await _onboarding(signedIn: false)),
+          onboardingStoreProvider.overrideWithValue(await _onboarding()),
           outboxStoreProvider.overrideWithValue(MemoryOutboxStore()),
           connectivityProvider.overrideWith((ref) => Stream.value(true)),
           notificationsProvider.overrideWithValue(_notifications(FakeNotificationPlatform())),
@@ -1480,10 +1521,12 @@ Notifications _notifications(FakeNotificationPlatform platform) => Notifications
       random: Random(1),
     );
 
-/// Onboarding state as `main` restores it: signed in at start = an earlier install, intro done (#41).
-Future<OnboardingStore> _onboarding({required bool signedIn}) async {
-  final store = OnboardingStore(MemoryKeyValueStore());
-  await store.init(alreadySignedIn: signedIn);
+/// Onboarding state as `main` restores it (#41): a fresh install, or one whose intro is [done].
+Future<OnboardingStore> _onboarding({bool done = false}) async {
+  final kv = MemoryKeyValueStore();
+  if (done) kv.data['quizly.onboarding'] = 'done';
+  final store = OnboardingStore(kv);
+  await store.init(alreadySignedIn: done);
   return store;
 }
 
@@ -1511,7 +1554,7 @@ Future<(FakeApi, MemoryTokenStore)> _signedIn(
     retry: (retryCount, error) => null,
     overrides: [
       apiClientProvider.overrideWithValue(client),
-      onboardingStoreProvider.overrideWithValue(await _onboarding(signedIn: true)),
+      onboardingStoreProvider.overrideWithValue(await _onboarding(done: true)),
       outboxStoreProvider.overrideWithValue(MemoryOutboxStore()),
       connectivityProvider.overrideWith((ref) => Stream.value(true)),
       notificationsProvider.overrideWithValue(_notifications(notifications ?? FakeNotificationPlatform())),
