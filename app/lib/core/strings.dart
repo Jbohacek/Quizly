@@ -78,10 +78,15 @@ abstract final class S {
   static const searchCards = 'Hledat v kartách';
   static const clearSearch = 'Smazat hledání';
   static const filterAll = 'Vše';
+  static const filterProblematic = 'Problémové';
+  static const statusProblematic = 'Problémová';
   static const noMatch = 'Tomu neodpovídá žádná karta.';
   static String cardsShown(int shown, int total) => '${formatInt(shown)} z ${formatInt(total)}';
   static const cardProgress = 'Cesta ke zvládnutí';
   static String cardAnswers(int know, int dontKnow) => 'Vím: ${formatInt(know)} · Nevím: ${formatInt(dontKnow)}';
+  // Problematic cards always have at least 2 recent answers, so "odpovědí" (genitive plural) fits.
+  static String recentDontKnow(int dontKnow, int answers) =>
+      'Z posledních ${formatInt(answers)} odpovědí: Nevím ${formatInt(dontKnow)}×';
   static String nextReview(String when) => 'Další opakování: $when';
   static const nextReviewNow = 'Další opakování: teď';
   static const notStudiedYet = 'Zatím bez odpovědi. Přijde na řadu mezi novými kartami.';
@@ -298,6 +303,24 @@ abstract final class S {
   static const progressTitle = 'Postup v balíčcích';
   static const legendNew = 'Nové';
   static const noProgress = 'Zatím tu nejsou žádné balíčky.';
+
+  // Žebříček (#34)
+  static const myStats = 'Moje statistiky';
+  static const leaderboard = 'Žebříček';
+  static const periodWeek = 'Tento týden';
+  static const periodAllTime = 'Celkově';
+  static const metricPoints = 'Body';
+  static const metricStreak = 'Série';
+  static const emptyLeaderboard = 'V žebříčku zatím nikdo není.';
+  static const hiddenFromLeaderboard = 'V žebříčku tě ostatní nevidí. Zapnout to jde v Nastavení.';
+  static String rankPosition(int rank) => '$rank.';
+  static String rankLabel(int rank) => '$rank. místo';
+  static String yourRankBadge(int rank) => 'Jsi na $rank. místě';
+  static const youBadge = 'Ty';
+  static String leaderboardPointsLine(int streak, int count) => 'Série: ${days(streak)} · ${cards(count)}';
+  static String leaderboardStreakLine(int earned, int count) => '${points(earned)} · ${cards(count)}';
+  static const showInLeaderboard = 'Zobrazit mě v žebříčku';
+  static const showInLeaderboardHint = 'Ostatní uvidí tvé body a sérii ve Statistikách.';
 
   // Notifications (docs/notifications.md)
   static const channelReminders = 'Připomínky';

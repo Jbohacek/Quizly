@@ -118,7 +118,10 @@ public sealed record AppDeckResponse(
     int LearningPercent,
     int UnseenCards);
 
-/// <summary>One card of a deck with the user's status: <c>new</c>, <c>learning</c> or <c>mastered</c> (spec §3.5), and its tags (sorted).</summary>
+/// <summary>
+/// One card of a deck with the user's status: <c>new</c>, <c>learning</c> or <c>mastered</c> (spec §3.5), its tags (sorted),
+/// and the user's last answers to it: Nevím among them, how many there are (≤ 10) and whether that makes it "Problémová" (spec §3.6).
+/// </summary>
 public sealed record DeckCardResponse(
     int Id,
     string Question,
@@ -128,7 +131,10 @@ public sealed record DeckCardResponse(
     int KnowCount,
     int DontKnowCount,
     DateTimeOffset? NextReview,
-    IReadOnlyList<string> Tags);
+    IReadOnlyList<string> Tags,
+    int RecentDontKnow,
+    int RecentAnswers,
+    bool Problematic);
 
 /// <summary>A deck (with the user's counts) and all its cards in sort order.</summary>
 public sealed record DeckCardsResponse(AppDeckResponse Deck, IReadOnlyList<DeckCardResponse> Cards);

@@ -9,18 +9,22 @@ namespace Quizly.Tests.Unit;
 
 public sealed class PragueCalendarTests
 {
-    // Boundaries from docs/spec.md §5.1, including both DST switches.
+    // Boundaries from docs/spec.md §5.1 (03:00 rollover, #40), including both DST switches.
     [Theory]
-    [InlineData("2026-10-24T21:59:59Z", "2026-10-24")]
-    [InlineData("2026-10-24T22:00:00Z", "2026-10-25")]
-    [InlineData("2026-10-25T00:59:59Z", "2026-10-25")]
-    [InlineData("2026-10-25T01:00:00Z", "2026-10-25")]
-    [InlineData("2026-10-25T22:59:59Z", "2026-10-25")]
-    [InlineData("2026-10-25T23:00:00Z", "2026-10-26")]
-    [InlineData("2027-03-27T22:59:59Z", "2027-03-27")]
-    [InlineData("2027-03-27T23:00:00Z", "2027-03-28")]
-    [InlineData("2027-03-28T21:59:59Z", "2027-03-28")]
-    [InlineData("2027-03-28T22:00:00Z", "2027-03-29")]
+    [InlineData("2026-10-24T21:59:59Z", "2026-10-24")] // 23:59:59 CEST → still Oct 24
+    [InlineData("2026-10-24T22:00:00Z", "2026-10-24")] // 00:00:00 CEST → still Oct 24 (before 03:00)
+    [InlineData("2026-10-25T00:59:59Z", "2026-10-24")] // 02:59:59 CEST → still Oct 24
+    [InlineData("2026-10-25T01:00:00Z", "2026-10-24")] // 02:00:00 CET (clocks back) → still Oct 24
+    [InlineData("2026-10-25T01:59:59Z", "2026-10-24")] // 02:59:59 CET → still Oct 24
+    [InlineData("2026-10-25T02:00:00Z", "2026-10-25")] // 03:00:00 CET → Oct 25 starts
+    [InlineData("2026-10-25T22:59:59Z", "2026-10-25")] // 23:59:59 CET → Oct 25
+    [InlineData("2026-10-26T01:59:59Z", "2026-10-25")] // 02:59:59 CET → still Oct 25
+    [InlineData("2026-10-26T02:00:00Z", "2026-10-26")] // 03:00:00 CET → Oct 26 starts
+    [InlineData("2027-03-27T23:00:00Z", "2027-03-27")] // 00:00:00 CET → still Mar 27
+    [InlineData("2027-03-28T00:59:59Z", "2027-03-27")] // 01:59:59 CET → still Mar 27
+    [InlineData("2027-03-28T01:00:00Z", "2027-03-28")] // 03:00:00 CEST (clocks forward) → Mar 28 starts
+    [InlineData("2027-03-29T00:59:59Z", "2027-03-28")] // 02:59:59 CEST → still Mar 28
+    [InlineData("2027-03-29T01:00:00Z", "2027-03-29")] // 03:00:00 CEST → Mar 29 starts
     public void Utc_instants_map_to_prague_days(string utc, string expectedDay)
     {
         var instant = DateTime.Parse(utc, System.Globalization.CultureInfo.InvariantCulture,
@@ -30,8 +34,8 @@ public sealed class PragueCalendarTests
     }
 
     [Theory]
-    [InlineData("2026-10-25", 25)]
-    [InlineData("2027-03-28", 23)]
+    [InlineData("2026-10-24", 25)] // 03:00 CEST Oct 24 to 03:00 CET Oct 25 includes the extra DST hour
+    [InlineData("2027-03-27", 23)] // 03:00 CET Mar 27 to 03:00 CEST Mar 28 skips 02:00–03:00
     [InlineData("2026-11-02", 24)]
     public void Day_lengths_follow_dst(string day, int hours)
     {
@@ -141,4 +145,19 @@ public sealed class ValidationTests
     [InlineData(NotificationCategory.Morning, "morning")]
     public void Categories_use_snake_case_names(NotificationCategory category, string name) =>
         Assert.Equal(name, NotificationTextService.CategoryName(category));
+}
+
+public sealed class ProblemCardsTests
+{
+    [Theory]
+    [InlineData(2, 2, false, true)]   // two Nevím out of two
+    [InlineData(2, 6, false, true)]   // 33 %
+    [InlineData(3, 10, false, true)]  // 30 %, the edge
+    [InlineData(2, 7, false, false)]  // 28 %
+    [InlineData(1, 1, false, false)]  // one Nevím is not a pattern
+    [InlineData(0, 0, false, false)]  // never answered
+    [InlineData(5, 10, true, false)]  // mastered wins
+    public void Problematic_needs_two_recent_dont_knows_making_30_percent_of_a_card_not_mastered(
+        int recentDontKnow, int recentAnswers, bool mastered, bool expected) =>
+        Assert.Equal(expected, ProblemCards.IsProblematic(recentDontKnow, recentAnswers, mastered));
 }
