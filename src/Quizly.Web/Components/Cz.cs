@@ -65,9 +65,11 @@ public static class Cz
             return $"před {(int)ago.TotalMinutes}{Nbsp}min";
         }
 
+        // A label with a clock time follows the calendar, not the 03:00 study day (#40):
+        // 01:30 this morning is "dnes 01:30", not "včera 01:30".
         var local = TimeZoneInfo.ConvertTime(instant.Value, PragueCalendar.Zone);
         var day = DateOnly.FromDateTime(local.DateTime);
-        var today = PragueCalendar.Today(time);
+        var today = DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(now, PragueCalendar.Zone).DateTime);
         var clock = local.ToString("HH:mm", CultureInfo.InvariantCulture);
         return day == today ? $"dnes {clock}"
             : day == today.AddDays(-1) ? $"včera {clock}"

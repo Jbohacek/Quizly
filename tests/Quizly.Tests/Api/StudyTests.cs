@@ -167,6 +167,51 @@ public sealed class StudyTests(QuizlyFactory factory) : IClassFixture<QuizlyFact
         });
     }
 
+    [Fact]
+    public async Task Session_cards_include_review_intervals_for_new_and_due_cards()
+    {
+        var user = await factory.CreateUserAsync(newCardsPerDay: 2);
+        var (_, cards) = await factory.CreateDeckAsync("IntervalDeck" + Guid.NewGuid().ToString("N")[..6], 2);
+        using var app = await factory.AppClientAsync(user);
+
+        var session = await GetSessionAsync(app);
+        var cardsJson = session["cards"]!.AsArray();
+        Assert.Equal(2, cardsJson.Count);
+
+        // New cards: seconds to the next review per answer (#31); the app formats them.
+        foreach (var c in cardsJson)
+        {
+            var intervals = c!["intervals"]!;
+            Assert.Equal(60, (long)intervals["dontKnow"]!);
+            Assert.Equal(330, (long)intervals["hard"]!);
+            Assert.Equal(600, (long)intervals["know"]!);
+            Assert.Equal(8 * 86_400, (long)intervals["easy"]!);
+
+            var relearn = c["relearnIntervals"]!;
+            Assert.Equal(60, (long)relearn["dontKnow"]!);
+            Assert.Equal(600, (long)relearn["know"]!);
+        }
+
+        // Graduate the first card and let it become due.
+        await ReviewAsync(app, (cards[0], "know"), (cards[0], "know"));
+        factory.Time.Advance(TimeSpan.FromDays(5));
+
+        using var later = await factory.AppClientAsync(user);
+        var laterSession = await GetSessionAsync(later);
+        var dueCard = laterSession["cards"]!.AsArray().First(c => (int)c!["cardId"]! == cards[0]);
+
+        // A review card: Nevím goes to the 10 min relearning step, Vím moves it by whole days.
+        var dueIntervals = dueCard!["intervals"]!;
+        Assert.Equal(600, (long)dueIntervals["dontKnow"]!);
+        Assert.Equal(0, (long)dueIntervals["know"]! % 86_400);
+
+        // Its second showing after a Nevím: Těžké is 1.5× the step, Vím graduates again.
+        var dueRelearn = dueCard["relearnIntervals"]!;
+        Assert.Equal(600, (long)dueRelearn["dontKnow"]!);
+        Assert.Equal(900, (long)dueRelearn["hard"]!);
+        Assert.Equal(0, (long)dueRelearn["know"]! % 86_400);
+    }
+
     private static async Task<JsonNode> GetSessionAsync(HttpClient app, int? deckId = null)
     {
         var response = await app.GetAsync(deckId is null ? "/api/session" : $"/api/session?deckId={deckId}", Ct);

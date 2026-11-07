@@ -210,6 +210,8 @@ Jakub (2026-11-01): polish first, then a first beta user tests the app, then the
 - [x] #29 card tags, API part: `tags` / `card_tags`, admin and app card APIs, session and deck cards, dashboard "Tagy", deck YAML, MCP descriptions
 - [x] #29 card tags, app part: deck name (in its color, no frame) and tags in the session, tags in the deck detail (and its search) and the card editor
 - [x] #28 deck archiving: archive / restore in the dashboard and admin API, archived decks hidden from every app endpoint, progress kept, MCP `list_decks` flags them
+- [x] #34 Žebříček: `GET /api/leaderboard` (points this week / all time, or the current streak; shared ranks; rules in spec §10.1), a "Žebříček" tab in Statistiky, and "Zobrazit mě v žebříčku" in Nastavení to hide yourself
+- [x] #27 problematic cards: `recentDontKnow` / `recentAnswers` / `problematic` on the deck cards (rule in spec §3.6), a "Problémové" filter in the deck detail with the worst first, "Problémová" under the question
 - [ ] Fixes from the beta user's testing
 - [x] App updates: the server fetches the newest full release from GitHub; Domů offers "Je dostupná nová verze", downloads it in the app and opens the installer (`docs/app-updates.md`)
 - [ ] **(Jakub)** GitHub token + `Updates__*` in the stack (`docs/app-updates.md` §3)

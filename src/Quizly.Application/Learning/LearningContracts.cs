@@ -78,8 +78,22 @@ public sealed record ReviewBatchResponse(
     PointsValueResponse Points,
     IReadOnlyList<EventResponse> Events);
 
-/// <summary>One card in the session queue, with its tags (sorted).</summary>
-public sealed record SessionCardResponse(int CardId, int DeckId, string Question, string Answer, string Kind, IReadOnlyList<string> Tags);
+/// <summary>Seconds to the next review each answer would give (docs/api.md §5, #31). The app formats them.</summary>
+public sealed record CardIntervalsResponse(long DontKnow, long Hard, long Know, long Easy);
+
+/// <summary>
+/// One card in the session queue, with its tags (sorted) and the intervals for its first showing and for its
+/// second one after a Nevím (#31).
+/// </summary>
+public sealed record SessionCardResponse(
+    int CardId,
+    int DeckId,
+    string Question,
+    string Answer,
+    string Kind,
+    IReadOnlyList<string> Tags,
+    CardIntervalsResponse Intervals,
+    CardIntervalsResponse RelearnIntervals);
 
 /// <summary>The session queue: due cards first (most overdue first), then new cards.</summary>
 public sealed record SessionResponse(
@@ -104,7 +118,10 @@ public sealed record AppDeckResponse(
     int LearningPercent,
     int UnseenCards);
 
-/// <summary>One card of a deck with the user's status: <c>new</c>, <c>learning</c> or <c>mastered</c> (spec §3.5), and its tags (sorted).</summary>
+/// <summary>
+/// One card of a deck with the user's status: <c>new</c>, <c>learning</c> or <c>mastered</c> (spec §3.5), its tags (sorted),
+/// and the user's last answers to it: Nevím among them, how many there are (≤ 10) and whether that makes it "Problémová" (spec §3.6).
+/// </summary>
 public sealed record DeckCardResponse(
     int Id,
     string Question,
@@ -114,7 +131,10 @@ public sealed record DeckCardResponse(
     int KnowCount,
     int DontKnowCount,
     DateTimeOffset? NextReview,
-    IReadOnlyList<string> Tags);
+    IReadOnlyList<string> Tags,
+    int RecentDontKnow,
+    int RecentAnswers,
+    bool Problematic);
 
 /// <summary>A deck (with the user's counts) and all its cards in sort order.</summary>
 public sealed record DeckCardsResponse(AppDeckResponse Deck, IReadOnlyList<DeckCardResponse> Cards);

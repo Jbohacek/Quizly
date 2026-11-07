@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.DependencyInjection;
 using Quizly.Application.Auth;
 using Quizly.Application.Decks;
+using Quizly.Application.Leaderboards;
 using Quizly.Application.Learning;
 using Quizly.Application.Profile;
 using Quizly.Application.NotificationTexts;
@@ -40,6 +41,7 @@ public static class DependencyInjection
         services.AddScoped<IShopService, ShopService>();
         services.AddScoped<IClaimAdminService, ClaimAdminService>();
         services.AddScoped<IStatsService, StatsService>();
+        services.AddScoped<ILeaderboardService, LeaderboardService>();
         services.AddScoped<IYamlDeckService, YamlDeckService>();
         services.AddScoped<IOverviewService, OverviewService>();
         return services;

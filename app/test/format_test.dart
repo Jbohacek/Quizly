@@ -47,4 +47,42 @@ void main() {
     expect(formatLongDate(DateTime(2026, 11, 2)), 'Pondělí 2. listopadu');
     expect(formatShortDate(DateTime(2026, 10, 31)), '31.${nbsp}10.');
   });
+
+  group('review intervals (#31)', () {
+    const min = 60, hour = 3600, day = 86400;
+
+    test('minutes, hours, days, months and years', () {
+      expect(formatInterval(0), '1${nbsp}min');
+      expect(formatInterval(20), '1${nbsp}min');
+      expect(formatInterval(330), '6${nbsp}min');
+      expect(formatInterval(10 * min), '10${nbsp}min');
+      expect(formatInterval(5 * hour), '5${nbsp}h');
+      expect(formatInterval(8 * day), '8${nbsp}d');
+      expect(formatInterval(45 * day), '1,5${nbsp}měs.');
+      expect(formatInterval(60 * day), '2${nbsp}měs.');
+      expect(formatInterval(730 * day), '2${nbsp}r.');
+      expect(formatInterval(36500 * day), '100${nbsp}r.');
+    });
+
+    test('the unit is picked after rounding', () {
+      expect(formatInterval(59 * min + 40), '1${nbsp}h');
+      expect(formatInterval(23 * hour + 40 * min), '1${nbsp}d');
+      expect(formatInterval(29 * day + 14 * hour), '1${nbsp}měs.');
+      expect(formatInterval(364 * day), '1${nbsp}r.');
+      expect(formatInterval(330 * day), '11${nbsp}měs.');
+    });
+
+    test('in words for screen readers', () {
+      expect(formatIntervalSpoken(min), '1${nbsp}minuta');
+      expect(formatIntervalSpoken(3 * min), '3${nbsp}minuty');
+      expect(formatIntervalSpoken(10 * min), '10${nbsp}minut');
+      expect(formatIntervalSpoken(1 * hour), '1${nbsp}hodina');
+      expect(formatIntervalSpoken(8 * day), '8${nbsp}dní');
+      expect(formatIntervalSpoken(2 * day), '2${nbsp}dny');
+      expect(formatIntervalSpoken(45 * day), '1,5${nbsp}měsíce');
+      expect(formatIntervalSpoken(365 * day), '1${nbsp}rok');
+      expect(formatIntervalSpoken(912 * day), '2,5${nbsp}roku');
+      expect(formatIntervalSpoken(1825 * day), '5${nbsp}let');
+    });
+  });
 }

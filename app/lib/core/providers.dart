@@ -173,6 +173,13 @@ final statsProvider = FutureProvider.autoDispose.family<Stats, int?>(
   (ref, deckId) => ref.watch(apiClientProvider).stats(deckId: deckId),
 );
 
+typedef LeaderboardQuery = ({String period, String metric});
+
+/// Leaderboard with period ('week', 'allTime') and metric ('points', 'streak').
+final leaderboardProvider = FutureProvider.autoDispose.family<Leaderboard, LeaderboardQuery>(
+  (ref, query) => ref.watch(apiClientProvider).getLeaderboard(period: query.period, metric: query.metric),
+);
+
 /// Moje nákupy, newest first.
 final claimsProvider = FutureProvider.autoDispose<List<Claim>>((ref) => ref.watch(apiClientProvider).claims());
 
@@ -214,5 +221,6 @@ void invalidateProgress(WidgetRef ref) {
   ref
     ..invalidate(homeProvider)
     ..invalidate(statsProvider)
+    ..invalidate(leaderboardProvider)
     ..invalidate(shopProvider);
 }

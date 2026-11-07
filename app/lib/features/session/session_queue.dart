@@ -23,6 +23,9 @@ class SessionQueue {
 
   bool get isDone => _queue.isEmpty;
 
+  /// True if [current] was re-queued after answering 'dontKnow' earlier in the session (#31).
+  bool get isRelearn => _queue.isNotEmpty && _queue.first.requeued;
+
   /// Cards left, including [current].
   int get remaining => _queue.length;
 

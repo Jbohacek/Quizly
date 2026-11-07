@@ -241,13 +241,20 @@ class Plan {
 
 final _placeholder = RegExp(r'\{(\w+)\}');
 
-/// Prague, where every Quizly day starts and ends (CLAUDE.md §5.5).
+/// Prague, where every Quizly day starts and ends at 03:00 (CLAUDE.md §5.5, #40).
 tz.Location get prague => tz.getLocation('Europe/Prague');
+
+/// Hour of day in Prague when the study day rolls over (#40).
+const rolloverHour = 3;
 
 DateTime dateOnly(DateTime d) => DateTime.utc(d.year, d.month, d.day);
 
-/// The Prague calendar day of an instant.
-DateTime pragueDay(DateTime instant) => dateOnly(tz.TZDateTime.from(instant, prague));
+/// The Prague study day of an instant (03:00 to 03:00 local time, #40).
+DateTime pragueDay(DateTime instant) {
+  final local = tz.TZDateTime.from(instant, prague);
+  final date = DateTime.utc(local.year, local.month, local.day);
+  return local.hour < rolloverHour ? date.subtract(const Duration(days: 1)) : date;
+}
 
 String _isoDay(DateTime d) =>
     '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
@@ -315,7 +322,7 @@ Plan planNotifications({
   Map<NotificationCategory, String> fallbacks = const {},
 }) {
   final local = tz.TZDateTime.from(now, prague);
-  final todayDate = dateOnly(local);
+  final todayDate = pragueDay(now);
   history = history.pruneSlots(_dayId(todayDate));
   if (!settings.notificationsEnabled || !permitted || snapshot == null) return Plan(const [], history);
 
@@ -359,7 +366,9 @@ Plan planNotifications({
     };
 
     void slot(int number, NotificationCategory category, ClockTime time) {
-      final at = tz.TZDateTime(prague, d.date.year, d.date.month, d.date.day, time.hour, time.minute);
+      // A slot before 03:00 falls on the next calendar date of the same study day (#40).
+      final calendarDate = time.hour < rolloverHour ? d.date.add(const Duration(days: 1)) : d.date;
+      final at = tz.TZDateTime(prague, calendarDate.year, calendarDate.month, calendarDate.day, time.hour, time.minute);
       if (!at.isAfter(local) || isQuiet(time, quietFrom, quietTo)) return;
       final id = _dayId(d.date) + number;
       final pick = _pickText(category, values, texts, history, random, fallbacks, keep: history.slots[id]);
@@ -371,7 +380,10 @@ Plan planNotifications({
     // A day that's already met needs no reminder at all.
     if (!d.met) {
       slot(1, d.broken ? NotificationCategory.comeback : NotificationCategory.morning, morning);
-      if (evening < lastCall) slot(2, NotificationCategory.evening, evening);
+      // Compare within the 03:00–03:00 study day.
+      final eveningInDay = (evening.minutes - rolloverHour * 60 + 1440) % 1440;
+      final lastCallInDay = (lastCall.minutes - rolloverHour * 60 + 1440) % 1440;
+      if (eveningInDay < lastCallInDay) slot(2, NotificationCategory.evening, evening);
       if (d.streak > 0) slot(3, NotificationCategory.lastCall, lastCall);
     }
   }
