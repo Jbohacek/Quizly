@@ -74,7 +74,7 @@ The app trusts `X-Forwarded-For` / `X-Forwarded-Proto` from the proxy, so it see
 4. **Uživatelé → Nový uživatel**: the generated password is shown once; send it to the user.
 5. API docs: `https://quizly.jbohacek.cz/api/docs` (needs the admin login in production).
 
-The 52 notification texts are seeded on the first start. Production starts without demo data.
+The 52 notification texts are seeded on the first start. Production starts without sample data (the Development sample users, decks and shop are never created outside Development).
 
 ## 7. Backups
 

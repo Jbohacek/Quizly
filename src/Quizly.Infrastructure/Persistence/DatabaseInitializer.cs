@@ -2,21 +2,24 @@ using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Quizly.Domain;
+using Quizly.Infrastructure.Seed;
 
 namespace Quizly.Infrastructure.Persistence;
 
 /// <summary>Applies migrations and seeds data on startup.</summary>
-public sealed class DatabaseInitializer(QuizlyDbContext db, TimeProvider time, ILogger<DatabaseInitializer> logger)
+public sealed class DatabaseInitializer(
+    QuizlyDbContext db, TimeProvider time, DevelopmentSeeder developmentSeeder, ILogger<DatabaseInitializer> logger)
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
-    public async Task InitializeAsync(bool seedDemoDeck, CancellationToken ct = default)
+    /// <summary>Migrates, seeds the notification texts, and (Development only) the sample users, decks and shop (#44).</summary>
+    public async Task InitializeAsync(bool seedDevelopmentData, CancellationToken ct = default)
     {
         await db.Database.MigrateAsync(ct);
         await SeedNotificationTextsAsync(ct);
-        if (seedDemoDeck)
+        if (seedDevelopmentData)
         {
-            await SeedDemoDeckAsync(ct);
+            await developmentSeeder.SeedAsync(ct);
         }
     }
 
@@ -42,43 +45,6 @@ public sealed class DatabaseInitializer(QuizlyDbContext db, TimeProvider time, I
         }));
         await db.SaveChangesAsync(ct);
         logger.LogInformation("Seeded {Count} notification texts", seeds.Count);
-    }
-
-    /// <summary>A small deck for local development when there are no decks yet.</summary>
-    private async Task SeedDemoDeckAsync(CancellationToken ct)
-    {
-        if (await db.Decks.AnyAsync(ct))
-        {
-            return;
-        }
-
-        var now = time.GetUtcNow().UtcDateTime;
-        (string Question, string Answer)[] cards =
-        [
-            ("Jaký je rozdíl mezi struct a class v C#?", "struct je hodnotový typ, class je referenční typ."),
-            ("Co dělá klíčové slovo async?", "Označí metodu, ve které můžeš použít await.\nMetoda pak vrací Task."),
-            ("Co je record v C#?", "Typ s hodnotovou rovností pro neměnná data."),
-            ("K čemu slouží using deklarace?", "Zavolá Dispose na konci bloku, i když nastane výjimka."),
-            ("Co vrací LINQ metoda Where?", "Líně vyhodnocovanou sekvenci prvků, které splňují podmínku."),
-        ];
-        db.Decks.Add(new Deck
-        {
-            Name = "C# základy",
-            Description = "Ukázkový balíček pro vývoj",
-            Color = Limits.DefaultDeckColor,
-            CreatedAt = now,
-            UpdatedAt = now,
-            Cards = cards.Select((c, i) => new Card
-            {
-                Question = c.Question,
-                Answer = c.Answer,
-                SortOrder = i,
-                CreatedAt = now,
-                UpdatedAt = now,
-            }).ToList(),
-        });
-        await db.SaveChangesAsync(ct);
-        logger.LogInformation("Seeded the demo deck");
     }
 
     private sealed record SeedText(string Category, string Text);

@@ -16,6 +16,7 @@ public static class DependencyInjection
         services.AddDbContext<QuizlyDbContext>(options => Configure(options, connectionString));
         services.AddScoped<IAppDbContext>(sp => sp.GetRequiredService<QuizlyDbContext>());
         services.AddScoped<DatabaseInitializer>();
+        services.AddScoped<Seed.DevelopmentSeeder>();
         return services;
     }
 

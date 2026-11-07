@@ -42,7 +42,20 @@ dotnet run --project src/Quizly.Web
 - Admin dashboard: http://localhost:5278/admin (dev credentials in `src/Quizly.Web/appsettings.Development.json`).
 - Swagger UI: http://localhost:5278/api/docs (admin login via `POST /api/admin/auth/login`).
 - Deploying to the server, backups and the runbook (update, rollback, restore, rotate secrets): [`deploy/README-deploy.md`](./deploy/README-deploy.md).
-- Migrations run on startup; Development also seeds a small demo deck. Every request is in `src/Quizly.Web/Quizly.Web.http`.
+- Migrations run on startup. Every request is in `src/Quizly.Web/Quizly.Web.http`.
+- **Sample data (#44):** the first Development start on an empty database also creates sample users, decks, a shop and about six weeks of study history, so there is something to look at right away. Set `Seed__DevelopmentData=false` to skip it. To start over, run `pwsh deploy/dev-reset.ps1` (it deletes the dev database volume), then `dotnet run` again.
+
+  Every sample user has the password `123`:
+
+  | User | Story |
+  | --- | --- |
+  | `anna` | 16-day streak (1,2×), today 12 of 20, a confirmed, a pending and a sold-out purchase, hearted rewards, sees the restricted deck "Anatomie" |
+  | `petr` | streak of 10 that broke 4 days ago, "Těžké a Snadné" on, a rejected purchase |
+  | `eva` | 3-day streak with today's goal met, shop off, hidden from Žebříček |
+  | `novacek` | brand new: nothing studied, for the first-run screens |
+  | `stary` | deactivated, cannot log in |
+
+  There are four decks (C# základy, Angličtina: slovíčka, Násobilka, the restricted Anatomie) and an archived one, with tags and light formatting. The history is replayed through the real FSRS, points and streak rules, so balances, streaks, heatmaps and the Žebříček all add up.
 - New migration: `dotnet tool restore`, then `dotnet ef migrations add <Name> --project src/Quizly.Infrastructure --output-dir Persistence/Migrations`.
 
 Tests (start PostgreSQL 18 with Testcontainers, so Docker must be running):
