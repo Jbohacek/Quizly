@@ -1,7 +1,21 @@
 import 'package:quizly/core/api/models.dart';
 
-SessionCard card(int id, {int deckId = 1, CardKind kind = CardKind.review}) =>
-    SessionCard(cardId: id, deckId: deckId, question: 'Otázka $id', answer: 'Odpověď $id', kind: kind);
+SessionCard card(
+  int id, {
+  int deckId = 1,
+  CardKind kind = CardKind.review,
+  CardIntervals? intervals,
+  CardIntervals? relearnIntervals,
+}) =>
+    SessionCard(
+      cardId: id,
+      deckId: deckId,
+      question: 'Otázka $id',
+      answer: 'Odpověď $id',
+      kind: kind,
+      intervals: intervals,
+      relearnIntervals: relearnIntervals,
+    );
 
 Summary summary({int balance = 100, int streak = 3, int graded = 0, int goal = 20, bool goalMet = false}) => Summary(
       balance: balance,

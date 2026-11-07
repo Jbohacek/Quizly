@@ -4,6 +4,8 @@
 /// percent a non-breaking space before `%` (`83 %`).
 library;
 
+import 'dart:math' as math;
+
 const _nbsp = ' ';
 
 /// `1457` → `1 457`, `-1200` → `−1 200`.
@@ -55,6 +57,60 @@ String days(int count) => countOf(count, 'den', 'dny', 'dní');
 
 /// Points: 1 bod · 2 body · 5 bodů.
 String points(int count) => countOf(count, 'bod', 'body', 'bodů');
+
+enum _IntervalUnit { minute, hour, day, month, year }
+
+/// Rounds [seconds] to the unit people would say. The unit is picked after rounding, so 59,6 min is `1 h`,
+/// not `60 min`, and 364 days is `1 r.`, not `12,1 měs.` (a month is 30 days, a year 365).
+({num amount, _IntervalUnit unit}) _interval(int seconds) {
+  final minutes = math.max(1, (seconds / 60).round());
+  if (minutes < 60) return (amount: minutes, unit: _IntervalUnit.minute);
+  final hours = (seconds / 3600).round();
+  if (hours < 24) return (amount: hours, unit: _IntervalUnit.hour);
+  final days = (seconds / 86400).round();
+  if (days < 30) return (amount: days, unit: _IntervalUnit.day);
+  final months = _oneDecimal(days / 30);
+  if (months < 12) return (amount: months, unit: _IntervalUnit.month);
+  return (amount: _oneDecimal(days / 365), unit: _IntervalUnit.year);
+}
+
+/// `1.5` stays, `2.0` becomes `2`.
+num _oneDecimal(double value) {
+  final rounded = (value * 10).round() / 10;
+  return rounded == rounded.roundToDouble() ? rounded.round() : rounded;
+}
+
+String _decimal(num value) => value.toString().replaceAll('.', ',');
+
+/// The time to a card's next review under an answer button (#31): `1 min`, `5 h`, `8 d`, `1,5 měs.`, `2 r.`.
+/// Abbreviations, so the number never needs a plural.
+String formatInterval(int seconds) {
+  final i = _interval(seconds);
+  final unit = switch (i.unit) {
+    _IntervalUnit.minute => 'min',
+    _IntervalUnit.hour => 'h',
+    _IntervalUnit.day => 'd',
+    _IntervalUnit.month => 'měs.',
+    _IntervalUnit.year => 'r.',
+  };
+  return '${_decimal(i.amount)}$_nbsp$unit';
+}
+
+/// [formatInterval] in words for screen readers: `1 minuta`, `5 hodin`, `8 dní`, `1,5 měsíce`, `2 roky`.
+/// A decimal number takes the genitive singular (`1,5 měsíce`, `2,5 roku`).
+String formatIntervalSpoken(int seconds) {
+  final i = _interval(seconds);
+  final amount = i.amount;
+  final forms = switch (i.unit) {
+    _IntervalUnit.minute => ('minuta', 'minuty', 'minut', 'minuty'),
+    _IntervalUnit.hour => ('hodina', 'hodiny', 'hodin', 'hodiny'),
+    _IntervalUnit.day => ('den', 'dny', 'dní', 'dne'),
+    _IntervalUnit.month => ('měsíc', 'měsíce', 'měsíců', 'měsíce'),
+    _IntervalUnit.year => ('rok', 'roky', 'let', 'roku'),
+  };
+  final word = amount is int ? plural(amount, forms.$1, forms.$2, forms.$3) : forms.$4;
+  return '${_decimal(amount)}$_nbsp$word';
+}
 
 const _weekdays = ['Pondělí', 'Úterý', 'Středa', 'Čtvrtek', 'Pátek', 'Sobota', 'Neděle'];
 const _monthsGenitive = [

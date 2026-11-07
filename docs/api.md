@@ -246,15 +246,21 @@ Omit `deckId` for "Učit se vše". `extraNew` (0–50, default 0) adds that many
   "newCount": 5,
   "cards": [
     { "cardId": 101, "deckId": 1, "question": "Jaký je rozdíl mezi struct a class v C#?",
-      "answer": "struct je hodnotový typ, class je referenční typ.", "kind": "review", "tags": ["ai_gen", "prednaska_01"] },
+      "answer": "struct je hodnotový typ, class je referenční typ.", "kind": "review", "tags": ["ai_gen", "prednaska_01"],
+      "intervals": { "dontKnow": 600, "hard": 259200, "know": 691200, "easy": 1468800 },
+      "relearnIntervals": { "dontKnow": 600, "hard": 900, "know": 86400, "easy": 259200 } },
     { "cardId": 140, "deckId": 1, "question": "Co je record v C#?",
-      "answer": "Typ s hodnotovou rovností pro neměnná data.", "kind": "new", "tags": [] }
+      "answer": "Typ s hodnotovou rovností pro neměnná data.", "kind": "new", "tags": [],
+      "intervals": { "dontKnow": 60, "hard": 330, "know": 600, "easy": 691200 },
+      "relearnIntervals": { "dontKnow": 60, "hard": 330, "know": 600, "easy": 691200 } }
   ]
 }
 ```
 
 - `kind`: `new` · `learning` · `review` · `relearning`.
 - `tags`: the card's tags, sorted (spec §2.5.1). The deck's name comes from `GET /decks` by `deckId`.
+- `intervals` (#31): whole **seconds** from now to the card's next review for each answer, computed by the FSRS scheduler at the time of the request (spec §3). The app shows them under the answer buttons in Czech (`10 min`, `4 d`, `1,5 měs.`), so the server sends numbers, not text.
+- `relearnIntervals`: the same for the card's second showing in this session. Only a Nevím puts a card back in the queue, so these are the intervals of the card after Again. Same-day FSRS steps and short-term stability don't depend on how many minutes later that showing comes, so they match what the second answer schedules (unless the session crosses into a review a day later).
 - Order is the queue order (spec §4.1). An empty `cards` list means nothing to study.
 - `points` are the values at the current multiplier; the multiplier can rise during the session (when the goal is met), and review responses carry the new values.
 

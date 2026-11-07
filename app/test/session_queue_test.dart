@@ -75,6 +75,19 @@ void main() {
       expect(q.isDone, isTrue);
       expect((q.position, q.total), (1, 0));
     });
+
+    test('#31: isRelearn is true only when the front card was re-queued after dontKnow', () {
+      final q = SessionQueue([card(1), card(2)]);
+      expect(q.isRelearn, isFalse);
+      q.answer(Rating.dontKnow); // card 1 requeued to end
+      expect(q.isRelearn, isFalse); // current is card 2 (not requeued)
+      q.answer(Rating.know); // card 2 finished
+      expect(q.isRelearn, isTrue); // current is card 1 (requeued!)
+      expect(q.current!.cardId, 1);
+      q.answer(Rating.know); // card 1 finished
+      expect(q.isDone, isTrue);
+      expect(q.isRelearn, isFalse);
+    });
   });
 
   group('SessionTally', () {
@@ -134,6 +147,40 @@ void main() {
       ));
       expect(t.points, 11);
       expect(t.goalMetInSession, isFalse);
+    });
+  });
+
+  group('CardIntervals (#31)', () {
+    test('parses seconds per answer', () {
+      final intervals = CardIntervals.fromJson({'dontKnow': 60, 'hard': 330, 'know': 600, 'easy': 691200});
+      expect(intervals.forRating(Rating.dontKnow), 60);
+      expect(intervals.forRating(Rating.hard), 330);
+      expect(intervals.forRating(Rating.know), 600);
+      expect(intervals.forRating(Rating.easy), 691200);
+    });
+
+    test('SessionCard keeps them through an edit; an older server sends none', () {
+      final json = {
+        'cardId': 42,
+        'deckId': 1,
+        'question': 'Otázka',
+        'answer': 'Odpověď',
+        'kind': 'review',
+        'tags': ['csharp'],
+        'intervals': {'dontKnow': 600, 'hard': 86400, 'know': 259200, 'easy': 604800},
+        'relearnIntervals': {'dontKnow': 600, 'hard': 900, 'know': 86400, 'easy': 259200},
+      };
+      final card = SessionCard.fromJson(json);
+      expect(card.intervals?.know, 259200);
+      expect(card.relearnIntervals?.hard, 900);
+
+      final edited = card.edited(question: 'Nová', answer: 'Nová', tags: ['csharp']);
+      expect(edited.intervals?.know, 259200);
+      expect(edited.relearnIntervals?.hard, 900);
+
+      final old = SessionCard.fromJson({...json}..remove('intervals')..remove('relearnIntervals'));
+      expect(old.intervals, isNull);
+      expect(old.relearnIntervals, isNull);
     });
   });
 }

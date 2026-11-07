@@ -78,8 +78,22 @@ public sealed record ReviewBatchResponse(
     PointsValueResponse Points,
     IReadOnlyList<EventResponse> Events);
 
-/// <summary>One card in the session queue, with its tags (sorted).</summary>
-public sealed record SessionCardResponse(int CardId, int DeckId, string Question, string Answer, string Kind, IReadOnlyList<string> Tags);
+/// <summary>Seconds to the next review each answer would give (docs/api.md §5, #31). The app formats them.</summary>
+public sealed record CardIntervalsResponse(long DontKnow, long Hard, long Know, long Easy);
+
+/// <summary>
+/// One card in the session queue, with its tags (sorted) and the intervals for its first showing and for its
+/// second one after a Nevím (#31).
+/// </summary>
+public sealed record SessionCardResponse(
+    int CardId,
+    int DeckId,
+    string Question,
+    string Answer,
+    string Kind,
+    IReadOnlyList<string> Tags,
+    CardIntervalsResponse Intervals,
+    CardIntervalsResponse RelearnIntervals);
 
 /// <summary>The session queue: due cards first (most overdue first), then new cards.</summary>
 public sealed record SessionResponse(
