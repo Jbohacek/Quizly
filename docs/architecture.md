@@ -22,7 +22,7 @@ Final layout for v1. Versions are pinned to the latest stable release when each 
 │  │  ├─ Auth/ · Learning/ (session, reviews, progress) · Profile/ (/me, settings) · Stats/ · Shop/ · Decks/ · Users/ · NotificationTexts/ (Yaml/ and Overview/ in Etapa 4)
 │  │  └─ Common/                    Result/error types, validation
 │  ├─ Quizly.Infrastructure/        QuizlyDbContext, entity configurations, migrations, seeding
-│  │  ├─ Persistence/ · Migrations/ · Seed/ (notification-texts.json, demo deck for Development)
+│  │  ├─ Persistence/ · Migrations/ · Seed/ (notification-texts.json, Development sample data: `DevelopmentSeeder`, `DemoDecks`)
 │  └─ Quizly.Web/                   ASP.NET Core host
 │     ├─ Api/                       minimal API endpoint groups per feature, ProblemDetails mapping
 │     ├─ Auth/                      JWT (app), cookie (admin), rate-limit policies

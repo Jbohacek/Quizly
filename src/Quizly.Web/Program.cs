@@ -97,7 +97,7 @@ app.Services.GetRequiredService<Microsoft.Extensions.Options.IOptions<JwtOptions
 await using (var scope = app.Services.CreateAsyncScope())
 {
     await scope.ServiceProvider.GetRequiredService<DatabaseInitializer>()
-        .InitializeAsync(seedDemoDeck: app.Environment.IsDevelopment());
+        .InitializeAsync(seedDevelopmentData: app.Environment.IsDevelopment() && config.GetValue("Seed:DevelopmentData", true));
 }
 
 await app.RunAsync();
