@@ -20,6 +20,8 @@ import 'package:quizly/features/home/deck_screen.dart';
 import 'package:quizly/features/notifications/notification_store.dart';
 import 'package:quizly/features/notifications/notifications.dart';
 import 'package:quizly/features/notifications/planner.dart';
+import 'package:quizly/features/onboarding/onboarding_screen.dart';
+import 'package:quizly/features/onboarding/onboarding_store.dart';
 import 'package:quizly/features/session/review_sync.dart';
 import 'package:quizly/features/session/swipe_card.dart';
 import 'package:quizly/features/updates/app_update.dart';
@@ -55,6 +57,10 @@ class FakeApi implements HttpClientAdapter {
   final deletedCards = <int>{};
   final addedCards = <Map<String, Object?>>[];
   final savedSettings = <Map<String, Object?>>[];
+
+  /// `GET` / `PUT /api/me/settings` answer 503 while true (#41: onboarding without the settings).
+  bool settingsLoadFails = false;
+  bool settingsSaveFails = false;
   Map<String, Object?> settings = {
     'dailyGoal': 20, 'newCardsPerDay': 5, 'notificationsEnabled': true,
     'morningTime': '08:00', 'eveningTime': '18:30', 'lastCallTime': '21:00',
@@ -244,7 +250,9 @@ class FakeApi implements HttpClientAdapter {
       'GET /api/claims' => _json({'items': claims.reversed.toList()}),
       final r when r.startsWith('PUT /api/wishlist/') || r.startsWith('DELETE /api/wishlist/') => _wishlist(r),
       final r when r.startsWith('POST /api/shop/') => _claim(r, body as Map<String, Object?>),
+      'GET /api/me/settings' when settingsLoadFails => _unavailable(),
       'GET /api/me/settings' => _json(settings),
+      'PUT /api/me/settings' when settingsSaveFails => _unavailable(),
       'PUT /api/me/settings' => _json({
           'settings': settings = (savedSettings..add(body as Map<String, Object?>)).last,
           'summary': summary,
@@ -355,6 +363,8 @@ class FakeApi implements HttpClientAdapter {
     return _json({'results': results, 'summary': summary, 'points': {'know': 11, 'dontKnow': 2}, 'events': reviewEvents});
   }
 
+  ResponseBody _unavailable() => _json({'code': 'unavailable', 'title': 'Server teď neodpovídá.'}, 503);
+
   ResponseBody _json(Object body, [int status = 200]) => ResponseBody.fromString(
         jsonEncode(body),
         status,
@@ -392,6 +402,7 @@ void main() {
       retry: (retryCount, error) => null,
       overrides: [
         apiClientProvider.overrideWithValue(client),
+        onboardingStoreProvider.overrideWithValue(await _onboarding()),
         outboxStoreProvider.overrideWithValue(MemoryOutboxStore()),
         connectivityProvider.overrideWith((ref) => Stream.value(true)),
         notificationsProvider.overrideWithValue(_notifications(FakeNotificationPlatform())),
@@ -405,6 +416,16 @@ void main() {
     await tester.enterText(find.byType(TextField).at(0), 'Kuba');
     await tester.enterText(find.byType(TextField).at(1), 'tajneheslo');
     await tester.tap(find.text('Přihlásit se'));
+    await settle(tester);
+
+    // Onboarding (#41): 5 steps + "Přeji hezkou zábavu!"
+    expect(find.byType(OnboardingScreen), findsOneWidget);
+    for (var i = 0; i < 5; i++) {
+      await tester.tap(find.text(S.next));
+      await settle(tester);
+    }
+    expect(find.text(S.onboardingWelcomeTitle), findsOneWidget);
+    await tester.tap(find.text(S.onboardingStart));
     await settle(tester);
 
     // Domů
@@ -472,6 +493,7 @@ void main() {
       retry: (retryCount, error) => null,
       overrides: [
         apiClientProvider.overrideWithValue(client),
+        onboardingStoreProvider.overrideWithValue(await _onboarding(done: true)),
         outboxStoreProvider.overrideWithValue(outbox),
         connectivityProvider.overrideWith((ref) => Stream.value(true)),
         notificationsProvider.overrideWithValue(_notifications(FakeNotificationPlatform())),
@@ -1142,6 +1164,255 @@ void main() {
     });
   });
 
+  group('onboarding (#41)', () {
+    testWidgets('runs once after login, saves ratings, daily goal and new cards, and never repeats on re-login or update', (tester) async {
+      tester.view.physicalSize = const Size(1080, 2340);
+      tester.view.devicePixelRatio = 2.75;
+      addTearDown(tester.view.reset);
+
+      final api = FakeApi();
+      final kv = MemoryKeyValueStore();
+      final onboarding = OnboardingStore(kv);
+      final tokenStore = MemoryTokenStore();
+      final client = ApiClient(baseUrl: 'https://quizly.test', store: tokenStore, dio: Dio()..httpClientAdapter = api);
+      await onboarding.init(alreadySignedIn: false);
+
+      await tester.pumpWidget(ProviderScope(
+        retry: (retryCount, error) => null,
+        overrides: [
+          apiClientProvider.overrideWithValue(client),
+          onboardingStoreProvider.overrideWithValue(onboarding),
+          outboxStoreProvider.overrideWithValue(MemoryOutboxStore()),
+          connectivityProvider.overrideWith((ref) => Stream.value(true)),
+          notificationsProvider.overrideWithValue(_notifications(FakeNotificationPlatform())),
+        ],
+        child: const QuizlyApp(),
+      ));
+      await settle(tester);
+
+      // Login
+      await tester.enterText(find.byType(TextField).at(0), 'kuba');
+      await tester.enterText(find.byType(TextField).at(1), 'tajneheslo');
+      await tester.tap(find.text(S.signIn));
+      await settle(tester);
+
+      // 1) About Quizly
+      expect(find.text(S.onboardingAboutTitle), findsOneWidget);
+      expect(find.text(S.onboardingAboutCardsTitle), findsOneWidget);
+      expect(find.text(S.onboardingAboutStreakTitle), findsOneWidget);
+      expect(find.text(S.onboardingAboutPointsTitle), findsOneWidget);
+      await tester.tap(find.text(S.next));
+      await settle(tester);
+
+      // 2) FSRS algorithm
+      expect(find.text(S.onboardingFsrsTitle), findsOneWidget);
+      expect(find.text(S.onboardingFsrsTimingTitle), findsOneWidget);
+      expect(find.text(S.onboardingFsrsKnowTitle), findsOneWidget);
+      expect(find.text(S.onboardingFsrsDontKnowTitle), findsOneWidget);
+      await tester.tap(find.text(S.next));
+      await settle(tester);
+
+      // 3) Vím / Nevím vs Nevím, Těžké, Vím, Snadné
+      expect(find.text(S.onboardingRatingsTitle), findsOneWidget);
+      await tester.tap(find.text(S.onboardingFourRatingsTitle));
+      await settle(tester);
+      await tester.tap(find.text(S.next));
+      await settle(tester);
+
+      // 4) Daily goal: 3 presets (Snadné, Střední, Těžké) + adjust at the bottom
+      expect(find.text(S.onboardingGoalTitle), findsOneWidget);
+      expect(find.text(S.presetEasy), findsOneWidget);
+      expect(find.text(S.presetMedium), findsOneWidget);
+      expect(find.text(S.presetHard), findsOneWidget);
+      await tester.tap(find.text(S.presetHard));
+      await settle(tester);
+      expect(find.text('40'), findsOneWidget);
+      await tester.tap(find.bySemanticsLabel(S.increaseGoal));
+      await tester.pump();
+      await tester.tap(find.bySemanticsLabel(S.increaseGoal));
+      await settle(tester);
+      expect(find.text('42'), findsOneWidget);
+      await tester.tap(find.text(S.next));
+      await settle(tester);
+
+      // 5) New cards per day: 3 presets (Snadné, Střední, Těžké) + adjust at the bottom
+      expect(find.text(S.onboardingNewTitle), findsOneWidget);
+      await tester.tap(find.text(S.presetHard));
+      await settle(tester);
+      expect(find.text('10'), findsOneWidget);
+      await tester.tap(find.bySemanticsLabel(S.fewerNew));
+      await tester.pump();
+      await tester.tap(find.bySemanticsLabel(S.fewerNew));
+      await settle(tester);
+      expect(find.text('8'), findsOneWidget);
+      await tester.tap(find.text(S.next));
+      await settle(tester);
+
+      // 6) Welcome screen with "Přeji hezkou zábavu!"
+      expect(find.text(S.onboardingWelcomeTitle), findsOneWidget);
+      expect(find.text(S.onboardingFourRatingsTitle), findsOneWidget);
+      expect(find.text(cards(42)), findsOneWidget);
+      expect(find.text(cards(8)), findsOneWidget);
+      await tester.tap(find.text(S.onboardingStart));
+      await settle(tester);
+
+      expect(find.text('Ahoj, Kuba!'), findsOneWidget);
+      expect(api.savedSettings.last['fourRatings'], true);
+      expect(api.savedSettings.last['dailyGoal'], 42);
+      expect(api.savedSettings.last['newCardsPerDay'], 8);
+      expect(onboarding.isDone, isTrue);
+
+      // Sign out and sign back in: the intro must not run a second time.
+      await tester.tap(find.text(S.navSettings).last);
+      await settle(tester);
+      await tester.scrollUntilVisible(find.text(S.signOut), 200, scrollable: find.byType(Scrollable).last);
+      await tester.tap(find.text(S.signOut));
+      await settle(tester);
+      await tester.tap(find.text(S.signOut).last);
+      await settle(tester);
+      expect(find.text(S.signIn), findsOneWidget);
+
+      await tester.enterText(find.byType(TextField).at(0), 'kuba');
+      await tester.enterText(find.byType(TextField).at(1), 'tajneheslo');
+      await tester.tap(find.text(S.signIn));
+      await settle(tester);
+      expect(find.byType(OnboardingScreen), findsNothing);
+      expect(find.text('Ahoj, Kuba!'), findsOneWidget);
+    });
+
+    testWidgets('the update that brings the intro shows it once to a signed-in user, the next start does not', (tester) async {
+      tester.view.physicalSize = const Size(1080, 2340);
+      tester.view.devicePixelRatio = 2.75;
+      addTearDown(tester.view.reset);
+      final kv = MemoryKeyValueStore();
+
+      Future<void> startSignedIn() async {
+        final tokens = MemoryTokenStore(AuthTokens(
+          accessToken: 'A',
+          accessTokenExpiresAt: DateTime.utc(2099),
+          refreshToken: 'R',
+          refreshTokenExpiresAt: DateTime.utc(2099),
+          user: const AppUser(id: 2, username: 'kuba', displayName: 'Kuba'),
+        ));
+        final client = ApiClient(baseUrl: 'https://quizly.test', store: tokens, dio: Dio()..httpClientAdapter = FakeApi());
+        await client.restore();
+        final onboarding = OnboardingStore(kv);
+        await onboarding.init(alreadySignedIn: true);
+        await tester.pumpWidget(ProviderScope(
+          key: UniqueKey(),
+          retry: (retryCount, error) => null,
+          overrides: [
+            apiClientProvider.overrideWithValue(client),
+            onboardingStoreProvider.overrideWithValue(onboarding),
+            outboxStoreProvider.overrideWithValue(MemoryOutboxStore()),
+            connectivityProvider.overrideWith((ref) => Stream.value(true)),
+            notificationsProvider.overrideWithValue(_notifications(FakeNotificationPlatform())),
+          ],
+          child: const QuizlyApp(),
+        ));
+        await settle(tester);
+      }
+
+      // The updated app starts signed in, with nothing saved about the intro yet.
+      await startSignedIn();
+      expect(find.byType(OnboardingScreen), findsOneWidget);
+      for (var i = 0; i < 5; i++) {
+        await tester.tap(find.text(S.next));
+        await settle(tester);
+      }
+      await tester.tap(find.text(S.onboardingStart));
+      await settle(tester);
+      expect(find.text('Ahoj, Kuba!'), findsOneWidget);
+      expect(kv.data['quizly.onboarding'], 'done');
+
+      // A later update (or any restart): straight to Domů.
+      await startSignedIn();
+      expect(find.byType(OnboardingScreen), findsNothing);
+      expect(find.text('Ahoj, Kuba!'), findsOneWidget);
+    });
+
+    /// Logs in on a fresh install and taps through to "Přeji hezkou zábavu!".
+    Future<OnboardingStore> throughOnboarding(WidgetTester tester, FakeApi api) async {
+      tester.view.physicalSize = const Size(1080, 2340);
+      tester.view.devicePixelRatio = 2.75;
+      addTearDown(tester.view.reset);
+      final onboarding = await _onboarding();
+      final client = ApiClient(baseUrl: 'https://quizly.test', store: MemoryTokenStore(), dio: Dio()..httpClientAdapter = api);
+      await tester.pumpWidget(ProviderScope(
+        retry: (retryCount, error) => null,
+        overrides: [
+          apiClientProvider.overrideWithValue(client),
+          onboardingStoreProvider.overrideWithValue(onboarding),
+          outboxStoreProvider.overrideWithValue(MemoryOutboxStore()),
+          connectivityProvider.overrideWith((ref) => Stream.value(true)),
+          notificationsProvider.overrideWithValue(_notifications(FakeNotificationPlatform())),
+        ],
+        child: const QuizlyApp(),
+      ));
+      await settle(tester);
+      await tester.enterText(find.byType(TextField).at(0), 'kuba');
+      await tester.enterText(find.byType(TextField).at(1), 'tajneheslo');
+      await tester.tap(find.text(S.signIn));
+      await settle(tester);
+      for (var i = 0; i < 5; i++) {
+        await tester.tap(find.text(S.next));
+        await settle(tester);
+      }
+      expect(find.text(S.onboardingWelcomeTitle), findsOneWidget);
+      return onboarding;
+    }
+
+    testWidgets('settings that did not load at the start are loaded before saving, so nothing else is reset', (tester) async {
+      // A reinstall: the user hid from Žebříček and moved the evening reminder earlier.
+      final api = FakeApi()
+        ..settingsLoadFails = true
+        ..settings = {
+          ...FakeApi().settings,
+          'eveningTime': '17:15', 'quietFrom': '21:30', 'showInLeaderboard': false, 'fourRatings': false,
+        };
+      await throughOnboarding(tester, api);
+
+      // The steps showed the defaults; by the last one the server answers again.
+      api.settingsLoadFails = false;
+      await tester.tap(find.text(S.onboardingStart));
+      await settle(tester);
+
+      expect(find.text('Ahoj, Kuba!'), findsOneWidget);
+      final saved = api.savedSettings.single;
+      expect(saved['eveningTime'], '17:15');
+      expect(saved['quietFrom'], '21:30');
+      expect(saved['showInLeaderboard'], false);
+      expect(saved['dailyGoal'], 20);
+    });
+
+    testWidgets('a failed save keeps the intro open; "Nastavím si to později" finishes without saving', (tester) async {
+      final api = FakeApi()..settingsLoadFails = true;
+      final onboarding = await throughOnboarding(tester, api);
+
+      // The settings still can't be loaded: nothing is saved with defaults.
+      await tester.tap(find.text(S.onboardingStart));
+      await settle(tester);
+      expect(find.text(S.onboardingWelcomeTitle), findsOneWidget);
+      expect(find.text(S.onboardingLater), findsOneWidget);
+      expect(api.savedSettings, isEmpty);
+
+      // Now the settings load, but the save itself fails.
+      api
+        ..settingsLoadFails = false
+        ..settingsSaveFails = true;
+      await tester.tap(find.text(S.onboardingStart));
+      await settle(tester);
+      expect(find.text(S.onboardingWelcomeTitle), findsOneWidget);
+      expect(api.savedSettings, isEmpty);
+
+      await tester.tap(find.text(S.onboardingLater));
+      await settle(tester);
+      expect(find.text('Ahoj, Kuba!'), findsOneWidget);
+      expect(onboarding.isDone, isTrue);
+      expect(api.savedSettings, isEmpty);
+    });
+  });
+
   group('accessibility (CLAUDE.md §9.3)', () {
     // Touch targets ≥ 44 px, every tappable thing has a label, text contrast ≥ 4.5:1.
     const tapTargets = MinimumTapTargetGuideline(size: Size(44, 44), link: 'CLAUDE.md §9.3');
@@ -1162,6 +1433,7 @@ void main() {
         retry: (retryCount, error) => null,
         overrides: [
           apiClientProvider.overrideWithValue(client),
+          onboardingStoreProvider.overrideWithValue(await _onboarding()),
           outboxStoreProvider.overrideWithValue(MemoryOutboxStore()),
           connectivityProvider.overrideWith((ref) => Stream.value(true)),
           notificationsProvider.overrideWithValue(_notifications(FakeNotificationPlatform())),
@@ -1170,6 +1442,18 @@ void main() {
       ));
       await settle(tester);
       await meetsAll(tester, 'Přihlášení');
+
+      await tester.enterText(find.byType(TextField).at(0), 'kuba');
+      await tester.enterText(find.byType(TextField).at(1), 'tajneheslo');
+      await tester.tap(find.text(S.signIn));
+      await settle(tester);
+      for (var step = 1; step <= 6; step++) {
+        await meetsAll(tester, 'Onboarding step $step');
+        if (step < 6) {
+          await tester.tap(find.text(S.next));
+          await settle(tester);
+        }
+      }
       semantics.dispose();
     });
 
@@ -1237,6 +1521,15 @@ Notifications _notifications(FakeNotificationPlatform platform) => Notifications
       random: Random(1),
     );
 
+/// Onboarding state as `main` restores it (#41): a fresh install, or one whose intro is [done].
+Future<OnboardingStore> _onboarding({bool done = false}) async {
+  final kv = MemoryKeyValueStore();
+  if (done) kv.data['quizly.onboarding'] = 'done';
+  final store = OnboardingStore(kv);
+  await store.init(alreadySignedIn: done);
+  return store;
+}
+
 Future<(FakeApi, MemoryTokenStore)> _signedIn(
   WidgetTester tester, {
   void Function(FakeApi api)? configure,
@@ -1261,6 +1554,7 @@ Future<(FakeApi, MemoryTokenStore)> _signedIn(
     retry: (retryCount, error) => null,
     overrides: [
       apiClientProvider.overrideWithValue(client),
+      onboardingStoreProvider.overrideWithValue(await _onboarding(done: true)),
       outboxStoreProvider.overrideWithValue(MemoryOutboxStore()),
       connectivityProvider.overrideWith((ref) => Stream.value(true)),
       notificationsProvider.overrideWithValue(_notifications(notifications ?? FakeNotificationPlatform())),

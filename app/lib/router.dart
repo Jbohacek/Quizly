@@ -6,6 +6,7 @@ import 'core/providers.dart';
 import 'features/auth/login_screen.dart';
 import 'features/home/deck_screen.dart';
 import 'features/home/home_screen.dart';
+import 'features/onboarding/onboarding_screen.dart';
 import 'features/session/done_screen.dart';
 import 'features/session/session_controller.dart';
 import 'features/session/session_screen.dart';
@@ -17,21 +18,26 @@ import 'features/stats/stats_screen.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   final auth = ValueNotifier(ref.read(authProvider));
+  final onboarding = ValueNotifier(ref.read(onboardingProvider));
   final shop = ValueNotifier(ref.read(shopEnabledProvider));
   ref
     ..listen(authProvider, (_, next) => auth.value = next)
+    ..listen(onboardingProvider, (_, next) => onboarding.value = next)
     ..listen(shopEnabledProvider, (_, next) => shop.value = next)
     ..onDispose(auth.dispose)
+    ..onDispose(onboarding.dispose)
     ..onDispose(shop.dispose);
 
   return GoRouter(
     initialLocation: '/home',
-    refreshListenable: Listenable.merge([auth, shop]),
+    refreshListenable: Listenable.merge([auth, onboarding, shop]),
     redirect: (context, state) {
       final signedIn = auth.value.signedIn;
       final atLogin = state.matchedLocation == '/login';
       if (!signedIn) return atLogin ? null : '/login';
-      if (atLogin) return '/home';
+      final atOnboarding = state.matchedLocation == '/onboarding';
+      if (onboarding.value) return atOnboarding ? null : '/onboarding';
+      if (atLogin || atOnboarding) return '/home';
       if (state.matchedLocation == '/done' && state.extra is! SessionResult) return '/home';
       // No way into the shop for a user the admin keeps out of it (a notification tap, an old link).
       if (!shop.value && state.matchedLocation.startsWith('/shop')) return '/home';
@@ -39,6 +45,7 @@ final routerProvider = Provider<GoRouter>((ref) {
     },
     routes: [
       GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),
+      GoRoute(path: '/onboarding', builder: (context, state) => const OnboardingScreen()),
       StatefulShellRoute.indexedStack(
         builder: (context, state, shell) => AppShell(shell: shell),
         branches: [

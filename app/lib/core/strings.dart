@@ -28,6 +28,68 @@ abstract final class S {
   static const sessionExpired = 'Platnost přihlášení vypršela. Přihlas se prosím znovu.';
   static const accountDisabled = 'Účet je deaktivovaný. Ozvi se prosím správci aplikace.';
 
+  // Onboarding (#41)
+  static String onboardingStep(int current, int total) => 'Krok $current z $total';
+  static const next = 'Pokračovat';
+  static const onboardingAboutTitle = 'Vítej v Quizly!';
+  static const onboardingAboutLead =
+      'Každý den kousek, každý den o kus lepší. Quizly ti pomůže udržet v hlavě vše důležité pomocí chytrých kartiček.';
+  static const onboardingAboutCardsTitle = 'Kartičky v balíčcích';
+  static const onboardingAboutCardsText =
+      'Přečteš si otázku, v duchu odpovíš, otočíš kartu a ohodnotíš, jak ti to šlo.';
+  static const onboardingAboutStreakTitle = 'Denní série a násobič';
+  static const onboardingAboutStreakText =
+      'Splň každý den svůj cíl a drž si sérii dní v řadě. S delší sérií roste násobič bodů až na 2×.';
+  static const onboardingAboutPointsTitle = 'Body a odměny';
+  static const onboardingAboutPointsText =
+      'Za každou zopakovanou kartu sbíráš body, za milníky série bonusy a v obchodě na tebe čekají odměny.';
+  static const onboardingFsrsTitle = 'Chytré opakování s FSRS';
+  static const onboardingFsrsLead =
+      'Quizly používá moderní algoritmus FSRS, který u každé karty sleduje, jak pevně ti odpověď drží v paměti.';
+  static const onboardingFsrsTimingTitle = 'V pravou chvíli';
+  static const onboardingFsrsTimingText =
+      'Kartu ti ukáže znovu tehdy, když šance, že si odpověď vybavíš, klesne zhruba na 90 %.';
+  static const onboardingFsrsKnowTitle = 'Co umíš, neopakuješ zbytečně';
+  static const onboardingFsrsKnowText =
+      'Po každém Vím se pauza do dalšího opakování prodlouží — z minut na dny, týdny a měsíce.';
+  static const onboardingFsrsDontKnowTitle = 'Co nejde, to podržíme';
+  static const onboardingFsrsDontKnowText =
+      'Když dáš Nevím, karta se vrátí ještě v témže učení a pak brzy znovu, dokud se neusadí.';
+  static const onboardingRatingsTitle = 'Jak chceš hodnotit karty?';
+  static const onboardingRatingsLead =
+      'Po otočení karty ohodnotíš, jestli odpověď víš. Vyber si styl, který ti víc sedí.';
+  static const onboardingTwoRatingsTitle = 'Vím / Nevím';
+  static const onboardingTwoRatingsText =
+      'Dvě tlačítka a tažení kartou do stran. Rychlé a jednoduché rozhodování.';
+  static const onboardingFourRatingsTitle = 'Nevím, Těžké, Vím, Snadné';
+  static const onboardingFourRatingsText =
+      'Čtyři možnosti pro jemnější dávkování opakování. Body za Těžké a Snadné jsou stejné jako za Vím.';
+  static const onboardingGoalTitle = 'Kolik karet chceš denně zvládnout?';
+  static const onboardingGoalLead =
+      'Denní cíl určuje, kolik zopakovaných karet stačí, aby se den započítal do série.';
+  static const presetEasy = 'Snadné';
+  static const presetMedium = 'Střední';
+  static const presetHard = 'Těžké';
+  static const onboardingGoalEasyHint = 'Pohodové tempo na pár minut';
+  static const onboardingGoalMediumHint = 'Zlatá střední cesta na každý den';
+  static const onboardingGoalHardHint = 'Pořádná dávka pro rychlý posun';
+  static const onboardingAdjustGoal = 'Upravit denní cíl';
+  static const onboardingAdjustGoalHint = 'Nastav si přesný počet podle sebe';
+  static const onboardingNewTitle = 'Kolik nových karet denně přidat?';
+  static const onboardingNewLead =
+      'Nové karty přibývají postupně k těm, které už opakuješ, aby se ti učení nenahromadilo.';
+  static const onboardingNewEasyHint = 'Volnější přísun novinek';
+  static const onboardingNewMediumHint = 'Ideální rovnováha k opakování';
+  static const onboardingNewHardHint = 'Rychlejší probírání balíčků';
+  static const onboardingAdjustNew = 'Upravit nové karty denně';
+  static const onboardingAdjustNewHint = 'Nastav si přesný počet podle sebe';
+  static const onboardingWelcomeTitle = 'Přeji hezkou zábavu!';
+  static const onboardingWelcomeLead =
+      'Všechno je připravené podle tebe. Kdykoliv si to můžeš změnit v Nastavení.';
+  static const onboardingSummaryRatings = 'Hodnocení karet';
+  static const onboardingStart = 'Jdeme na to';
+  static const onboardingLater = 'Nastavím si to později';
+
   // Navigation
   static const navHome = 'Domů';
   static const navStats = 'Statistiky';
